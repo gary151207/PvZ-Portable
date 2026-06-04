@@ -174,6 +174,7 @@ Board::Board(LawnApp* theApp)
 	mDanceMode = mApp->mDanceMode;
 	mDaisyMode = mApp->mDaisyMode;
 	mSukhbirMode = mApp->mSukhbirMode;
+	mZombieMultiplier = mApp->mZombieMultiplier;
 	mShowShovel = false;
 	mToolTip = new ToolTipWidget();
 	//mDebugFont = new SysFont("Arial Unicode MS", 10, true, false, false);
@@ -813,6 +814,11 @@ void Board::PickZombieWaves()
 			}
 		}
 		
+		// ------------------------------------------------------------------------------------------------
+		// △ 倍率应用于剩余点数
+		// ------------------------------------------------------------------------------------------------
+		aZombiePoints *= mZombieMultiplier;
+
 		// ------------------------------------------------------------------------------------------------
 		// △ 剩余的僵尸点数用于向列表中补充随机僵尸
 		// ------------------------------------------------------------------------------------------------

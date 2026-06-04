@@ -40,7 +40,7 @@ using namespace Sexy;
 
 #define MAX_GRID_SIZE_X 9
 #define MAX_GRID_SIZE_Y 6
-#define MAX_ZOMBIES_IN_WAVE 50
+#define MAX_ZOMBIES_IN_WAVE 300
 #define MAX_ZOMBIE_WAVES 100
 #define MAX_GRAVE_STONES MAX_GRID_SIZE_X * MAX_GRID_SIZE_Y
 #define MAX_POOL_GRID_SIZE 10
@@ -223,6 +223,7 @@ public:
 	bool							mDanceMode;
 	bool							mDaisyMode;
 	bool							mSukhbirMode;
+	int								mZombieMultiplier;
 	BoardResult						mPrevBoardResult;
 	int32_t							mTriggeredLawnMowers;
 	uint32_t						mPlayTimeActiveLevel;

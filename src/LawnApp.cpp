@@ -132,6 +132,7 @@ LawnApp::LawnApp()
 	mDanceMode = false;
 	mDaisyMode = false;
 	mSukhbirMode = false;
+	mZombieMultiplier = 1;
 	mGameScene = GameScenes::SCENE_LOADING;
 	mPoolEffect = nullptr;
 	mZenGarden = nullptr;
@@ -1381,6 +1382,14 @@ void LawnApp::HandleCmdLineParam(const std::string& theParamName, const std::str
 		mTodCheatKeys = true;
 		mDebugKeysEnabled = true;
 #endif
+	}
+	else if (theParamName == "--zombie-multiplier")
+	{
+		int aMultiplier = atoi(theParamValue.c_str());
+		if (aMultiplier >= 1)
+		{
+			mZombieMultiplier = aMultiplier;
+		}
 	}
 	else
 	{

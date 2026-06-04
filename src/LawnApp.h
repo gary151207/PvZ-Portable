@@ -138,6 +138,7 @@ public:
 	bool							mDanceMode;
 	bool							mDaisyMode;
 	bool							mSukhbirMode;
+	int								mZombieMultiplier;
 	TrialType						mTrialType;
 	bool							mDebugTrialLocked;
 	bool							mMuteSoundsForCutscene;

@@ -69,7 +69,7 @@ Board::Board(LawnApp* theApp)
 
 	mZombies.DataArrayInitialize(1024U, "zombies");
 	mPlants.DataArrayInitialize(1024U, "plants");
-	mProjectiles.DataArrayInitialize(1024U, "projectiles");
+	mProjectiles.DataArrayInitialize(2048U, "projectiles");
 	mCoins.DataArrayInitialize(1024U, "coins");
 	mLawnMowers.DataArrayInitialize(32U, "lawnmowers");
 	mGridItems.DataArrayInitialize(128U, "griditems");

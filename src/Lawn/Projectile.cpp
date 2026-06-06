@@ -193,7 +193,7 @@ Plant* Projectile::FindCollisionTargetPlant()
 
 bool Projectile::PeaAboutToHitTorchwood()
 {
-	if (mMotionType != ProjectileMotion::MOTION_STRAIGHT)
+	if (mMotionType != ProjectileMotion::MOTION_STRAIGHT && mMotionType != ProjectileMotion::MOTION_STAR)
 		return false;
 
 	if (mProjectileType != ProjectileType::PROJECTILE_PEA && mProjectileType != ProjectileType::PROJECTILE_SNOWPEA)
@@ -230,7 +230,7 @@ Zombie* Projectile::FindCollisionTarget()
 	Zombie* aZombie = nullptr;
 	while (mBoard->IterateZombies(aZombie))
 	{
-		if ((aZombie->mZombieType == ZombieType::ZOMBIE_BOSS || aZombie->mRow == mRow) && aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+		if ((aZombie->mZombieType == ZombieType::ZOMBIE_BOSS || aZombie->mRow == mRow || mMotionType == ProjectileMotion::MOTION_STAR) && aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
 		{
 			if (aZombie->mZombiePhase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL && mPosZ >= 45.0f)
 			{
@@ -259,7 +259,9 @@ Zombie* Projectile::FindCollisionTarget()
 
 void Projectile::CheckForCollision()
 {
-	if (mMotionType == ProjectileMotion::MOTION_PUFF && mProjectileAge >= 75)
+	if ((mMotionType == ProjectileMotion::MOTION_PUFF ||
+		(mProjectileType == ProjectileType::PROJECTILE_PUFF && mMotionType == ProjectileMotion::MOTION_STAR && mClickBackoffCounter != -1))
+		&& mProjectileAge >= 75)
 	{
 		Die();
 		return;
@@ -286,7 +288,9 @@ void Projectile::CheckForCollision()
 		return;
 	}
 
-	if (mProjectileType == ProjectileType::PROJECTILE_STAR && (mPosY > 600.0f || mPosY < 0.0f))
+	if ((mProjectileType == ProjectileType::PROJECTILE_STAR ||
+		((mProjectileType == ProjectileType::PROJECTILE_PEA || mProjectileType == ProjectileType::PROJECTILE_SNOWPEA || mProjectileType == ProjectileType::PROJECTILE_PUFF) && mMotionType == ProjectileMotion::MOTION_STAR))
+		&& (mPosY > 600.0f || mPosY < 0.0f))
 	{
 		Die();
 		return;

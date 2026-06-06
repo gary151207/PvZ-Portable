@@ -54,7 +54,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_REPEATER,          nullptr, ReanimationType::REANIM_REPEATER,      5,  200,    750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "REPEATER" },
     { SeedType::SEED_PUFFSHROOM,        nullptr, ReanimationType::REANIM_PUFFSHROOM,    6,  0,      750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "PUFF_SHROOM" },
     { SeedType::SEED_SUNSHROOM,         nullptr, ReanimationType::REANIM_SUNSHROOM,     7,  25,     750,    PlantSubClass::SUBCLASS_NORMAL,     2500,   "SUN_SHROOM" },
-    { SeedType::SEED_FUMESHROOM,        nullptr, ReanimationType::REANIM_FUMESHROOM,    9,  75,     750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "FUME_SHROOM" },
+    { SeedType::SEED_FUMESHROOM,        nullptr, ReanimationType::REANIM_FUMESHROOM,    9,  75,     750,    PlantSubClass::SUBCLASS_SHOOTER,    90,     "FUME_SHROOM" },
     { SeedType::SEED_GRAVEBUSTER,       nullptr, ReanimationType::REANIM_GRAVE_BUSTER,  40, 75,     750,    PlantSubClass::SUBCLASS_NORMAL,     0,      "GRAVE_BUSTER" },
     { SeedType::SEED_HYPNOSHROOM,       nullptr, ReanimationType::REANIM_HYPNOSHROOM,   10, 75,     3000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "HYPNO_SHROOM" },
     { SeedType::SEED_SCAREDYSHROOM,     nullptr, ReanimationType::REANIM_SCRAREYSHROOM, 33, 25,     750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "SCAREDY_SHROOM" },
@@ -62,7 +62,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_DOOMSHROOM,        nullptr, ReanimationType::REANIM_DOOMSHROOM,    20, 125,    5000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "DOOM_SHROOM" },
     { SeedType::SEED_LILYPAD,           nullptr, ReanimationType::REANIM_LILYPAD,       19, 25,     750,    PlantSubClass::SUBCLASS_NORMAL,     0,      "LILY_PAD" },
     { SeedType::SEED_SQUASH,            nullptr, ReanimationType::REANIM_SQUASH,        21, 50,     3000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "SQUASH" },
-    { SeedType::SEED_THREEPEATER,       nullptr, ReanimationType::REANIM_THREEPEATER,   12, 325,    750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "THREEPEATER" },
+    { SeedType::SEED_THREEPEATER,       nullptr, ReanimationType::REANIM_THREEPEATER,   12, 325,    750,    PlantSubClass::SUBCLASS_SHOOTER,    20,     "THREEPEATER" },
     { SeedType::SEED_TANGLEKELP,        nullptr, ReanimationType::REANIM_TANGLEKELP,    17, 25,     3000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "TANGLE_KELP" },
     { SeedType::SEED_JALAPENO,          nullptr, ReanimationType::REANIM_JALAPENO,      11, 125,    5000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "JALAPENO" },
     { SeedType::SEED_SPIKEWEED,         nullptr, ReanimationType::REANIM_SPIKEWEED,     22, 100,    750,    PlantSubClass::SUBCLASS_NORMAL,     0,      "SPIKEWEED" },
@@ -1378,8 +1378,7 @@ void Plant::UpdateTorchwood()
     Projectile* aProjectile = nullptr;
     while (mBoard->IterateProjectiles(aProjectile))
     {
-        if ((aProjectile->mRow == mRow) && 
-            (aProjectile->mProjectileType == ProjectileType::PROJECTILE_PEA || aProjectile->mProjectileType == ProjectileType::PROJECTILE_SNOWPEA))
+        if (aProjectile->mProjectileType == ProjectileType::PROJECTILE_PEA || aProjectile->mProjectileType == ProjectileType::PROJECTILE_SNOWPEA)
         {
             Rect aProjectileRect = aProjectile->GetProjectileRect();
             if (GetRectOverlap(aAttackRect, aProjectileRect) >= 10)
@@ -4476,7 +4475,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
 {
     if (mSeedType == SeedType::SEED_FUMESHROOM)
     {
-        DoRowAreaDamage(20, 2U);
+        DoRowAreaDamage(60, 2U);
         mApp->PlayFoley(FoleyType::FOLEY_FUME);
         return;
     }
@@ -4676,6 +4675,37 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
 
     Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
     aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+
+    // Pea scatter: fire additional projectiles at angles (+-Scatter Angle) for pea-firing and puff plants
+    if (((aProjectileType == ProjectileType::PROJECTILE_PEA || aProjectileType == ProjectileType::PROJECTILE_SNOWPEA) && mSeedType != SeedType::SEED_THREEPEATER) ||
+        aProjectileType == ProjectileType::PROJECTILE_PUFF)
+    {
+        constexpr int SCATTER_COUNT = 10;
+        constexpr float SCATTER_ANGLE = 15.0f;
+        constexpr float PEA_SPEED = 3.33f;
+        constexpr float ANGLE_STEP = 2.0f * SCATTER_ANGLE / SCATTER_COUNT;
+
+        bool aIsBackwards = (mSeedType == SeedType::SEED_LEFTPEATER) ||
+                            (mSeedType == SeedType::SEED_SPLITPEA && thePlantWeapon == PlantWeapon::WEAPON_SECONDARY);
+
+        for (int i = 0; i < SCATTER_COUNT; i++)
+        {
+            float aAngle = (i < SCATTER_COUNT / 2) ? -(SCATTER_ANGLE - i * ANGLE_STEP) : ((i - SCATTER_COUNT / 2 + 1) * ANGLE_STEP);
+            float aAngleRad = DEG_TO_RAD(aAngle);
+
+            Projectile* aScatterPea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
+            aScatterPea->mMotionType = ProjectileMotion::MOTION_STAR;
+            aScatterPea->mVelX = aIsBackwards ? -(PEA_SPEED * cos(aAngleRad)) : (PEA_SPEED * cos(aAngleRad));
+            aScatterPea->mVelY = PEA_SPEED * sin(aAngleRad);
+            aScatterPea->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+
+            // Scaredy-shroom has unlimited range; puff-shroom and sea-shroom die at age 75
+            if (aProjectileType == ProjectileType::PROJECTILE_PUFF)
+            {
+                aScatterPea->mClickBackoffCounter = (mSeedType == SeedType::SEED_SCAREDYSHROOM) ? -1 : 1;
+            }
+        }
+    }
 
     if (mSeedType == SeedType::SEED_CABBAGEPULT || mSeedType == SeedType::SEED_KERNELPULT ||
         mSeedType == SeedType::SEED_MELONPULT || mSeedType == SeedType::SEED_WINTERMELON)

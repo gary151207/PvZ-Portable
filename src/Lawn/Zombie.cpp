@@ -7847,6 +7847,12 @@ void Zombie::TakeDamage(int theDamage, unsigned int theDamageFlags)
 
     int aDamageRemaining = theDamage;
 
+    // Football zombie with helmet takes 50% reduced damage
+    if (mZombieType == ZombieType::ZOMBIE_FOOTBALL && mHelmType != HelmType::HELMTYPE_NONE)
+    {
+        aDamageRemaining = (aDamageRemaining + 1) / 2;
+    }
+
     if (IsFlying())
     {
         aDamageRemaining = TakeFlyingDamage(aDamageRemaining, theDamageFlags);

@@ -139,6 +139,7 @@ public:
 	bool							mDaisyMode;
 	bool							mSukhbirMode;
 	int								mZombieMultiplier;
+	int								mZombieHPMultiplier;
 	TrialType						mTrialType;
 	bool							mDebugTrialLocked;
 	bool							mMuteSoundsForCutscene;

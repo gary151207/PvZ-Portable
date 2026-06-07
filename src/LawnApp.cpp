@@ -133,6 +133,7 @@ LawnApp::LawnApp()
 	mDaisyMode = false;
 	mSukhbirMode = false;
 	mZombieMultiplier = 1;
+	mZombieHPMultiplier = 1;
 	mGameScene = GameScenes::SCENE_LOADING;
 	mPoolEffect = nullptr;
 	mZenGarden = nullptr;
@@ -1389,6 +1390,14 @@ void LawnApp::HandleCmdLineParam(const std::string& theParamName, const std::str
 		if (aMultiplier >= 1)
 		{
 			mZombieMultiplier = aMultiplier;
+		}
+	}
+	else if (theParamName == "--zombie-hp-multiplier")
+	{
+		int aMultiplier = atoi(theParamValue.c_str());
+		if (aMultiplier >= 1)
+		{
+			mZombieHPMultiplier = aMultiplier;
 		}
 	}
 	else

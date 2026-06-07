@@ -828,6 +828,14 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
         mFlyingHealth /= 4;
     }
 
+    if (mApp->mZombieHPMultiplier > 1)
+    {
+        mBodyHealth *= mApp->mZombieHPMultiplier;
+        mHelmHealth *= mApp->mZombieHPMultiplier;
+        mShieldHealth *= mApp->mZombieHPMultiplier;
+        mFlyingHealth *= mApp->mZombieHPMultiplier;
+    }
+
     UpdateAnimSpeed();
     if (mVariant)
     {

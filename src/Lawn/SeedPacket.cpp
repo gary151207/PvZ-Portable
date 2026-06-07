@@ -1122,7 +1122,11 @@ void SeedPacket::SetPacketType(SeedType theSeedType, SeedType theImitaterType)
 		mApp->IsIZombieLevel() || mApp->IsScaryPotterLevel() || mApp->IsWhackAZombieLevel() || (mApp->IsSurvivalMode() && mBoard->mChallenge->mSurvivalStage > 0))
 		return;
 
-	if ((Plant::IsUpgrade(aUseSeedType) && !gLawnApp->IsSurvivalMode()) || Plant::GetRefreshTime(mPacketType, mImitaterType) == 5000)
+	if (aUseSeedType == SeedType::SEED_GATLINGPEA)
+	{
+		// Gatling Pea uses its own base cooldown (30.01 s); do not apply the generic upgrade overrides.
+	}
+	else if ((Plant::IsUpgrade(aUseSeedType) && !gLawnApp->IsSurvivalMode()) || Plant::GetRefreshTime(mPacketType, mImitaterType) == 5000)
 	{
 		mRefreshTime = 3500;
 		mRefreshing = true;

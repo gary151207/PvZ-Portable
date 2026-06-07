@@ -1182,6 +1182,11 @@ void Zombie::PickRandomSpeed()
         }
     }
 
+    if (mBoard && mBoard->mPlantRow[mRow] == PlantRowType::PLANTROW_POOL)
+    {
+        mVelX *= 2.0f;
+    }
+
     UpdateAnimSpeed();
 }
 

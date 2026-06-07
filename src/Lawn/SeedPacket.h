@@ -27,7 +27,7 @@
 #include "../GameConstants.h"
 
 constexpr const int SLOT_MACHINE_TIME = 400;
-constexpr const int CONVEYOR_SPEED = 4;
+constexpr const int CONVEYOR_SPEED = 2;
 
 class HitResult;
 class SeedPacket : public GameObject

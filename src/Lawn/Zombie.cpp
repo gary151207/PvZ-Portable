@@ -150,6 +150,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mPhaseCounter = 0;
     mHitUmbrella = false;
     mDroppedLoot = false;
+    mDroppedSun = false;
     mRelatedZombieID = ZombieID::ZOMBIEID_NULL;
     mZombieRect = Rect(36, 0, 42, 115);
     mZombieAttackRect = Rect(50, 0, 20, 115);
@@ -7168,6 +7169,24 @@ void Zombie::DropLoot()
     if (mZombieType == ZombieType::ZOMBIE_YETI)
     {
         mBoard->mKilledYeti = true;
+    }
+
+    if (!mDroppedSun)
+    {
+        mDroppedSun = true;
+        Rect aZombieRect = GetZombieRect();
+        int aCenterX = aZombieRect.mX + aZombieRect.mWidth / 2;
+        int aCenterY = aZombieRect.mY + aZombieRect.mHeight / 4;
+        int aSunCount = Rand(4) + 1;
+        for (int i = 0; i < aSunCount; i++)
+        {
+            mBoard->AddCoin(
+                aCenterX - 20 + Rand(40) - 20,
+                aCenterY + Rand(20) - 10,
+                CoinType::COIN_SUN,
+                CoinMotion::COIN_MOTION_FROM_PLANT);
+        }
+        mApp->PlayFoley(FoleyType::FOLEY_SPAWN_SUN);
     }
 
     TrySpawnLevelAward();

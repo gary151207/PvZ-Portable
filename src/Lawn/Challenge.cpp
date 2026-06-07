@@ -376,7 +376,7 @@ void Challenge::InitLevel()
 		mBoard->mSeedBank->AddSeed(SEED_JALAPENO);
 		mBoard->mSeedBank->AddSeed(SEED_CABBAGEPULT);
 		mBoard->mSeedBank->AddSeed(SEED_ICESHROOM);
-		mConveyorBeltCounter = 1000;
+		mConveyorBeltCounter = 500;
 	}
 	if (mApp->mGameMode == GAMEMODE_CHALLENGE_ZEN_GARDEN)
 	{
@@ -391,13 +391,13 @@ void Challenge::InitLevel()
 		mBoard->mSeedBank->AddSeed(SEED_MAGNETSHROOM);
 		mBoard->mSeedBank->AddSeed(SEED_INSTANT_COFFEE);
 		mBoard->mSeedBank->AddSeed(SEED_MELONPULT);
-		mConveyorBeltCounter = 1000;
+		mConveyorBeltCounter = 500;
 	}
 	if (mApp->mGameMode == GAMEMODE_CHALLENGE_INVISIGHOUL)
 	{
 		mBoard->mSeedBank->AddSeed(SEED_PEASHOOTER);
 		mBoard->mSeedBank->AddSeed(SEED_ICESHROOM);
-		mConveyorBeltCounter = 1000;
+		mConveyorBeltCounter = 500;
 	}
 	if (mApp->IsIZombieLevel())
 	{
@@ -462,7 +462,7 @@ void Challenge::StartLevel()
 		mBoard->mZombieCountDown = 200;
 		mBoard->mZombieCountDownStart = mBoard->mZombieCountDown;
 		mBoard->mSeedBank->AddSeed(SEED_WALLNUT);
-		mConveyorBeltCounter = 400;
+		mConveyorBeltCounter = 200;
 		mShowBowlingLine = true;
 	}
 	if (aGameMode == GAMEMODE_CHALLENGE_SHOVEL || aGameMode == GAMEMODE_CHALLENGE_SQUIRREL)
@@ -477,7 +477,7 @@ void Challenge::StartLevel()
 	{
 		mBoard->mZombieCountDown = 200;
 		mBoard->mZombieCountDownStart = mBoard->mZombieCountDown;
-		mConveyorBeltCounter = 200;
+		mConveyorBeltCounter = 100;
 	}
 	if (mApp->IsSurvivalMode() && mSurvivalStage == 0)
 	{
@@ -528,7 +528,7 @@ void Challenge::StartLevel()
 	{
 		mBoard->mZombieCountDown = 100;
 		mBoard->mZombieCountDownStart = mBoard->mZombieCountDown;
-		mConveyorBeltCounter = 200;
+		mConveyorBeltCounter = 100;
 	}
 	if (aGameMode == GAMEMODE_CHALLENGE_PORTAL_COMBAT)
 	{
@@ -1641,7 +1641,7 @@ void Challenge::UpdateConveyorBelt()
 		aConveyorSpeedMultiplier = 3.0f;
 	}
 	int aNumSeedsOnConveyor = mBoard->mSeedBank->GetNumSeedsOnConveyorBelt();
-	mConveyorBeltCounter = aConveyorSpeedMultiplier * (aNumSeedsOnConveyor > 8 ? 1000 : aNumSeedsOnConveyor > 6 ? 500 : aNumSeedsOnConveyor > 4 ? 425 : 400);
+	mConveyorBeltCounter = aConveyorSpeedMultiplier * 0.5f * (aNumSeedsOnConveyor > 8 ? 1000 : aNumSeedsOnConveyor > 6 ? 500 : aNumSeedsOnConveyor > 4 ? 425 : 400);
 
 	TodWeightedArray aSeedPickArray[20];
 	int aSeedPickCount = 0;
@@ -1768,7 +1768,7 @@ void Challenge::UpdateConveyorBelt()
 		aSeedPickArray[0].mWeight = 25;
 		aSeedPickArray[1].mItem = SEED_WALLNUT;
 		aSeedPickArray[1].mWeight = 15;
-		aSeedPickArray[2].mItem = SEED_PEASHOOTER;
+		aSeedPickArray[2].mItem = SEED_THREEPEATER;
 		aSeedPickArray[2].mWeight = 25;
 		aSeedPickArray[3].mItem = SEED_CHERRYBOMB;
 		aSeedPickArray[3].mWeight = 35;

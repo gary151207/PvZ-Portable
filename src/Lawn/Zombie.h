@@ -130,6 +130,7 @@ public:
     int32_t                         mPhaseCounter;
     int32_t                         mFromWave;
     bool                            mDroppedLoot;
+    bool                            mDroppedSun;
     int32_t                         mZombieFade;
     bool                            mFlatTires;
     int32_t                         mUseLadderCol;

@@ -4601,8 +4601,15 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     {
         int aOffsetX, aOffsetY;
         GetPeaHeadOffset(aOffsetX, aOffsetY);
-        aOriginX = mX + aOffsetX + 34;
-        aOriginY = mY + aOffsetY - 33;
+        int aBaseX = mX + aOffsetX + 34;
+        int aBaseY = mY + aOffsetY - 33;
+
+        for (int i = 0; i < 3; i++)
+        {
+            int aY = aBaseY + (i - 1) * 8;
+            Projectile* aProjectile = mBoard->AddProjectile(aBaseX, aY, mRenderOrder - 1, theRow, aProjectileType);
+            aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+        }
     }
     else if (mSeedType == SeedType::SEED_SPLITPEA)
     {
@@ -4673,10 +4680,12 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         mApp->AddTodParticle(aOriginX + 27, aOriginY + 13, aRenderPosition, ParticleEffect::PARTICLE_PUFFSHROOM_MUZZLE);
     }
 
-    Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
-    aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+    if (mSeedType != SeedType::SEED_GATLINGPEA)
+    {
+        Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
+        aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
 
-    if (mSeedType == SeedType::SEED_CABBAGEPULT || mSeedType == SeedType::SEED_KERNELPULT ||
+        if (mSeedType == SeedType::SEED_CABBAGEPULT || mSeedType == SeedType::SEED_KERNELPULT ||
         mSeedType == SeedType::SEED_MELONPULT || mSeedType == SeedType::SEED_WINTERMELON)
     {
         float aRangeX, aRangeY;
@@ -4762,6 +4771,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectile->mVelZ = -8.0f;
         aProjectile->mCobTargetX = mTargetX - 40;
         aProjectile->mCobTargetRow = mBoard->PixelToGridYKeepOnBoard(mTargetX, mTargetY);
+    }
     }
 }
 

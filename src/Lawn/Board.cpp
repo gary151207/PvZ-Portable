@@ -3342,13 +3342,17 @@ void Board::UpdateToolTip()
 
 		std::string aZombieName = StrFormat("[%s]", GetZombieDefinition(aZombie->mZombieType).mZombieName);
 		mToolTip->SetTitle(aZombieName);
+
+		int aTotalHP = aZombie->mBodyHealth + aZombie->mHelmHealth + aZombie->mShieldHealth + aZombie->mFlyingHealth;
+		int aMaxHP = aZombie->mBodyMaxHealth + aZombie->mHelmMaxHealth + aZombie->mShieldMaxHealth + aZombie->mFlyingMaxHealth;
+		std::string aHPLabel = StrFormat("HP: %d/%d", aTotalHP, aMaxHP);
 		if (mApp->CanShowAlmanac() && aZombie->mZombieType != ZombieType::ZOMBIE_REDEYE_GARGANTUAR)
 		{
-			mToolTip->SetLabel("[CLICK_TO_VIEW]");
+			mToolTip->SetLabel(aHPLabel + "  [CLICK_TO_VIEW]");
 		}
 		else
 		{
-			mToolTip->SetLabel("");
+			mToolTip->SetLabel(aHPLabel);
 		}
 		mToolTip->SetWarningText("");
 
@@ -3396,6 +3400,28 @@ void Board::UpdateToolTip()
 	mToolTip->SetLabel("");
 	mToolTip->SetWarningText("");
 	mToolTip->mCenter = false;
+
+	Zombie* aZombie = ZombieHitTest(aMouseX, aMouseY);
+	if (aZombie)
+	{
+		int aTotalHP = aZombie->mBodyHealth + aZombie->mHelmHealth + aZombie->mShieldHealth + aZombie->mFlyingHealth;
+		int aMaxHP = aZombie->mBodyMaxHealth + aZombie->mHelmMaxHealth + aZombie->mShieldMaxHealth + aZombie->mFlyingMaxHealth;
+		mToolTip->SetTitle(GetZombieDefinition(aZombie->mZombieType).mZombieName);
+		mToolTip->SetLabel(StrFormat("HP: %d/%d", aTotalHP, aMaxHP));
+		mToolTip->SetWarningText("");
+
+		Rect aRect = aZombie->GetZombieRect();
+		mToolTip->mX = aRect.mWidth / 2 + aRect.mX + 5;
+		mToolTip->mY = aRect.mHeight + aRect.mY - 10;
+		if (aZombie->mZombieType == ZombieType::ZOMBIE_BUNGEE)
+		{
+			mToolTip->mY = aZombie->mY;
+		}
+		mToolTip->mCenter = true;
+		mToolTip->mVisible = true;
+		return;
+	}
+
 	if (mChallenge->UpdateToolTip(aMouseX, aMouseY))
 	{
 		return;

@@ -1409,7 +1409,7 @@ void Plant::DoSquashDamage()
             Rect aZombieRect = aZombie->GetZombieRect();
             if (GetRectOverlap(aAttackRect, aZombieRect) > (aZombie->mZombieType == ZombieType::ZOMBIE_FOOTBALL ? -20 : 0))
             {
-                aZombie->TakeDamage(1800, 18U);
+                aZombie->TakeDamage(3600, 18U);
             }
         }
     }

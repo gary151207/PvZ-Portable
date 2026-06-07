@@ -8555,9 +8555,9 @@ void Zombie::ApplyBurn()
     if (mDead || mZombiePhase == ZombiePhase::PHASE_ZOMBIE_BURNED)
         return;
 
-    if (mBodyHealth >= 1800 || mZombieType == ZombieType::ZOMBIE_BOSS)
+    if (mBodyHealth >= 3600 || mZombieType == ZombieType::ZOMBIE_BOSS)
     {
-        TakeDamage(1800, 18U);
+        TakeDamage(3600, 18U);
         return;
     }
 

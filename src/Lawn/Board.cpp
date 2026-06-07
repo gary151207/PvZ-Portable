@@ -9709,7 +9709,7 @@ int Board::KillAllZombiesInRadius(int theRow, int theX, int theY, int theRadius,
 				}
 				else
 				{
-					aZombie->TakeDamage(1800, 18U);
+					aZombie->TakeDamage(3600, 18U);
 				}
 
 				aKilledZombies++;

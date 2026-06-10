@@ -4212,7 +4212,11 @@ void Plant::IceZombies()
     Zombie* aZombie = nullptr;
     while (mBoard->IterateZombies(aZombie))
     {
-        aZombie->HitIceTrap();
+        if (!aZombie->IsDeadOrDying())
+        {
+            aZombie->HitIceTrap();
+            aZombie->TakeDamage(300, 0U);
+        }
     }
 
     mBoard->mIceTrapCounter = 300;
@@ -4262,13 +4266,15 @@ void Plant::BurnRow(int theRow)
 
 void Plant::BlowAwayFliers()
 {
+    unsigned int aDamageFlags = 0;
+    SetBit(aDamageFlags, static_cast<int>(DamageFlags::DAMAGE_FREEZE), true);
+
     Zombie* aZombie = nullptr;
     while (mBoard->IterateZombies(aZombie))
     {
         if (!aZombie->IsDeadOrDying())
         {
-            // Verified as a pure function, safe to remove
-            // Rect aZombieRect = aZombie->GetZombieRect();
+            aZombie->TakeDamage(300, aDamageFlags);
             if (aZombie->IsFlying())
             {
                 aZombie->mBlowingAway = true;

@@ -73,7 +73,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_CACTUS,            nullptr, ReanimationType::REANIM_CACTUS,        15, 125,    750,    PlantSubClass::SUBCLASS_SHOOTER,    60,    "CACTUS" },
     { SeedType::SEED_BLOVER,            nullptr, ReanimationType::REANIM_BLOVER,        18, 100,    750,    PlantSubClass::SUBCLASS_NORMAL,     0,      "BLOVER" },
     { SeedType::SEED_SPLITPEA,          nullptr, ReanimationType::REANIM_SPLITPEA,      32, 125,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "SPLIT_PEA" },
-    { SeedType::SEED_STARFRUIT,         nullptr, ReanimationType::REANIM_STARFRUIT,     30, 125,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,    "STARFRUIT" },
+    { SeedType::SEED_STARFRUIT,         nullptr, ReanimationType::REANIM_STARFRUIT,     30, 150,    750,    PlantSubClass::SUBCLASS_SHOOTER,    100,    "STARFRUIT" },
     { SeedType::SEED_PUMPKINSHELL,      nullptr, ReanimationType::REANIM_PUMPKIN,       25, 125,    3000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "PUMPKIN" },
     { SeedType::SEED_MAGNETSHROOM,      nullptr, ReanimationType::REANIM_MAGNETSHROOM,  35, 100,    750,    PlantSubClass::SUBCLASS_NORMAL,     0,      "MAGNET_SHROOM" },
     { SeedType::SEED_CABBAGEPULT,       nullptr, ReanimationType::REANIM_CABBAGEPULT,   13, 100,    750,    PlantSubClass::SUBCLASS_SHOOTER,    300,    "CABBAGE_PULT" },
@@ -859,48 +859,12 @@ bool Plant::FindStarFruitTarget()
         return true;
 
     int aDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
-    int aCenterStarX = mX + 40;
-    int aCenterStarY = mY + 40;
 
     Zombie* aZombie = nullptr;
     while (mBoard->IterateZombies(aZombie))
     {
-        Rect aZombieRect = aZombie->GetZombieRect();
         if (aZombie->EffectedByDamage(aDamageRangeFlags))
-        {
-            if (aZombie->mZombieType == ZombieType::ZOMBIE_BOSS && mPlantCol >= 5)
-                return true;
-
-            if (aZombie->mRow == mRow)
-            {
-                if (aZombieRect.mX + aZombieRect.mWidth < aCenterStarX)
-                    return true;
-            }
-            else
-            {
-                if (aZombie->mZombieType == ZombieType::ZOMBIE_DIGGER)
-                    aZombieRect.mX += 10;
-
-                float aProjectileTime = Distance2D(aCenterStarX, aCenterStarY, aZombieRect.mX + aZombieRect.mWidth / 2, aZombieRect.mY + aZombieRect.mHeight / 2) / 3.33f;
-                int aZombieHitX = aZombie->ZombieTargetLeadX(aProjectileTime) - aZombieRect.mWidth / 2;
-                if ((aZombieHitX + aZombieRect.mWidth > aCenterStarX) && (aZombieHitX < aCenterStarX))
-                    return true;
-
-                int aCenterZombieX = aZombieHitX + aZombieRect.mWidth / 2;
-                int aCenterZombieY = aZombieRect.mY + aZombieRect.mHeight / 2;
-                float angle = RAD_TO_DEG(atan2(aCenterZombieY - aCenterStarY, aCenterZombieX - aCenterStarX));
-                if (abs(aZombie->mRow - mRow) < 2)
-                {
-                    if ((angle > 20.0f && angle < 40.0f) || (angle < -25.0f && angle > -45.0f))
-                        return true;
-                }
-                else
-                {
-                    if ((angle > 25.0f && angle < 35.0f) || (angle < -28.0f && angle > -38.0f))
-                        return true;
-                }
-            }
-        }
+            return true;
     }
 
     return false;

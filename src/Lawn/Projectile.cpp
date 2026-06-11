@@ -28,6 +28,7 @@
 #include "../Resources.h"
 #include "../GameConstants.h"
 #include "../Sexy.TodLib/TodFoley.h"
+#include <climits>
 #include "../Sexy.TodLib/TodDebug.h"
 #include "../Sexy.TodLib/Reanimator.h"
 #include "../Sexy.TodLib/Attachment.h"
@@ -41,7 +42,7 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_PUFF,          0,  20  },
 	{ ProjectileType::PROJECTILE_WINTERMELON,   0,  80  },
 	{ ProjectileType::PROJECTILE_FIREBALL,      0,  40  },
-	{ ProjectileType::PROJECTILE_STAR,          0,  20  },
+	{ ProjectileType::PROJECTILE_STAR,          0,  35  },
 	{ ProjectileType::PROJECTILE_SPIKE,         0,  45  },
 	{ ProjectileType::PROJECTILE_BASKETBALL,    0,  75  },
 	{ ProjectileType::PROJECTILE_KERNEL,        0,  20  },
@@ -292,6 +293,21 @@ void Projectile::CheckForCollision()
 		return;
 	}
 
+	if (mProjectileType == ProjectileType::PROJECTILE_STAR && mTargetZombieID != ZombieID::ZOMBIEID_NULL)
+	{
+		Zombie* aZombie = mBoard->ZombieTryToGet(mTargetZombieID);
+		if (aZombie && aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+		{
+			Rect aProjectileRect = GetProjectileRect();
+			Rect aZombieRect = aZombie->GetZombieRect();
+			if (GetRectOverlap(aProjectileRect, aZombieRect) >= 0 && mPosY > aZombieRect.mY && mPosY < aZombieRect.mY + aZombieRect.mHeight)
+			{
+				DoImpact(aZombie);
+			}
+		}
+		return;
+	}
+
 	if ((mProjectileType == ProjectileType::PROJECTILE_PEA || mProjectileType == ProjectileType::PROJECTILE_STAR) && mShadowY - mPosY > 90.0f)
 	{
 		return;
@@ -406,7 +422,7 @@ unsigned int Projectile::GetDamageFlags(Zombie* theZombie)
 	{
 		SetBit(aDamageFlags, static_cast<int>(DamageFlags::DAMAGE_BYPASSES_SHIELD), true);
 	}
-	else if (mMotionType == ProjectileMotion::MOTION_STAR && mVelX < 0.0f)
+	else if (mMotionType == ProjectileMotion::MOTION_STAR && (mVelX < 0.0f || mTargetZombieID != ZombieID::ZOMBIEID_NULL))
 	{
 		SetBit(aDamageFlags, static_cast<int>(DamageFlags::DAMAGE_BYPASSES_SHIELD), true);
 	}
@@ -666,11 +682,62 @@ void Projectile::UpdateNormalMotion()
 	}
 	else if (mMotionType == ProjectileMotion::MOTION_STAR)
 	{
+		if (mProjectileAge >= 24)
+		{
+			bool aNeedNewTarget = (mTargetZombieID == ZombieID::ZOMBIEID_NULL);
+			if (!aNeedNewTarget)
+			{
+				Zombie* aCurZombie = mBoard->ZombieTryToGet(mTargetZombieID);
+				if (!aCurZombie || !aCurZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+				{
+					mTargetZombieID = ZombieID::ZOMBIEID_NULL;
+					aNeedNewTarget = true;
+				}
+			}
+			if (aNeedNewTarget)
+			{
+				bool aCanTargetDigger = (mVelX < 0.0f);
+				Zombie* aBestZombie = nullptr;
+				int aMinX = INT32_MAX;
+				Zombie* aZombie = nullptr;
+				while (mBoard->IterateZombies(aZombie))
+				{
+					if (!aCanTargetDigger && aZombie->mZombieType == ZombieType::ZOMBIE_DIGGER)
+						continue;
+					if (!aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+						continue;
+					if (aZombie->mX < aMinX)
+					{
+						aMinX = aZombie->mX;
+						aBestZombie = aZombie;
+					}
+				}
+				if (aBestZombie)
+				{
+					mTargetZombieID = mBoard->ZombieGetID(aBestZombie);
+				}
+			}
+		}
+
+		if (mTargetZombieID != ZombieID::ZOMBIEID_NULL)
+		{
+			Zombie* aZombie = mBoard->ZombieTryToGet(mTargetZombieID);
+			if (aZombie && aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+			{
+				Rect aZombieRect = aZombie->GetZombieRect();
+				SexyVector2 aTargetCenter(aZombie->ZombieTargetLeadX(0.0f), aZombieRect.mY + aZombieRect.mHeight / 2);
+				SexyVector2 aProjectileCenter(mPosX + mWidth / 2, mPosY + mHeight / 2);
+				SexyVector2 aToTarget = (aTargetCenter - aProjectileCenter).Normalize();
+				mVelX = aToTarget.x * 3.33f;
+				mVelY = aToTarget.y * 3.33f;
+				mRotation = -atan2(mVelY, mVelX);
+			}
+		}
+
 		mPosY += mVelY;
 		mPosX += mVelX;
 		mShadowY += mVelY;
-
-		if (mVelY != 0.0f)
+		if (mVelY != 0.0f || mTargetZombieID != ZombieID::ZOMBIEID_NULL)
 		{
 			mRow = mBoard->PixelToGridYKeepOnBoard(mPosX, mPosY);
 		}

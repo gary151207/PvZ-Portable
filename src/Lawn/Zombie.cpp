@@ -7171,24 +7171,6 @@ void Zombie::DropLoot()
         mBoard->mKilledYeti = true;
     }
 
-    if (!mDroppedSun)
-    {
-        mDroppedSun = true;
-        Rect aZombieRect = GetZombieRect();
-        int aCenterX = aZombieRect.mX + aZombieRect.mWidth / 2;
-        int aCenterY = aZombieRect.mY + aZombieRect.mHeight / 4;
-        int aSunCount = Rand(4) + 1;
-        for (int i = 0; i < aSunCount; i++)
-        {
-            mBoard->AddCoin(
-                aCenterX - 20 + Rand(40) - 20,
-                aCenterY + Rand(20) - 10,
-                CoinType::COIN_SUN,
-                CoinMotion::COIN_MOTION_FROM_PLANT);
-        }
-        mApp->PlayFoley(FoleyType::FOLEY_SPAWN_SUN);
-    }
-
     TrySpawnLevelAward();
     if (mDroppedLoot || mBoard->HasLevelAwardDropped() || !mBoard->CanDropLoot())
         return;

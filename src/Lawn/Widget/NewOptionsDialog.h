@@ -46,6 +46,8 @@ protected:
 		NewOptionsDialog_Update,
 		NewOptionsDialog_MusicVolume,
 		NewOptionsDialog_SoundVolume,
+		NewOptionsDialog_ZombieHP,
+		NewOptionsDialog_ZombieCount,
 		NewOptionsDialog_Fullscreen,
 		NewOptionsDialog_HardwareAcceleration,
 	};
@@ -54,6 +56,8 @@ public:
 	LawnApp*				mApp;
 	Sexy::Slider*			mMusicVolumeSlider;
 	Sexy::Slider*			mSfxVolumeSlider;
+	Sexy::Slider*			mZombieHPSlider;
+	Sexy::Slider*			mZombieCountSlider;
 	Sexy::Checkbox*			mFullscreenCheckbox;
 	Sexy::Checkbox*			mHardwareAccelerationCheckbox;
 	LawnStoneButton*		mAlmanacButton;

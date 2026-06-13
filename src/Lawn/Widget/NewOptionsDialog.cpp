@@ -34,6 +34,8 @@
 #include "widget/Checkbox.h"
 #include "../../Sexy.TodLib/TodStringFile.h"
 
+#include <cmath>
+
 using namespace Sexy;
 
 NewOptionsDialog::NewOptionsDialog(LawnApp* theApp, bool theFromGameSelector) : 
@@ -73,6 +75,12 @@ NewOptionsDialog::NewOptionsDialog(LawnApp* theApp, bool theFromGameSelector) :
 
     mSfxVolumeSlider = new Slider(IMAGE_OPTIONS_SLIDERSLOT, IMAGE_OPTIONS_SLIDERKNOB2, NewOptionsDialog::NewOptionsDialog_SoundVolume, this);
     mSfxVolumeSlider->SetValue(theApp->GetSfxVolume() / 0.65);
+
+    mZombieHPSlider = new Slider(IMAGE_OPTIONS_SLIDERSLOT, IMAGE_OPTIONS_SLIDERKNOB2, NewOptionsDialog::NewOptionsDialog_ZombieHP, this);
+    mZombieHPSlider->SetValue((theApp->mZombieHPMultiplier - 1) / 9.0);
+
+    mZombieCountSlider = new Slider(IMAGE_OPTIONS_SLIDERSLOT, IMAGE_OPTIONS_SLIDERKNOB2, NewOptionsDialog::NewOptionsDialog_ZombieCount, this);
+    mZombieCountSlider->SetValue((theApp->mZombieMultiplier - 1) / 9.0);
 
     mFullscreenCheckbox = MakeNewCheckbox(NewOptionsDialog::NewOptionsDialog_Fullscreen, this, !theApp->mIsWindowed);
     mHardwareAccelerationCheckbox = MakeNewCheckbox(NewOptionsDialog::NewOptionsDialog_HardwareAcceleration, this, theApp->Is3DAccelerated());
@@ -115,6 +123,8 @@ NewOptionsDialog::~NewOptionsDialog()
 {
     delete mMusicVolumeSlider;
     delete mSfxVolumeSlider;
+    delete mZombieHPSlider;
+    delete mZombieCountSlider;
     delete mFullscreenCheckbox;
     delete mHardwareAccelerationCheckbox;
     delete mAlmanacButton;
@@ -137,6 +147,8 @@ void NewOptionsDialog::AddedToManager(Sexy::WidgetManager* theWidgetManager)
     AddWidget(mBackToMainButton);
     AddWidget(mMusicVolumeSlider);
     AddWidget(mSfxVolumeSlider);
+    AddWidget(mZombieHPSlider);
+    AddWidget(mZombieCountSlider);
     AddWidget(mHardwareAccelerationCheckbox);
     AddWidget(mFullscreenCheckbox);
     AddWidget(mBackToGameButton);
@@ -148,6 +160,8 @@ void NewOptionsDialog::RemovedFromManager(Sexy::WidgetManager* theWidgetManager)
     RemoveWidget(mAlmanacButton);
     RemoveWidget(mMusicVolumeSlider);
     RemoveWidget(mSfxVolumeSlider);
+    RemoveWidget(mZombieHPSlider);
+    RemoveWidget(mZombieCountSlider);
     RemoveWidget(mFullscreenCheckbox);
     RemoveWidget(mHardwareAccelerationCheckbox);
     RemoveWidget(mBackToMainButton);
@@ -159,9 +173,11 @@ void NewOptionsDialog::Resize(int theX, int theY, int theWidth, int theHeight)
 {
     Dialog::Resize(theX, theY, theWidth, theHeight);
     mMusicVolumeSlider->Resize(199, 116, 135, 40);
-    mSfxVolumeSlider->Resize(199, 143, 135, 40);
-    mHardwareAccelerationCheckbox->Resize(283, 175, 46, 45);
-    mFullscreenCheckbox->Resize(284, 206, 46, 45);
+    mSfxVolumeSlider->Resize(199, 138, 135, 40);
+    mZombieHPSlider->Resize(199, 160, 135, 40);
+    mZombieCountSlider->Resize(199, 182, 135, 40);
+    mHardwareAccelerationCheckbox->Resize(283, 210, 46, 45);
+    mFullscreenCheckbox->Resize(284, 238, 46, 45);
     mAlmanacButton->Resize(107, 241, 209, 46);
     mRestartButton->Resize(mAlmanacButton->mX, mAlmanacButton->mY + 43, 209, 46);
     mBackToMainButton->Resize(mRestartButton->mX, mRestartButton->mY + 43, 209, 46);
@@ -169,10 +185,12 @@ void NewOptionsDialog::Resize(int theX, int theY, int theWidth, int theHeight)
 
     if (mFromGameSelector)
     {
-        mMusicVolumeSlider->mY += 5;
-        mSfxVolumeSlider->mY += 10;
+        mMusicVolumeSlider->mY += 3;
+        mSfxVolumeSlider->mY += 6;
+        mZombieHPSlider->mY += 9;
+        mZombieCountSlider->mY += 12;
         mHardwareAccelerationCheckbox->mY += 15;
-        mFullscreenCheckbox->mY += 20;
+        mFullscreenCheckbox->mY += 18;
     }
 
     if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN || mApp->mGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM)
@@ -187,14 +205,18 @@ void NewOptionsDialog::Draw(Sexy::Graphics* g)
 
     int aMusicOffset = 0;
     int aSfxOffset = 0;
+    int aZombieHPOffset = 0;
+    int aZombieCountOffset = 0;
     int a3DAccelOffset = 0;
     int aFullScreenOffset = 0;
     if (mFromGameSelector)
     {
-        aMusicOffset = 5;
-        aSfxOffset = 10;
+        aMusicOffset = 3;
+        aSfxOffset = 6;
+        aZombieHPOffset = 9;
+        aZombieCountOffset = 12;
         a3DAccelOffset = 15;
-        aFullScreenOffset = 20;
+        aFullScreenOffset = 18;
     }
     Sexy::Color aTextColor(107, 109, 145);
 
@@ -204,9 +226,11 @@ void NewOptionsDialog::Draw(Sexy::Graphics* g)
     if (aFontScale != 1.0f)
         g->SetScale(aFontScale, aFontScale, 0.0f, 0.0f);
     TodDrawString(g, "Music", aSliderLabelsX, 140 + aMusicOffset, FONT_DWARVENTODCRAFT18, aTextColor, DrawStringJustification::DS_ALIGN_RIGHT);
-    TodDrawString(g, "Sound FX", aSliderLabelsX, 167 + aSfxOffset, FONT_DWARVENTODCRAFT18, aTextColor, DrawStringJustification::DS_ALIGN_RIGHT);
-    TodDrawString(g, "3D Acceleration", aCheckboxLabelsX, 197 + a3DAccelOffset, FONT_DWARVENTODCRAFT18, aTextColor, DrawStringJustification::DS_ALIGN_RIGHT);
-    TodDrawString(g, "Full Screen", aCheckboxLabelsX, 229 + aFullScreenOffset, FONT_DWARVENTODCRAFT18, aTextColor, DrawStringJustification::DS_ALIGN_RIGHT);
+    TodDrawString(g, "Sound FX", aSliderLabelsX, 162 + aSfxOffset, FONT_DWARVENTODCRAFT18, aTextColor, DrawStringJustification::DS_ALIGN_RIGHT);
+    TodDrawString(g, (std::string("Zombie HP ") + std::to_string(mApp->mZombieHPMultiplier) + "x").c_str(), aSliderLabelsX, 184 + aZombieHPOffset, FONT_DWARVENTODCRAFT18, aTextColor, DrawStringJustification::DS_ALIGN_RIGHT);
+    TodDrawString(g, (std::string("Zombie Count ") + std::to_string(mApp->mZombieMultiplier) + "x").c_str(), aSliderLabelsX, 206 + aZombieCountOffset, FONT_DWARVENTODCRAFT18, aTextColor, DrawStringJustification::DS_ALIGN_RIGHT);
+    TodDrawString(g, "3D Acceleration", aCheckboxLabelsX, 232 + a3DAccelOffset, FONT_DWARVENTODCRAFT18, aTextColor, DrawStringJustification::DS_ALIGN_RIGHT);
+    TodDrawString(g, "Full Screen", aCheckboxLabelsX, 261 + aFullScreenOffset, FONT_DWARVENTODCRAFT18, aTextColor, DrawStringJustification::DS_ALIGN_RIGHT);
     if (aFontScale != 1.0f)
         g->SetScale(1.0f, 1.0f, 0.0f, 0.0f);
 }
@@ -228,6 +252,22 @@ void NewOptionsDialog::SliderVal(int theId, double theVal)
             mApp->PlaySample(SOUND_BUTTONCLICK);
         }
         break;
+
+    case NewOptionsDialog::NewOptionsDialog_ZombieHP:
+    {
+        int aMultiplier = static_cast<int>(std::round(theVal * 9.0)) + 1;
+        mApp->mZombieHPMultiplier = aMultiplier;
+        MarkDirtyFull();
+        break;
+    }
+
+    case NewOptionsDialog::NewOptionsDialog_ZombieCount:
+    {
+        int aMultiplier = static_cast<int>(std::round(theVal * 9.0)) + 1;
+        mApp->mZombieMultiplier = aMultiplier;
+        MarkDirtyFull();
+        break;
+    }
     }
 }
 

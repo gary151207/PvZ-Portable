@@ -2,10 +2,10 @@ name: CI build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "feat/mod" ]
     tags: [ "*" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "feat/mod" ]
   workflow_dispatch:
 
 concurrency:

@@ -433,6 +433,8 @@ public:
 	Zombie*							GetBossZombie();
 	bool							HasConveyorBeltSeedBank();
 	/*inline*/ bool					StageHasRoof();
+	bool							IsSnowyDayFinalStage();
+	bool							IsSnowyDayStageWithRepick();
 	void							SpawnZombiesFromPool();
 	void							SpawnZombiesFromSky();
 	void							PickUpTool(GameObjectType theObjectType);

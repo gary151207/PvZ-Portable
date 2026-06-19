@@ -626,7 +626,7 @@ void Board::PickZombieWaves()
 	else
 	{
 		GameMode aGameMode = mApp->mGameMode;
-		if (mApp->IsSurvivalMode() || aGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
+		if (mApp->IsSurvivalMode() || aGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || aGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 			mNumWaves = GetNumWavesPerSurvivalStage();
 		else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN || aGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM || mApp->IsSquirrelLevel())
 			mNumWaves = 0;
@@ -679,7 +679,7 @@ void Board::PickZombieWaves()
 		// ------------------------------------------------------------------------------------------------
 		int& aZombiePoints = aZombiePicker.mZombiePoints;
 		// 根据关卡计算本波的基础僵尸点数
-		if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
+		if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 		{
 			aZombiePoints = (mChallenge->mSurvivalStage * GetNumWavesPerSurvivalStage() + aWave + 10) * 2 / 5 + 1;
 		}
@@ -1023,6 +1023,7 @@ void Board::PickBackground()
 	case GameMode::GAMEMODE_CHALLENGE_POGO_PARTY:
 	case GameMode::GAMEMODE_CHALLENGE_HIGH_GRAVITY:
 	case GameMode::GAMEMODE_CHALLENGE_BUNGEE_BLITZ:
+	case GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY:
 		mBackground = BackgroundType::BACKGROUND_5_ROOF;
 		break;
 
@@ -1269,6 +1270,10 @@ void Board::InitZombieWaves()
 	{
 		mZombieCountDown = ZOMBIE_COUNTDOWN_RANGE;
 	}
+	else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
+	{
+		mZombieCountDown = 6000;
+	}
 	else
 	{
 		mZombieCountDown = ZOMBIE_COUNTDOWN_FIRST_WAVE;
@@ -1417,6 +1422,10 @@ void Board::InitLevel()
 	else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
 	{
 		mSunMoney = 5000;
+	}
+	else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
+	{
+		mSunMoney = 1000;
 	}
 	else if (mApp->IsIZombieLevel())
 	{
@@ -1795,7 +1804,7 @@ void Board::UpdateLevelEndSequence()
 				mChallenge->PuzzleNextStageClear();
 				mChallenge->IZombieInitLevel();
 			}
-			else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
+			else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 			{
 				ClearAdvice(AdviceType::ADVICE_NONE);
 			}
@@ -1899,7 +1908,7 @@ void Board::FadeOutLevel()
 	{
 		aNeedSoundEffect = false;
 	}
-	else if (IsSurvivalStageWithRepick() || IsLastStandStageWithRepick() || mApp->IsEndlessIZombie(mApp->mGameMode))
+	else if (IsSurvivalStageWithRepick() || IsLastStandStageWithRepick() || IsSnowyDayStageWithRepick() || mApp->IsEndlessIZombie(mApp->mGameMode))
 	{
 		aNeedSoundEffect = false;
 	}
@@ -1953,6 +1962,13 @@ void Board::FadeOutLevel()
 	{
 		mNextSurvivalStageCounter = 500;
 		mChallenge->LastStandCompletedStage();
+		return;
+	}
+
+	if (IsSnowyDayStageWithRepick())
+	{
+		mNextSurvivalStageCounter = 500;
+		mChallenge->SnowyDayCompletedStage();
 		return;
 	}
 
@@ -2593,7 +2609,7 @@ bool Board::RowCanHaveZombieType(int theRow, ZombieType theZombieType)
 	}
 
 	int aCurrentWave = mCurrentWave;
-	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
+	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 	{
 		aCurrentWave += mChallenge->mSurvivalStage * GetNumWavesPerSurvivalStage();
 	}
@@ -5233,7 +5249,7 @@ void Board::ZombiesWon(Zombie* theZombie)
 	{
 		aGameOverMsg = "[ZOMBIQUARIUM_DEATH_MESSAGE]";
 	}
-	else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
+	else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 	{
 		std::string aFlagStr = mApp->Pluralize(GetSurvivalFlagsCompleted(), "[ONE_FLAG]", "[COUNT_FLAGS]");
 		aGameOverMsg = TodReplaceString("[LAST_STAND_DEATH_MESSAGE]", "{FLAGS}", aFlagStr);
@@ -5322,6 +5338,16 @@ bool Board::IsLastStandStageWithRepick()
 	return mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND && !IsLastStandFinalStage();
 }
 
+bool Board::IsSnowyDayFinalStage()
+{
+	return mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY && mChallenge->mSurvivalStage == SNOWY_DAY_STAGES - 1;
+}
+
+bool Board::IsSnowyDayStageWithRepick()
+{
+	return mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY && !IsSnowyDayFinalStage();
+}
+
 bool Board::HasLevelAwardDropped()
 {
 	return mLevelAwardSpawned || mNextSurvivalStageCounter > 0 || mBoardFadeOutCounter >= 0;
@@ -5368,7 +5394,7 @@ void Board::NextWaveComing()
 {
 	if (mCurrentWave + 1 == mNumWaves)
 	{
-		if (!IsSurvivalStageWithRepick() && mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_LAST_STAND && !mApp->IsContinuousChallenge())
+		if (!IsSurvivalStageWithRepick() && !IsSnowyDayStageWithRepick() && mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_LAST_STAND && !mApp->IsContinuousChallenge())
 		{
 			mApp->AddReanimation(0, 30, MakeRenderOrder(RenderLayer::RENDER_LAYER_ABOVE_UI, 0, 0), ReanimationType::REANIM_FINAL_WAVE);
 			mFinalWaveSoundCounter = 60;
@@ -5465,18 +5491,18 @@ void Board::UpdateZombieSpawning()
 		{
 			return;
 		}
-		if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
+		if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || IsSnowyDayStageWithRepick())
 		{
 			return;
 		}
-		if (!mApp->IsSurvivalMode() && !mApp->IsContinuousChallenge())
+		if (!mApp->IsSurvivalMode() && !mApp->IsContinuousChallenge() && !IsSnowyDayFinalStage())
 		{
 			return;
 		}
 	}
 
 	mZombieCountDown--;
-	if (mCurrentWave == mNumWaves && mApp->IsSurvivalMode())
+	if (mCurrentWave == mNumWaves && (mApp->IsSurvivalMode() || IsSnowyDayFinalStage()))
 	{
 		if (mZombieCountDown == 0)
 		{
@@ -5510,7 +5536,7 @@ void Board::UpdateZombieSpawning()
 			mZombieHealthToNextWave = 0;
 			mZombieCountDown = ZOMBIE_COUNTDOWN_BEFORE_REPICK + 1;
 		}
-		else if (IsFlagWave(mCurrentWave) && !(mApp->IsWallnutBowlingLevel() || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND))
+		else if (IsFlagWave(mCurrentWave) && !(mApp->IsWallnutBowlingLevel() || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY))
 		{
 			mZombieHealthToNextWave = 0;
 			mZombieCountDown = ZOMBIE_COUNTDOWN_BEFORE_FLAG;
@@ -5518,7 +5544,7 @@ void Board::UpdateZombieSpawning()
 		else
 		{
 			mZombieHealthToNextWave = RandRangeFloat(0.5f, 0.65f) * mZombieHealthWaveStart;
-			if (mApp->IsLittleTroubleLevel() || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_COLUMN || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
+			if (mApp->IsLittleTroubleLevel() || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_COLUMN || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 			{
 				mZombieCountDown = 750;
 			}
@@ -6818,7 +6844,7 @@ void Board::DrawLevel(Graphics* g)
 	else
 	{
 		aLevelStr = mApp->GetCurrentChallengeDef().mChallengeName;
-		if (mApp->IsSurvivalMode() || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
+		if (mApp->IsSurvivalMode() || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 		{
 			int aFlags = GetSurvivalFlagsCompleted();
 			if (aFlags > 0)
@@ -9743,6 +9769,10 @@ int Board::GetNumWavesPerSurvivalStage()
 	else if (mApp->IsSurvivalHard(mApp->mGameMode) || mApp->IsSurvivalEndless(mApp->mGameMode))
 	{
 		return 20;
+	}
+	else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
+	{
+		return SNOWY_DAY_WAVES_PER_STAGE;
 	}
 
 	TOD_ASSERT(false);

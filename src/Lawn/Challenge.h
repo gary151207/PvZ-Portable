@@ -236,6 +236,7 @@ public:
     void                    IZombiePlaceZombie(ZombieType theZombieType, int theGridX, int theGridY);
     void                    WhackAZombieUpdate();
     void                    LastStandCompletedStage();
+    void                    SnowyDayCompletedStage();
     void                    TreeOfWisdomUpdate();
     void                    TreeOfWisdomFertilize();
     void                    TreeOfWisdomInit();

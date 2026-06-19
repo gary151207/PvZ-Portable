@@ -54,6 +54,7 @@ public:
     int                         mUnlockChallengeIndex;
     float                       mLockShakeX;
     float                       mLockShakeY;
+    int                         mScrollY;
 
 public:
     ChallengeScreen(LawnApp* theApp, ChallengePage thePage);
@@ -74,6 +75,7 @@ public:
     virtual void                ButtonMouseLeave(int){}
     virtual void                ButtonMouseMove(int, int, int){}
     virtual void                ButtonDepress(int theId);
+    virtual void                MouseWheel(int theDelta);
     void                        UpdateToolTip();
 //  virtual void                KeyChar(char theChar);
 

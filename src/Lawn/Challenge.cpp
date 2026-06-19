@@ -2719,6 +2719,28 @@ void Challenge::InitZombieWaves()
 		aList[ZOMBIE_DOLPHIN_RIDER] = true;
 		aList[ZOMBIE_BALLOON] = true;
 	}
+	else if (aGameMode == GAMEMODE_CHALLENGE_SNOWY_DAY)
+	{
+		aList[ZOMBIE_NORMAL] = true;
+		aList[ZOMBIE_TRAFFIC_CONE] = true;
+		aList[ZOMBIE_PAIL] = true;
+		aList[ZOMBIE_NEWSPAPER] = true;
+		aList[ZOMBIE_POLEVAULTER] = true;
+		aList[ZOMBIE_DOOR] = true;
+		aList[ZOMBIE_JACK_IN_THE_BOX] = true;
+		aList[ZOMBIE_BALLOON] = true;
+		aList[ZOMBIE_BUNGEE] = true;
+		if (mSurvivalStage >= 1)
+		{
+			aList[ZOMBIE_FOOTBALL] = true;
+			aList[ZOMBIE_LADDER] = true;
+			aList[ZOMBIE_GARGANTUAR] = true;
+		}
+		if (mSurvivalStage >= 2)
+		{
+			aList[ZOMBIE_REDEYE_GARGANTUAR] = true;
+		}
+	}
 	else
 	{
 		aList[ZOMBIE_NORMAL] = true;
@@ -5136,6 +5158,30 @@ void Challenge::LastStandCompletedStage()
 	while (mBoard->IteratePlants(aPlant))
 	{
 		if (aPlant->mState == STATE_CHOMPER_DIGESTING || aPlant->mState == STATE_COBCANNON_ARMING || 
+			aPlant->mState == STATE_MAGNETSHROOM_SUCKING || aPlant->mState == STATE_MAGNETSHROOM_CHARGING)
+		{
+			aPlant->mStateCountdown = std::min(aPlant->mStateCountdown, 200);
+		}
+	}
+
+	std::string aFlagStr = mApp->Pluralize(mBoard->GetSurvivalFlagsCompleted(), "[ONE_FLAG]", "[COUNT_FLAGS]");
+	std::string aMsg = TodReplaceString("[SUCCESSFULLY_DEFENDED]", "{FLAGS}", aFlagStr);
+	mBoard->DisplayAdvice(aMsg, MESSAGE_STYLE_BIG_MIDDLE_FAST, ADVICE_NONE);
+
+	mSurvivalStage++;
+	mBoard->mLevelComplete = false;
+	mBoard->InitZombieWaves();
+}
+
+void Challenge::SnowyDayCompletedStage()
+{
+	mApp->PlaySample(Sexy::SOUND_HUGE_WAVE);
+	mBoard->mSeedBank->RefreshAllPackets();
+
+	Plant* aPlant = nullptr;
+	while (mBoard->IteratePlants(aPlant))
+	{
+		if (aPlant->mState == STATE_CHOMPER_DIGESTING || aPlant->mState == STATE_COBCANNON_ARMING ||
 			aPlant->mState == STATE_MAGNETSHROOM_SUCKING || aPlant->mState == STATE_MAGNETSHROOM_CHARGING)
 		{
 			aPlant->mStateCountdown = std::min(aPlant->mStateCountdown, 200);

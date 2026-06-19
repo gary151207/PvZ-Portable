@@ -83,6 +83,7 @@ ChallengeDefinition gChallengeDefs[NUM_CHALLENGE_MODES] = {
 	{ GameMode::GAMEMODE_CHALLENGE_STORMY_NIGHT,               13,  ChallengePage::CHALLENGE_PAGE_LIMBO,       2,  1,  "[DARK_STORMY_NIGHT]" },
 	{ GameMode::GAMEMODE_CHALLENGE_BUNGEE_BLITZ,               9,   ChallengePage::CHALLENGE_PAGE_LIMBO,       2,  2,  "[BUNGEE_BLITZ]" },
 	{ GameMode::GAMEMODE_CHALLENGE_SQUIRREL,                   10,  ChallengePage::CHALLENGE_PAGE_LIMBO,       2,  3,  "Squirrel" },
+	{ GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY,                  10,  ChallengePage::CHALLENGE_PAGE_CHALLENGE,   4,  2,  "Snowy Day" },
 	{ GameMode::GAMEMODE_TREE_OF_WISDOM,                       10,  ChallengePage::CHALLENGE_PAGE_LIMBO,       2,  4,  "Tree of Wisdom" }, // @Patoke: replaced for english
 	{ GameMode::GAMEMODE_SCARY_POTTER_1,                       10,  ChallengePage::CHALLENGE_PAGE_PUZZLE,      0,  0,  "[SCARY_POTTER_1]" },
 	{ GameMode::GAMEMODE_SCARY_POTTER_2,                       10,  ChallengePage::CHALLENGE_PAGE_PUZZLE,      0,  1,  "[SCARY_POTTER_2]" },
@@ -117,6 +118,7 @@ ChallengeScreen::ChallengeScreen(LawnApp* theApp, ChallengePage thePage)
 	mApp = theApp;
 	mClip = false;
 	mCheatEnableChallenges = false;
+	mScrollY = 0;
 	mUnlockState = UNLOCK_OFF;
 	mUnlockChallengeIndex = -1;
 	mUnlockStateCounter = 0;
@@ -277,6 +279,11 @@ int ChallengeScreen::MoreTrophiesNeeded(int theChallengeIndex)
 		{
 			return aDef.mChallengeMode == GAMEMODE_SURVIVAL_NORMAL_STAGE_4 ? 1 : 2;
 		}
+	}
+
+	if (aDef.mChallengeMode == GAMEMODE_CHALLENGE_SNOWY_DAY)
+	{
+		return mApp->HasFinishedAdventure() ? 0 : 1;
 	}
 
 	if (aDef.mPage == CHALLENGE_PAGE_PUZZLE)
@@ -559,8 +566,11 @@ void ChallengeScreen::Draw(Graphics* g)
 	}
 	TodDrawImageScaledF(g, Sexy::IMAGE_TROPHY, 718, 26, 0.5f, 0.5f);
 
+	g->PushState();
+	g->SetClipRect(0, 90, 800, 440);
 	for (int aChallengeMode = 0; aChallengeMode < NUM_CHALLENGE_MODES; aChallengeMode++)
 		DrawButton(g, aChallengeMode);
+	g->PopState();
 
 	mToolTip->Draw(g);
 }
@@ -569,6 +579,29 @@ void ChallengeScreen::Update()
 {
 	Widget::Update();
 	UpdateToolTip();
+
+	for (int aChallengeMode = 0; aChallengeMode < NUM_CHALLENGE_MODES; aChallengeMode++)
+	{
+		ChallengeDefinition& aDef = GetChallengeDefinition(aChallengeMode);
+		if (aDef.mPage != mPageIndex)
+			continue;
+		ButtonWidget* aBtn = mChallengeButtons[aChallengeMode];
+		if (mPageIndex == CHALLENGE_PAGE_SURVIVAL)
+			aBtn->mY = 125 + aDef.mRow * 145 + mScrollY;
+		else
+			aBtn->mY = 93 + aDef.mRow * 119 + mScrollY;
+	}
+
+	int aMaxRow = 0;
+	for (int i = 0; i < NUM_CHALLENGE_MODES; i++)
+	{
+		if (GetChallengeDefinition(i).mPage == mPageIndex)
+			aMaxRow = std::max(aMaxRow, GetChallengeDefinition(i).mRow);
+	}
+	int aContentBottom = (mPageIndex == CHALLENGE_PAGE_SURVIVAL) ? 125 + aMaxRow * 145 + 115 : 93 + aMaxRow * 119 + 115;
+	int aViewportBottom = 530;
+	int aMaxScroll = std::min(0, aViewportBottom - aContentBottom);
+	mScrollY = std::max(aMaxScroll, std::min(mScrollY, 0));
 
 	if (mUnlockStateCounter > 0) mUnlockStateCounter--;
 	if (mUnlockState == UNLOCK_SHAKING)
@@ -638,8 +671,14 @@ void ChallengeScreen::ButtonDepress(int theId)
 	if (aPageIndex >= 0 && aPageIndex < 4)
 	{
 		mPageIndex = (ChallengePage)aPageIndex;
+		mScrollY = 0;
 		UpdateButtons();
 	}
+}
+
+void ChallengeScreen::MouseWheel(int theDelta)
+{
+	mScrollY += theDelta > 0 ? 40 : -40;
 }
 
 void ChallengeScreen::UpdateToolTip()

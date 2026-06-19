@@ -1605,6 +1605,10 @@ void LawnApp::CheckForGameEnd()
 		{
 			ShowAwardScreen(AwardType::AWARD_ACHIEVEMENTONLY, true);
 		}
+		else if (mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
+		{
+			DoBackToMain();
+		}
 		else
 		{
 			ShowChallengeScreen(ChallengePage::CHALLENGE_PAGE_CHALLENGE);

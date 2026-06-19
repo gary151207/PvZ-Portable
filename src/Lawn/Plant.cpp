@@ -86,7 +86,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_MELONPULT,         nullptr, ReanimationType::REANIM_MELONPULT,     14, 300,    750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "MELON_PULT" },
     { SeedType::SEED_GATLINGPEA,        nullptr, ReanimationType::REANIM_GATLINGPEA,    5,  300,    3000,    PlantSubClass::SUBCLASS_SHOOTER,    100,     "GATLING_PEA" },
     { SeedType::SEED_TWINSUNFLOWER,     nullptr, ReanimationType::REANIM_TWIN_SUNFLOWER,1,  150,    3000,   PlantSubClass::SUBCLASS_NORMAL,     1250,   "TWIN_SUNFLOWER" },
-    { SeedType::SEED_GLOOMSHROOM,       nullptr, ReanimationType::REANIM_GLOOMSHROOM,   27, 150,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    75,     "GLOOM_SHROOM" },
+    { SeedType::SEED_GLOOMSHROOM,       nullptr, ReanimationType::REANIM_GLOOMSHROOM,   27, 150,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    145,     "GLOOM_SHROOM" },
     { SeedType::SEED_CATTAIL,           nullptr, ReanimationType::REANIM_CATTAIL,       27, 225,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    75 ,    "CATTAIL" },
     { SeedType::SEED_WINTERMELON,       nullptr, ReanimationType::REANIM_WINTER_MELON,  27, 200,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    140,    "WINTER_MELON" },
     { SeedType::SEED_GOLD_MAGNET,       nullptr, ReanimationType::REANIM_GOLD_MAGNET,   27, 50,     3000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "GOLD_MAGNET" },

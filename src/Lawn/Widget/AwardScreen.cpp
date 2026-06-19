@@ -494,6 +494,11 @@ void AwardScreen::StartButtonPressed()
 		mApp->KillAwardScreen();
 		mApp->ShowChallengeScreen(CHALLENGE_PAGE_PUZZLE);
 	}
+	else if (mApp->mGameMode == GAMEMODE_CHALLENGE_SNOWY_DAY)
+	{
+		mApp->KillAwardScreen();
+		mApp->DoBackToMain();
+	}
 	else if (mApp->IsChallengeMode())
 	{
 		mApp->KillAwardScreen();
@@ -642,6 +647,10 @@ void AwardScreen::AchievementsContinuePressed() {
 		}
 		else if (mApp->IsPuzzleMode()) {
 			mApp->ShowChallengeScreen(ChallengePage::CHALLENGE_PAGE_PUZZLE);
+		}
+		else if (mApp->mGameMode == GAMEMODE_CHALLENGE_SNOWY_DAY) {
+			mApp->KillAwardScreen();
+			mApp->DoBackToMain();
 		}
 		else {
 			mApp->ShowChallengeScreen(ChallengePage::CHALLENGE_PAGE_CHALLENGE);

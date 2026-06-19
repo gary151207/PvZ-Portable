@@ -7124,6 +7124,11 @@ bool Zombie::TrySpawnLevelAward()
             mBoard->AddCoin(aCenterX + i * 5, aCenterY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_COIN);
         }
     }
+    else if (mBoard->IsSnowyDayStageWithRepick())
+    {
+        aCoinType = CoinType::COIN_NONE;
+        mBoard->FadeOutLevel();
+    }
     else if (!mApp->IsAdventureMode())
     {
         if (mApp->HasBeatenChallenge(mApp->mGameMode))

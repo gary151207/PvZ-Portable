@@ -1607,7 +1607,7 @@ void LawnApp::CheckForGameEnd()
 		}
 		else if (mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 		{
-			DoBackToMain();
+			ShowAwardScreen(AwardType::AWARD_FORLEVEL, false);
 		}
 		else
 		{

@@ -193,6 +193,7 @@ public:
     ReanimationID           mBlinkReanimID;
     ReanimationID           mLightReanimID;
     ReanimationID           mSleepingReanimID;
+    ReanimationID           mEliteSunReanimID;
     int32_t                 mBlinkCountdown;
     int32_t                 mRecentlyEatenCountdown;
     int32_t                 mEatenFlashCountdown;
@@ -211,6 +212,8 @@ public:
     bool                    mIsAsleep;
     bool                    mIsOnBoard;
     bool                    mHighlighted;
+    bool                    mIsElite;
+    bool                    mHasFiredFirstPea = false;
 
 public:
     Plant();

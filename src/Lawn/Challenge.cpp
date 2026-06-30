@@ -1747,9 +1747,9 @@ void Challenge::UpdateConveyorBelt()
 	{
 		aSeedPickCount = 3;
 		aSeedPickArray[0].mItem = SEED_WALLNUT;
-		aSeedPickArray[0].mWeight = 85;
+		aSeedPickArray[0].mWeight = 40;
 		aSeedPickArray[1].mItem = SEED_EXPLODE_O_NUT;
-		aSeedPickArray[1].mWeight = 15;
+		aSeedPickArray[1].mWeight = 45;
 		aSeedPickArray[2].mItem = SEED_GIANT_WALLNUT;
 		aSeedPickArray[2].mWeight = 15;
 	}
@@ -1757,9 +1757,9 @@ void Challenge::UpdateConveyorBelt()
 	{
 		aSeedPickCount = 2;
 		aSeedPickArray[0].mItem = SEED_WALLNUT;
-		aSeedPickArray[0].mWeight = 85;
+		aSeedPickArray[0].mWeight = 55;
 		aSeedPickArray[1].mItem = SEED_EXPLODE_O_NUT;
-		aSeedPickArray[1].mWeight = 15;
+		aSeedPickArray[1].mWeight = 45;
 	}
 	else if (mApp->IsLittleTroubleLevel())
 	{
@@ -1921,7 +1921,7 @@ void Challenge::UpdateRainingSeeds()
 	if (mBoard->HasLevelAwardDropped() || --mChallengeStateCounter != 0)
 		return;
 
-	mChallengeStateCounter = RandRangeInt(500, 999);
+	mChallengeStateCounter = RandRangeInt(500, 999) / 3;  // 种子雨来植物频率×3
 
 	Coin* aCoin = mBoard->AddCoin(RandRangeInt(100, 649), 60, COIN_USABLE_SEED_PACKET, COIN_MOTION_FROM_SKY_SLOW);
 

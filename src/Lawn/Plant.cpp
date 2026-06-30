@@ -141,6 +141,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mBlinkReanimID = ReanimationID::REANIMATIONID_NULL;
     mLightReanimID = ReanimationID::REANIMATIONID_NULL;
     mSleepingReanimID = ReanimationID::REANIMATIONID_NULL;
+    mEliteSunReanimID = ReanimationID::REANIMATIONID_NULL;
     mBlinkCountdown = 0;
     mRecentlyEatenCountdown = 0;
     mEatenFlashCountdown = 0;
@@ -156,6 +157,8 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mLaunchRate = aPlantDef.mLaunchRate;
     mSubclass = aPlantDef.mSubClass;
     mRenderOrder = CalcRenderOrder();
+    mIsElite = ((theSeedType == SeedType::SEED_PEASHOOTER || theSeedType == SeedType::SEED_REPEATER) && Sexy::Rand(100) < 20);
+    mHasFiredFirstPea = false;
 
     Reanimation* aBodyReanim = nullptr;
     if (aPlantDef.mReanimationType != ReanimationType::REANIM_NONE)
@@ -496,6 +499,15 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         Plant* aFlowerPot = mBoard->GetFlowerPotAt(mPlantCol, mRow);
         if (aFlowerPot)
             mApp->ReanimationGet(aFlowerPot->mBodyReanimID)->mAnimRate = 0.0f;
+    }
+
+    if (mIsElite)
+    {
+        Reanimation* aSunReanim = mApp->AddReanimation(mX + 56.0f, mY + 48.0f, mRenderOrder + 2, ReanimationType::REANIM_SUN);
+        aSunReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
+        aSunReanim->mAnimRate = 6.0f;
+        aSunReanim->OverrideScale(0.5f, 0.5f);
+        mEliteSunReanimID = mApp->ReanimationGetID(aSunReanim);
     }
 }
 
@@ -2276,6 +2288,7 @@ void Plant::RemoveEffects()
     mApp->RemoveReanimation(mLightReanimID);
     mApp->RemoveReanimation(mBlinkReanimID);
     mApp->RemoveReanimation(mSleepingReanimID);
+    mApp->RemoveReanimation(mEliteSunReanimID);
 }
 
 void Plant::Squish()
@@ -2373,6 +2386,12 @@ void Plant::UpdateBowling()
             mBoard->KillAllZombiesInRadius(mRow, aPosX, aPosY, 90, 1, true, aDamageRangeFlags);
             mApp->AddTodParticle(aPosX, aPosY, static_cast<int>(RenderLayer::RENDER_LAYER_TOP), ParticleEffect::PARTICLE_POWIE);
             mBoard->ShakeBoard(3, -4);
+
+            // 同时释放火爆辣椒效果:点燃整行
+            mApp->PlayFoley(FoleyType::FOLEY_JALAPENO_IGNITE);
+            mBoard->DoFwoosh(mRow);
+            BurnRow(mRow);
+            mBoard->mIceTimer[mRow] = 20;
 
             Die();
 
@@ -2637,6 +2656,10 @@ void Plant::UpdateReanimColor()
     else if (mSeedType == SeedType::SEED_EXPLODE_O_NUT)
     {
         aColorOverride = Color(255, 64, 64);
+    }
+    else if (mIsElite)
+    {
+        aColorOverride = Color(150, 200, 255);
     }
     else
     {
@@ -4674,6 +4697,13 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
         aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
 
+        if (mSeedType == SeedType::SEED_PEASHOOTER && !mHasFiredFirstPea)
+        {
+            aProjectile->mDamageOverride = 300;
+            aProjectile->mRenderScale = 2.0f;
+            mHasFiredFirstPea = true;
+        }
+
         if (mSeedType == SeedType::SEED_CABBAGEPULT || mSeedType == SeedType::SEED_KERNELPULT ||
         mSeedType == SeedType::SEED_MELONPULT || mSeedType == SeedType::SEED_WINTERMELON)
     {
@@ -4761,6 +4791,18 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectile->mCobTargetX = mTargetX - 40;
         aProjectile->mCobTargetRow = mBoard->PixelToGridYKeepOnBoard(mTargetX, mTargetY);
     }
+    }
+
+    if ((mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_REPEATER) && mIsElite)
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            Projectile* aWavePea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
+            aWavePea->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+            aWavePea->mMotionType = ProjectileMotion::MOTION_WAVE;
+            aWavePea->mBaseY = aOriginY;
+            aWavePea->mProjectileAge = i * 21;
+        }
     }
 }
 

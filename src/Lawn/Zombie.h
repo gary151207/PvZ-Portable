@@ -190,7 +190,7 @@ public:
     Zombie();
     ~Zombie();
 
-    void                            ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Zombie* theParentZombie, int theFromWave);
+    void                            ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Zombie* theParentZombie, int theFromWave, bool theConeHelm = false, bool theBalloonPeaHead = false);
     void                            Animate();
     void                            CheckIfPreyCaught();
     void                            EatZombie(Zombie* theZombie);

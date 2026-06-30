@@ -72,6 +72,7 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 	mVelZ = 0.0f;
 	mAccZ = 0.0f;
 	mShadowY = mBoard->GridToPixelY(aGridX, theRow) + 67.0f;
+	mBaseY = theY;
 	mHitTorchwoodGridX = -1;
 	mMotionType = ProjectileMotion::MOTION_STRAIGHT;
 	mFrame = 0;
@@ -96,6 +97,8 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 	mProjectileAge = 0;
 	mClickBackoffCounter = 0;
 	mAnimTicksPerFrame = 0;
+	mDamageOverride = 0;
+	mRenderScale = 1.0f;
 
 	switch (mProjectileType)
 	{
@@ -769,6 +772,11 @@ void Projectile::UpdateNormalMotion()
 		}
 		mPosX -= 3.33f;
 	}
+	else if (mMotionType == ProjectileMotion::MOTION_WAVE)
+	{
+		mPosX += 3.33f;
+		mPosY = mBaseY + sinf(mProjectileAge * 0.15f) * 25.0f;
+	}
 	else if (mMotionType == ProjectileMotion::MOTION_THREEPEATER)
 	{
 		mPosX += 3.33f;
@@ -899,7 +907,8 @@ void Projectile::DoImpact(Zombie* theZombie)
 	else if (theZombie)
 	{
 		unsigned int aDamageFlags = GetDamageFlags(theZombie);
-		theZombie->TakeDamage(GetProjectileDef().mDamage, aDamageFlags);
+		int aDamage = mDamageOverride > 0 ? mDamageOverride : GetProjectileDef().mDamage;
+		theZombie->TakeDamage(aDamage, aDamageFlags);
 	}
 
 	float aLastPosX = mPosX - mVelX;
@@ -1096,6 +1105,7 @@ void Projectile::Draw(Graphics* g)
 		break;
 	}
 
+	aScale *= mRenderScale;
 	bool aMirror = false;
 	if (mMotionType == ProjectileMotion::MOTION_BEE_BACKWARDS)
 	{

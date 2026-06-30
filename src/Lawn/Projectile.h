@@ -57,6 +57,7 @@ public:
     float                   mVelZ;
     float                   mAccZ;
     float                   mShadowY;
+    float                   mBaseY;
     bool                    mDead;
     int32_t                 mAnimTicksPerFrame;
     ProjectileMotion        mMotionType;
@@ -73,6 +74,8 @@ public:
     int32_t                 mCobTargetRow;
     ZombieID                mTargetZombieID;
     int32_t                 mLastPortalX;
+    int32_t                 mDamageOverride = 0;
+    float                   mRenderScale = 1.0f;
 
 public:
     Projectile();

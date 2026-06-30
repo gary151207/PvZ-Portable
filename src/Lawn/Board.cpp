@@ -2727,6 +2727,27 @@ Zombie* Board::AddZombieInRow(ZombieType theZombieType, int theRow, int theFromW
 		return nullptr;
 	}
 
+	// 路障僵尸有 20% 概率变为带路障的豌豆射手头僵尸（调试召唤与我是僵尸玩法除外）
+	bool aConeOnPeaHead = false;
+	if (theZombieType == ZombieType::ZOMBIE_TRAFFIC_CONE &&
+		theFromWave != Zombie::ZOMBIE_WAVE_DEBUG &&
+		!mApp->IsIZombieLevel() &&
+		!Rand(5))
+	{
+		theZombieType = ZombieType::ZOMBIE_PEA_HEAD;
+		aConeOnPeaHead = true;
+	}
+
+	// 气球僵尸有 20% 概率变为豌豆射手头气球僵尸（调试召唤与我是僵尸玩法除外）
+	bool aBalloonPeaHead = false;
+	if (theZombieType == ZombieType::ZOMBIE_BALLOON &&
+		theFromWave != Zombie::ZOMBIE_WAVE_DEBUG &&
+		!mApp->IsIZombieLevel() &&
+		!Rand(5))
+	{
+		aBalloonPeaHead = true;
+	}
+
 	// @Patoke: implemented
 	if (theZombieType == ZombieType::ZOMBIE_YETI) {
 		if (mApp->IsAdventureMode() && mLevel == 40 && theFromWave >= 0)
@@ -2735,7 +2756,7 @@ Zombie* Board::AddZombieInRow(ZombieType theZombieType, int theRow, int theFromW
 
 	bool aVariant = !Rand(5);
 	Zombie* aZombie = mZombies.DataArrayAlloc();
-	aZombie->ZombieInitialize(theRow, theZombieType, aVariant, nullptr, theFromWave);
+	aZombie->ZombieInitialize(theRow, theZombieType, aVariant, nullptr, theFromWave, aConeOnPeaHead, aBalloonPeaHead);
 	if (theZombieType == ZombieType::ZOMBIE_BOBSLED && aZombie->IsOnBoard())
 	{
 		for (int _i = 0; _i < 3; _i++)
@@ -5431,9 +5452,6 @@ void Board::UpdateZombieSpawning()
 		mTutorialState == TutorialState::TUTORIAL_SLOT_MACHINE_PULL)
 		return;
 
-	if (HasLevelAwardDropped())
-		return;
-
 	if (mRiseFromGraveCounter > 0)
 	{
 		mRiseFromGraveCounter--;
@@ -5510,6 +5528,9 @@ void Board::UpdateZombieSpawning()
 		}
 		return;
 	}
+
+	if (HasLevelAwardDropped())
+		return;
 
 	if (mZombieCountDown > 200 && mZombieCountDownStart - mZombieCountDown > 400 && TotalZombiesHealthInWave(mCurrentWave - 1) <= mZombieHealthToNextWave)
 	{

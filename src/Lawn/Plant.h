@@ -196,6 +196,7 @@ public:
     ReanimationID           mEliteSunReanimID;
     int32_t                 mBlinkCountdown;
     int32_t                 mRecentlyEatenCountdown;
+    int32_t                 mTallnutCounterCooldown;
     int32_t                 mEatenFlashCountdown;
     int32_t                 mBeghouledFlashCountdown;
     float                   mShakeOffsetX;
@@ -316,6 +317,7 @@ public:
     void                    PlayIdleAnim(float theRate);
     void                    UpdateFlowerPot();
     void                    UpdateLilypad();
+    void                    UpdateTallnut();
     void                    GoldMagnetFindTargets();
     bool                    IsAGoldMagnetAboutToSuck();
     bool                    DrawMagnetItemsOnTop();

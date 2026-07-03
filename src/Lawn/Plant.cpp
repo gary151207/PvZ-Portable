@@ -144,6 +144,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mEliteSunReanimID = ReanimationID::REANIMATIONID_NULL;
     mBlinkCountdown = 0;
     mRecentlyEatenCountdown = 0;
+    mTallnutCounterCooldown = 0;
     mEatenFlashCountdown = 0;
     mBeghouledFlashCountdown = 0;
     mWidth = 80;
@@ -1317,6 +1318,8 @@ void Plant::UpdateScaredyShroom()
         if (aBodyReanim->mLoopCount > 0)
         {
             mState = PlantState::STATE_SCAREDYSHROOM_SCARED;
+            mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+            mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
             PlayBodyReanim("anim_scaredidle", ReanimLoopType::REANIM_LOOP, 10, 0.0f);
         }
     }
@@ -2554,6 +2557,7 @@ void Plant::UpdateAbilities()
     else if (mSeedType == SeedType::SEED_POTATOMINE)                                            UpdatePotato();
     else if (mSeedType == SeedType::SEED_SPIKEWEED || mSeedType == SeedType::SEED_SPIKEROCK)    UpdateSpikeweed();
     else if (mSeedType == SeedType::SEED_TANGLEKELP)                                            UpdateTanglekelp();
+    else if (mSeedType == SeedType::SEED_TALLNUT)                                               UpdateTallnut();
     else if (mSeedType == SeedType::SEED_SCAREDYSHROOM)                                         UpdateScaredyShroom();
 
     if (mSubclass == PlantSubClass::SUBCLASS_SHOOTER)
@@ -3072,6 +3076,35 @@ void Plant::UpdateBlink()
             DoBlink();
         }
     }
+}
+
+void Plant::UpdateTallnut()
+{
+    if (mTallnutCounterCooldown > 0)
+    {
+        mTallnutCounterCooldown--;
+        return;
+    }
+
+    bool aHasEater = false;
+    Zombie* aZombie = nullptr;
+    while (mBoard->IterateZombies(aZombie))
+    {
+        if (aZombie->mTargetPlantID == (PlantID)mBoard->mPlants.DataArrayGetID(this))
+        {
+            aZombie->TakeDamage(100, 0U);
+            aHasEater = true;
+        }
+    }
+
+    if (aHasEater)
+    {
+        mPlantHealth += 75;
+        if (mPlantHealth > mPlantMaxHealth)
+            mPlantHealth = mPlantMaxHealth;
+    }
+
+    mTallnutCounterCooldown = 500;
 }
 
 void Plant::AnimateNuts()

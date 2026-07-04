@@ -3112,7 +3112,7 @@ void Plant::UpdateTallnut()
                 aEffect = ParticleEffect::PARTICLE_WALLNUT_EAT_LARGE;
             else
                 aEffect = ParticleEffect::PARTICLE_POW;
-            mApp->AddTodParticle(mX + 40 + aOffX, mY + aOffY, mRenderOrder + 1, aEffect);
+            mApp->AddTodParticle(mX + 40 + aOffX, mY + aOffY, static_cast<int>(RenderLayer::RENDER_LAYER_TOP), aEffect);
         }
         mPlantHealth += 75;
         if (mPlantHealth > mPlantMaxHealth)

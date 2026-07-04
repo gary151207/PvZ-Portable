@@ -3100,6 +3100,11 @@ void Plant::UpdateTallnut()
     if (aHasEater)
     {
         mApp->AddTodParticle(mX + 40, mY - 22, mRenderOrder + 1, ParticleEffect::PARTICLE_TALL_NUT_BLOCK);
+        mApp->AddTodParticle(mX + 50, mY - 14, mRenderOrder + 1, ParticleEffect::PARTICLE_TALL_NUT_BLOCK);
+        mApp->AddTodParticle(mX + 30, mY - 30, mRenderOrder + 1, ParticleEffect::PARTICLE_TALL_NUT_BLOCK);
+        mApp->AddTodParticle(mX + 20, mY - 10, mRenderOrder + 1, ParticleEffect::PARTICLE_WALLNUT_EAT_LARGE);
+        mApp->AddTodParticle(mX + 60, mY - 20, mRenderOrder + 1, ParticleEffect::PARTICLE_WALLNUT_EAT_LARGE);
+        mApp->AddTodParticle(mX + 40, mY + 10, mRenderOrder + 1, ParticleEffect::PARTICLE_POW);
         mPlantHealth += 75;
         if (mPlantHealth > mPlantMaxHealth)
             mPlantHealth = mPlantMaxHealth;

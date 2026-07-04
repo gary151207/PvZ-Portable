@@ -3099,7 +3099,7 @@ void Plant::UpdateTallnut()
 
     if (aHasEater)
     {
-        for (int i = 0; i < 40; i++)
+        for (int i = 0; i < 100; i++)
         {
             int aOffX = RandRangeInt(-30, 30);
             int aOffY = RandRangeInt(-40, 20);
@@ -3118,7 +3118,7 @@ void Plant::UpdateTallnut()
             mPlantHealth = mPlantMaxHealth;
     }
 
-    mTallnutCounterCooldown = 500;
+    mTallnutCounterCooldown = 300;
 }
 
 void Plant::AnimateNuts()

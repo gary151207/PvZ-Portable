@@ -3099,12 +3099,20 @@ void Plant::UpdateTallnut()
 
     if (aHasEater)
     {
-        mApp->AddTodParticle(mX + 40, mY - 22, mRenderOrder + 1, ParticleEffect::PARTICLE_TALL_NUT_BLOCK);
-        mApp->AddTodParticle(mX + 50, mY - 14, mRenderOrder + 1, ParticleEffect::PARTICLE_TALL_NUT_BLOCK);
-        mApp->AddTodParticle(mX + 30, mY - 30, mRenderOrder + 1, ParticleEffect::PARTICLE_TALL_NUT_BLOCK);
-        mApp->AddTodParticle(mX + 20, mY - 10, mRenderOrder + 1, ParticleEffect::PARTICLE_WALLNUT_EAT_LARGE);
-        mApp->AddTodParticle(mX + 60, mY - 20, mRenderOrder + 1, ParticleEffect::PARTICLE_WALLNUT_EAT_LARGE);
-        mApp->AddTodParticle(mX + 40, mY + 10, mRenderOrder + 1, ParticleEffect::PARTICLE_POW);
+        for (int i = 0; i < 40; i++)
+        {
+            int aOffX = RandRangeInt(-30, 30);
+            int aOffY = RandRangeInt(-40, 20);
+            ParticleEffect aEffect;
+            int aR = Rand(3);
+            if (aR == 0)
+                aEffect = ParticleEffect::PARTICLE_TALL_NUT_BLOCK;
+            else if (aR == 1)
+                aEffect = ParticleEffect::PARTICLE_WALLNUT_EAT_LARGE;
+            else
+                aEffect = ParticleEffect::PARTICLE_POW;
+            mApp->AddTodParticle(mX + 40 + aOffX, mY + aOffY, mRenderOrder + 1, aEffect);
+        }
         mPlantHealth += 75;
         if (mPlantHealth > mPlantMaxHealth)
             mPlantHealth = mPlantMaxHealth;

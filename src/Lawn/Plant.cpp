@@ -3099,6 +3099,7 @@ void Plant::UpdateTallnut()
 
     if (aHasEater)
     {
+        mEatenFlashCountdown = 50;
         for (int i = 0; i < 100; i++)
         {
             int aOffX = RandRangeInt(-30, 30);

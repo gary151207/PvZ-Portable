@@ -2143,7 +2143,7 @@ Coin* Plant::FindGoldMagnetTarget()
     Coin* aCoin = nullptr;
     while (mBoard->IterateCoins(aCoin))
     {
-        if (aCoin->IsMoney() && aCoin->mCoinMotion != CoinMotion::COIN_MOTION_FROM_PRESENT && !aCoin->mIsBeingCollected && aCoin->mCoinAge >= 50)
+        if ((aCoin->IsMoney() || aCoin->IsSun()) && aCoin->mCoinMotion != CoinMotion::COIN_MOTION_FROM_PRESENT && !aCoin->mIsBeingCollected && aCoin->mCoinAge >= 50)
         {
             float aDistance = Distance2D(mX + mWidth / 2, mY + mHeight / 2, aCoin->mPosX + aCoin->mWidth / 2, aCoin->mPosY + aCoin->mHeight / 2);
             if (aClosestCoin == nullptr || aDistance < aClosestDistance)
@@ -2185,9 +2185,22 @@ void Plant::GoldMagnetFindTargets()
         case CoinType::COIN_SILVER:     aMagnetItem->mItemType = MagnetItemType::MAGNET_ITEM_SILVER_COIN;   break;
         case CoinType::COIN_GOLD:       aMagnetItem->mItemType = MagnetItemType::MAGNET_ITEM_GOLD_COIN;     break;
         case CoinType::COIN_DIAMOND:    aMagnetItem->mItemType = MagnetItemType::MAGNET_ITEM_DIAMOND;       break;
+        case CoinType::COIN_SUN:        aMagnetItem->mItemType = MagnetItemType::MAGNET_ITEM_SUN;           break;
+        case CoinType::COIN_SMALLSUN:   aMagnetItem->mItemType = MagnetItemType::MAGNET_ITEM_SMALLSUN;      break;
+        case CoinType::COIN_LARGESUN:   aMagnetItem->mItemType = MagnetItemType::MAGNET_ITEM_LARGESUN;      break;
         default:                        TOD_ASSERT(false);                                                       return;
         }
-        
+
+        if (aCoin->IsSun())
+        {
+            float aSunX = aMagnetItem->mPosX + aCoin->mWidth / 2.0f;
+            float aSunY = aMagnetItem->mPosY + aCoin->mHeight / 2.0f;
+            Reanimation* aSunReanim = mApp->AddReanimation(aSunX, aSunY, mRenderOrder + 2, ReanimationType::REANIM_SUN);
+            aSunReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
+            aSunReanim->mAnimRate = 6.0f;
+            aMagnetItem->mSunReanimID = mApp->ReanimationGetID(aSunReanim);
+        }
+
         aCoin->Die();
     }
 }
@@ -2224,19 +2237,45 @@ void Plant::UpdateGoldMagnetShroom()
             float aDistance = aVectorToPlant.Magnitude();
             if (aDistance < 20.0f)
             {
-                CoinType aCoinType;
-                switch (aMagnetItem->mItemType)
+                if (aMagnetItem->mItemType == MagnetItemType::MAGNET_ITEM_SUN ||
+                    aMagnetItem->mItemType == MagnetItemType::MAGNET_ITEM_SMALLSUN ||
+                    aMagnetItem->mItemType == MagnetItemType::MAGNET_ITEM_LARGESUN)
                 {
-                case MagnetItemType::MAGNET_ITEM_SILVER_COIN:   aCoinType = CoinType::COIN_SILVER;      break;
-                case MagnetItemType::MAGNET_ITEM_GOLD_COIN:     aCoinType = CoinType::COIN_GOLD;        break;
-                case MagnetItemType::MAGNET_ITEM_DIAMOND:       aCoinType = CoinType::COIN_DIAMOND;     break;
-                default:                                        TOD_ASSERT(false);                           return;
+                    CoinType aCoinType;
+                    switch (aMagnetItem->mItemType)
+                    {
+                    case MagnetItemType::MAGNET_ITEM_SUN:        aCoinType = CoinType::COIN_SUN;        break;
+                    case MagnetItemType::MAGNET_ITEM_SMALLSUN:   aCoinType = CoinType::COIN_SMALLSUN;   break;
+                    case MagnetItemType::MAGNET_ITEM_LARGESUN:   aCoinType = CoinType::COIN_LARGESUN;   break;
+                    default:                                    TOD_ASSERT(false);                          return;
+                    }
+
+                    int aValue = Coin::GetSunValue(aCoinType);
+                    mBoard->AddSunMoney(aValue);
+                    mApp->PlayFoley(FoleyType::FOLEY_SUN);
+                }
+                else
+                {
+                    CoinType aCoinType;
+                    switch (aMagnetItem->mItemType)
+                    {
+                    case MagnetItemType::MAGNET_ITEM_SILVER_COIN:   aCoinType = CoinType::COIN_SILVER;      break;
+                    case MagnetItemType::MAGNET_ITEM_GOLD_COIN:     aCoinType = CoinType::COIN_GOLD;        break;
+                    case MagnetItemType::MAGNET_ITEM_DIAMOND:       aCoinType = CoinType::COIN_DIAMOND;     break;
+                    default:                                        TOD_ASSERT(false);                           return;
+                    }
+
+                    int aValue = Coin::GetCoinValue(aCoinType);
+                    mApp->mPlayerInfo->AddCoins(aValue);
+                    mBoard->mCoinsCollected += aValue;
+                    mApp->PlayFoley(FoleyType::FOLEY_COIN);
                 }
 
-                int aValue = Coin::GetCoinValue(aCoinType);
-                mApp->mPlayerInfo->AddCoins(aValue);
-                mBoard->mCoinsCollected += aValue;
-                mApp->PlayFoley(FoleyType::FOLEY_COIN);
+                if (aMagnetItem->mSunReanimID != ReanimationID::REANIMATIONID_NULL)
+                {
+                    mApp->RemoveReanimation(aMagnetItem->mSunReanimID);
+                    aMagnetItem->mSunReanimID = ReanimationID::REANIMATIONID_NULL;
+                }
 
                 aMagnetItem->mItemType = MagnetItemType::MAGNET_ITEM_NONE;
             }
@@ -2245,6 +2284,17 @@ void Plant::UpdateGoldMagnetShroom()
                 float aSpeed = TodAnimateCurveFloatTime(30.0f, 0.0f, aDistance, 0.02f, 0.05f, TodCurves::CURVE_LINEAR);
                 aMagnetItem->mPosX += aVectorToPlant.x * aSpeed;
                 aMagnetItem->mPosY += aVectorToPlant.y * aSpeed;
+
+                if (aMagnetItem->mSunReanimID != ReanimationID::REANIMATIONID_NULL)
+                {
+                    Reanimation* aSunReanim = mApp->ReanimationGet(aMagnetItem->mSunReanimID);
+                    if (aSunReanim)
+                    {
+                        float aScale = aMagnetItem->mItemType == MagnetItemType::MAGNET_ITEM_SMALLSUN ? 0.5f : aMagnetItem->mItemType == MagnetItemType::MAGNET_ITEM_LARGESUN ? 2.0f : 1.0f;
+                        aSunReanim->SetPosition(aMagnetItem->mPosX - 15.0f, aMagnetItem->mPosY - 15.0f);
+                        aSunReanim->OverrideScale(aScale, aScale);
+                    }
+                }
 
                 aIsSuckingCoin = true;
             }
@@ -2292,6 +2342,15 @@ void Plant::RemoveEffects()
     mApp->RemoveReanimation(mBlinkReanimID);
     mApp->RemoveReanimation(mSleepingReanimID);
     mApp->RemoveReanimation(mEliteSunReanimID);
+
+    for (int i = 0; i < MAX_MAGNET_ITEMS; i++)
+    {
+        if (mMagnetItems[i].mSunReanimID != ReanimationID::REANIMATIONID_NULL)
+        {
+            mApp->RemoveReanimation(mMagnetItems[i].mSunReanimID);
+            mMagnetItems[i].mSunReanimID = ReanimationID::REANIMATIONID_NULL;
+        }
+    }
 }
 
 void Plant::Squish()
@@ -3837,6 +3896,12 @@ void Plant::DrawMagnetItems(Graphics* g)
             {
                 aScale = 1.0f;
                 aImage = IMAGE_REANIM_DIAMOND;
+            }
+            else if (aMagnetItem->mItemType == MagnetItemType::MAGNET_ITEM_SUN ||
+                     aMagnetItem->mItemType == MagnetItemType::MAGNET_ITEM_SMALLSUN ||
+                     aMagnetItem->mItemType == MagnetItemType::MAGNET_ITEM_LARGESUN)
+            {
+                continue;
             }
             else
             {

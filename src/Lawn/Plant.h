@@ -143,7 +143,10 @@ enum MagnetItemType : int32_t
     MAGNET_ITEM_SILVER_COIN,
     MAGNET_ITEM_GOLD_COIN,
     MAGNET_ITEM_DIAMOND,
-    MAGNET_ITEM_PICK_AXE
+    MAGNET_ITEM_PICK_AXE,
+    MAGNET_ITEM_SUN,
+    MAGNET_ITEM_SMALLSUN,
+    MAGNET_ITEM_LARGESUN
 };
 
 class MagnetItem
@@ -154,6 +157,7 @@ public:
     float                   mDestOffsetX;
     float                   mDestOffsetY;
     MagnetItemType          mItemType;
+    ReanimationID           mSunReanimID;
 };
 
 class Coin;

@@ -1311,7 +1311,12 @@ float Coin::GetSunScale()
 
 int Coin::GetSunValue()
 {
-    return mType == CoinType::COIN_SUN ? 25 : mType == CoinType::COIN_SMALLSUN ? 15 : mType == CoinType::COIN_LARGESUN ? 50 : 0;
+    return GetSunValue(mType);
+}
+
+int Coin::GetSunValue(CoinType theCoinType)
+{
+    return theCoinType == CoinType::COIN_SUN ? 25 : theCoinType == CoinType::COIN_SMALLSUN ? 15 : theCoinType == CoinType::COIN_LARGESUN ? 50 : 0;
 }
 
 int Coin::GetCoinValue(CoinType theCoinType)

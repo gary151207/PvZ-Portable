@@ -2,11 +2,11 @@
 
 ## Summary
 
-Make the **Umbrella Leaf** (叶子保护伞 / Leaf Protector, `SEED_UMBRELLA`) knock back and damage nearby zombies. When a zombie is in the same cell as the plant or the cell immediately to its right (same row), the leaf "shoves" the zombie: applying a rightward position delta (knockback) plus **50 body damage** per hit. This is an entirely **new, additive behavior**; the pre-existing "reflect projectile" mechanic (反射, `anim_block`) stays untouched.
+Make the **Umbrella Leaf** (叶子保护伞 / Leaf Protector, `SEED_UMBRELLA`) knock back nearby zombies **at its own expense**. When a zombie is in the same cell as the plant or the cell immediately to its right (same row), the leaf "shoves" every qualifying zombie one step to the right and then **takes 50 HP of damage itself**. This is an entirely **new, additive behavior**; the pre-existing "reflect projectile" mechanic (反射, `anim_block`) stays untouched.
 
 ## Motivation
 
-In vanilla PvZ the Leaf Protector's only job is reflecting Bungee-zombie grabs and catapult projectiles — a pure utility plant that does nothing once the front line closes in. Giving it a focused "proximity shove" turns it into a defensive plant with an active crowd-control role, synergizing thematically (a big leaf batting zombies away) and mechanically (creating breathing room for offensive plants behind it). The hit is tuned to be survivable-in-burst (50 HP is ¼ of a basic zombie's 200 HP) but meaningful, and the tight 2-cell range keeps the plant from becoming a self-sufficient lane holder.
+In vanilla PvZ the Leaf Protector's only job is reflecting Bungee-zombie grabs and catapult projectiles — a pure utility plant that does nothing once the front line closes in. Giving it a focused "proximity shove" turns it into a defensive plant with an active crowd-control role, synergizing thematically (a big leaf batting zombies away) and mechanically (creating breathing room for offensive plants behind it). The shove is **costly**: the leaf loses 50 HP each time it shoves. An unupgraded leaf starts at 300 HP, so it can absorb 6 shoves before wilting — a deliberate budget that keeps it a tempo tool, not a self-sufficient lane holder. The tight 2-cell range reinforces this: the leaf buys space, not a permanent wall.
 
 ## Current Umbrella Leaf behavior (code facts)
 
@@ -30,8 +30,8 @@ The mechanic runs as a **new, parallel attack loop** driven by a new `PlantState
 - **When** (trigger): every `Update()` frame, when the leaf is idle (`STATE_NOTREADY`), a new helper `FindUmbrellaTarget()` scans zombies. If any non-dying zombie of the **same row** has a cell X of `mPlantCol` or `mPlantCol + 1`, the leaf starts a knockback attack.
 - **Animation**: play `"anim_block"` once (the existing reanim block animation doubles as the "bat" motion) at a brisk rate.
 - **Hit frame**: at a fixed point in the attack animation (e.g. a frame near the start so the shove reads as causal), call `DoUmbrellaKnockback()` which scans the target zone again and, for each valid zombie:
-  - applies `aZombie->KnockBack(UMBRELLA_KNOCKBACK)` — a **~40 px rightward position delta** (same underlying method Gloom-shroom uses). Eating is interrupted, heavy/airborne zombies are skipped per `KnockBack`'s built-in immunity list.
-  - applies `aZombie->TakeDamage(50, UMBRELLA_DAMAGE_FLAGS)` — **50 raw HP**. Subject to the normal damage pipeline: helmet → shield → body; reduced by Boss aura if a Boss is alive; Football-zombie-with-helmet takes half.
+  - applies `aZombie->KnockBack(UMBRELLA_KNOCKBACK)` to every qualifying zombie — a **~40 px rightward position delta** (same underlying method Gloom-shroom uses). Eating is interrupted, heavy/airborne zombies are skipped per `KnockBack`'s built-in immunity list. Immune zombies are simply not shoved; they are NOT damaged either.
+  - **The leaf itself loses 50 HP** after the shove resolves: `mPlantHealth -= UMBRELLA_KNOCKBACK_DAMAGE`. If `mPlantHealth` drops to 0 or below, the leaf plays `FOLEY_SQUISH` and calls `Die()`. This is the leaf's "exhaustion" cost for shoving — its defining tradeoff.
 - **Cooldown**: after the attack animation + hit frame, the leaf enters a short cooldown (`STATE_NOTREADY` with `mStateCountdown`) before it can trigger another shove. This prevents per-frame multi-hitting.
 - **Not interrupted**: all pre-existing umbrella behavior (reflect on projectile contact) runs unchanged. A reflect can still interrupt or run between proximity attacks; both share the `"anim_block"` animation but use different state values, so they do not collide. Priority edge case: the existing reflect handler (`Plant.cpp:~4526`) checks `mState != STATE_UMBRELLA_TRIGGERED && mState != STATE_UMBRELLA_REFLECTING` — it does NOT guard on the new state, so a reflect that fires during a proximity attack overrides the attack state. Acceptable and rare; noted in Edge Cases.
 - **Range**: strictly same row, columns `mPlantCol` and `mPlantCol + 1`. Uses `Board::PixelToGridX` for cell resolution (consistent with Gloom and Scaredy-shroom). Adjacent-row zombies are intentionally NOT hit — the leaf is a leaf, not a shockwave.
@@ -42,7 +42,7 @@ The mechanic runs as a **new, parallel attack loop** driven by a new `PlantState
 | Constant | Value | Rationale |
 |---|---|---|
 | `UMBRELLA_KNOCKBACK` | `40.0f` (pixels, +X) | Slightly stronger than Gloom's 35 px — a "bat" should shove a bit harder than a puff of spores, but not launch. |
-| `UMBRELLA_KNOCKBACK_DAMAGE` | `50` (HP) | ¼ of a basic zombie (200 HP). 4 shoves to kill a basic zombie — meaningful but not a delete button. |
+| `UMBRELLA_KNOCKBACK_DAMAGE` | `50` (HP) | Self-exhaustion cost. With a base leaf at 300 HP, the plant can absorb 6 shoves; an unupgraded leaf must be budgeted carefully or it wilts mid-fight. |
 | `UMBRELLA_KNOCKBACK_COOLDOWN` | `90` frames (~0.9 s @ 100 fps) | Prevents per-frame multi-hit while remaining responsive to a crowd shuffling in. |
 | `UMBRELLA_KNOCKBACK_ANIM_FRAMES` | matches `"anim_block"` length; hit fires at frame ~8 of the one-shot | Reads as causal ("leaf pushes, zombie lurches") |
 
@@ -50,7 +50,7 @@ The mechanic runs as a **new, parallel attack loop** driven by a new `PlantState
 
 1. **Predictable for the player**: a 2-cell rectangle the player can see and reason about. Pixel-based triggers (like `DoRowAreaDamage`'s rect overlap) feel fuzzy when a zombie is "slightly too far" — cells are unambiguous.
 2. **Synergy with "leaf bat" identity**: the leaf whips forward-right, so hitting the cell it occupies and the one immediately forward reads visually.
-3. **Anti-stunlock**: a strict 2-cell window means a pushed zombie (shoved ~40 px right, out of the trigger band on most grid alignments) must walk back in to get hit again, naturally spacing the `50`-damage hits. Combined with the cooldown, this avoids a permanent stun cage.
+3. **Budget pressure**: each shove costs the leaf 50 HP on top of consuming the zombie's approach. Combined with the short 2-cell range and the cooldown, the leaf is a tempo tool — it buys breathing room but must be budgeted or it wilts.
 
 ## Implementation
 
@@ -60,13 +60,11 @@ Near the existing `GLOOM_KNOCKBACK` (around line 38), add:
 
 ```cpp
 constexpr const float UMBRELLA_KNOCKBACK        = 40.0f;  // per-hit knockback distance for Umbrella Leaf (pixels, +X)
-constexpr const int   UMBRELLA_KNOCKBACK_DAMAGE = 50;     // raw HP removed per hit
+constexpr const int   UMBRELLA_KNOCKBACK_DAMAGE = 50;     // HP the leaf loses per shove (self-exhaustion cost)
 constexpr const int   UMBRELLA_KNOCKBACK_COOLDOWN = 90;   // frames between proximity attacks
-// Damage flag: bypass nothing special — standard spikes-style so it interacts with helmet/shield normally.
-constexpr const unsigned int UMBRELLA_DAMAGE_FLAGS = 1U;  // DAMAGE_ONE like most direct plant hits
 ```
 
-(Verify the actual "plain hit" flag value in `src/ConstEnums.h` `DamageFlags` — `DAMAGE_ONE = 1U` is the common default. If the project prefers `0U` for direct damage, use that.) The exact flag value should match what `SpikeweedAttack` / `TakeDamage(20, 33U)` uses — see Edge Cases note.
+No damage-flag constant is needed — zombies are no longer damaged; the leaf takes plain `mPlantHealth -= 50` damage to itself.
 
 ### 2. New state — `src/Lawn/Plant.h`
 
@@ -131,26 +129,22 @@ void Plant::DoUmbrellaKnockback()
 
         // KnockBack has its own immunity (heavy vehicles + airborne + enraged newspaper).
         aZombie->KnockBack(UMBRELLA_KNOCKBACK);
-
-        // Only deal damage to zombies that actually moved (non-immune ones).
-        // KnockBack returns early without touching position for the immune set,
-        // so re-checking position delta is overkill — just apply damage;
-        // TakeDamage handles 0 via the dead check on the next frame.
-        aZombie->TakeDamage(UMBRELLA_KNOCKBACK_DAMAGE, UMBRELLA_DAMAGE_FLAGS);
     }
 
-    mApp->PlayFoley(FoleyType::FOLEY_SPLAT);   // satisfying "thwack"
-    mApp->PlayFoley(FoleyType::FOLEY_PLANT_2); // optional alternative; verify name in TodFoley.cpp
+    // The leaf exhausts itself shoving: lose 50 HP. At 0 HP, it dies.
+    mPlantHealth -= UMBRELLA_KNOCKBACK_DAMAGE;
+    if (mPlantHealth <= 0)
+    {
+        mPlantHealth = 0;
+        mApp->PlayFoley(FoleyType::FOLEY_SQUISH);
+        Die();
+    }
+    else
+    {
+        mApp->PlayFoley(FoleyType::FOLEY_SPLAT);   // satisfying "thwack"
+    }
 }
 ```
-
-> **Note**: the `TakeDamage` call on an **immune zombie** (e.g. Zamboni) is intentional and correct — in this design, immune zombies take the 50 damage but are NOT shoved (they are too heavy to bat away). `KnockBack` skips the position delta; `TakeDamage` still applies. This differs from the "immune = fully ignored" reading and should be decided:
-> - **Take damage, don't move** (current code) — leaf still hurts heavy zombies' HP even if it can't shove them.
-> - **Fully ignore** (skip immune zombies entirely) — leaf passes through Vehicles / air units.
->
-> Recommendation: **keep as written** (hurt-but-don't-move). It's consistent with how umbrella's old reflect doesn't trigger on vehicles, and rewards the player for heavier HP pools. ^If the player prefers "fully ignore", change to a `continue` when `aZombie->KnockBack` would no-op (see Edge Cases for a clean predicate). The design doc commits to **hurt-but-don't-move**.
-
-If the project wants this "hurt-but-don't-move" rule cleanly, `KnockBack` can be taught a return value (see Edge Cases).
 
 ### 5. New attack state driver — modify `Plant::UpdateUmbrella()` (`src/Lawn/Plant.cpp:1672`)
 
@@ -269,7 +263,7 @@ void                        DoUmbrellaKnockback();
 
 ### Files Modified
 
-- `src/GameConstants.h` — new `UMBRELLA_KNOCKBACK`, `UMBRELLA_KNOCKBACK_DAMAGE`, `UMBRELLA_KNOCKBACK_COOLDOWN`, `UMBRELLA_DAMAGE_FLAGS` constants.
+- `src/GameConstants.h` — new `UMBRELLA_KNOCKBACK`, `UMBRELLA_KNOCKBACK_DAMAGE`, `UMBRELLA_KNOCKBACK_COOLDOWN` constants.
 - `src/Lawn/Plant.h` — new `STATE_UMBRELLA_KNOCKING` enum value (appended), new `mDoUmbrellaKnockbackFired` member and `FindUmbrellaTarget` / `DoUmbrellaKnockback` declarations.
 - `src/Lawn/Plant.cpp` — `UpdateUmbrella` expanded with new state driver; `FindUmbrellaTarget` + `DoUmbrellaKnockback` definitions.
 
@@ -286,17 +280,16 @@ void                        DoUmbrellaKnockback();
 - **Multiple Umbrella Leaves in the same row**: each triggers independently. A zombie in the shared range of two leaves could be shoved twice in one frame (≤80 px, ≤100 damage) — intentional, rewards stacking. Cooldowns are per-plant, so staggered timing is natural; simultaneous-trigger is rare.
 - **Zombie on high ground vs. leaf on low ground (and vice versa)**: `DoRowAreaDamage` normally checks `aZombie->mOnHighGround == IsOnHighGround()`. The umbrella proximity check **currently omits this filter**. Decision: the cell match is the gate; high/low mismatch does not block. If the project wants high-ground parity matching, add the check in `FindUmbrellaTarget`. The doc commits to **no gate** (theoretical; the leaf is only placeable on the same high-ground state in vanilla, but mods may break that). Add the `mOnHighGround` check if terrain parity matters.
 - **Reflect firing mid-knockback-attack** (rare): the existing projectile-hit handler at `~4526` overrides `mState` to `STATE_UMBRELLA_TRIGGERED` without checking `STATE_UMBRELLA_KNOCKING`. Result: the current attack cycle is interrupted, reflect plays, then the leaf re-arms after reflect completes. Acceptable — defensive utility takes priority. If the implementer wants strict separation, add `&& mState != STATE_UMBRELLA_KNOCKING` to the handler's guard.
-- **Heavy vehicles (Zamboni, Catapult) in range**: `KnockBack` skips the position delta but the design says `DoUmbrellaKnockback` still calls `TakeDamage`. Effect: vehicles **take the 50 damage but are not moved** — see the "hurt-but-don't-move" rule note. For a cleaner "is this zombie immune to being *moved* by knockback?" predicate without relying on `KnockBack`'s private early-returns, the implementer can pull out a helper:
-  ```cpp
-  static bool CanBeKnockedBack(const Zombie* z) { /* mirror KnockBack's early-return conditions */ }
-  ```
-  and use it to gate the damage branch too — FULLY IGNORE if the project prefers. The design doc commits to **hurt-but-don't-move**.
-- **Boss (`ZOMBIE_BOSS`)**: the scan in `FindUmbrellaTarget` explicitly skips the Boss (treats it as every-row). This prevents the leaf from being a cheap Boss-lock. If a future version wants the leaf to boss-hit, remove the skip.
+- **Umbrella Leaf self-exhaustion death mid-fight**: with base HP 300 and 50 HP per shove, the leaf survives 6 shoves. On the 7th shove `mPlantHealth` hits 0, `FOLEY_SQUISH` plays, `Die()` is called, `mDead = true`, and the plant is cleaned up on the next board tick. Design consequence: the leaf is a **consumable tempo tool**, not permanent defense. Players should budget shoves or tank with high-HP plants.
+- **Multiple Umbrella Leaves in the same row**: each triggers independently and each pays its own 50 HP cost. Stacking is a tempo choice, not free — two leaves both shoving means both lose 50 HP per cycle.
+- **Zombie on high ground vs. leaf on low ground (and vice versa)**: `DoRowAreaDamage` normally checks `aZombie->mOnHighGround == IsOnHighGround()`. The umbrella proximity check **currently omits this filter**. Decision: the cell match is the gate; high/low mismatch does not block. If the project wants high-ground parity matching, add the check in `FindUmbrellaTarget`. The doc commits to **no gate** (theoretical; the leaf is only placeable on the same high-ground state in vanilla, but mods may break that). Add the `mOnHighGround` check if terrain parity matters.
+- **Reflect firing mid-knockback-attack** (rare): the existing projectile-hit handler at `~4526` overrides `mState` to `STATE_UMBRELLA_TRIGGERED` without checking `STATE_UMBRELLA_KNOCKING`. Result: the current attack cycle is interrupted, reflect plays, then the leaf re-arms after reflect completes. Acceptable — defensive utility takes priority. If the implementer wants strict separation, add `&& mState != STATE_UMBRELLA_KNOCKING` to the handler's guard.
+- **Boss (`ZOMBIE_BOSS`)**: the scan in `FindUmbrellaTarget` explicitly skips the Boss (treats it as every-row). This prevents the leaf from being a cheap Boss-lock that also self-destructs on the Boss's behalf. If a future version wants the leaf to boss-hit, remove the skip.
 - **Save/load round-trip**: new enum value appended at the end does not shift existing values. A save written by this build with `mState == STATE_UMBRELLA_KNOCKING` cannot be loaded by vanilla (acceptable — this is the mod's new state). A vanilla save will never contain the new value. The new member `mDoUmbrellaKnockbackFired` defaults to `false` and is not persisted (boolean flags that reset on load are safe). WARN: the implementer MUST confirm `Plant`::'s `Sync` block in `SaveGame.cpp` does **not** Sync this bool (it shouldn't — it isn't in the current sync block). Verify by reading the plant sync block (~line 879).
-- **Chilled / buttered zombie in range**: cell match still triggers; chill/butter affect movement speed and eating speed, not position shifts. Shove applies normally.
-- **Mind-controlled (Hypno / Mind-controlled) zombie**: cell match still triggers; `mMindControlled` has no bearing on knockback or damage. A hypno-zombie's allies can be shoved back too.
-- **Pole Vaulter / Dolphin / Pogo mid-vault-jump in the trigger cell**: KnockBack's built-in airborne phase list skips the position delta. Per the "hurt-but-don't-move" rule, they still take 50 damage. Is this desired? A vaulting vaulter being nuked in mid-air by a leaf is a minor flavor-over-faithful oddity. Implementer may choose to skip fully if worried — see the `CanBeKnockedBack` predicate option.
-- **Snorkel in the trigger cell entering the pool (`PHASE_SNORKEL_INTO_POOL`)**: airborne-list skips position delta; 50 damage still applies. Same "hurt-but-don't-move" treatment.
+- **Chilled / buttered zombie in range**: cell match still triggers; chill/butter affect movement speed and eating speed, not position shifts. Shove applies normally and the leaf still pays 50 HP.
+- **Mind-controlled (Hypno / Mind-controlled) zombie**: cell match still triggers; `mMindControlled` has no bearing on knockback. A hypno-zombie can be shoved back.
+- **Pole Vaulter / Dolphin / Pogo mid-vault-jump in the trigger cell**: KnockBack's built-in airborne phase list skips the position delta (can't shove mid-air), BUT the leaf **still pays the 50 HP exhaustion cost** every cycle the flying zombie sits in range — a minor leak, acceptable; the leaf player should be aware flying units are "HP tax" unless they land and get shoved back out of range. Implementer may choose to skip() when no zombie was actually shoved (`FindUmbrellaTarget` already returns false for them since they're airborne — note they are NOT excluded from `FindUmbrellaTarget` by phase, only by `KnockBack`). Verify the phase list vs. `FindUmbrellaTarget`'s filters: airborne phases are not in `FindUmbrellaTarget`, so flying zombies do NOT trigger the attack in the first place. Good — they are free. If the project prefers they be excluded more visibly, add an airborne-phase check to `FindUmbrellaTarget`.
+- **Snorkel in the trigger cell entering the pool (`PHASE_SNORKEL_INTO_POOL`)**: same as above for flying units; `FindUmbrellaTarget` does not filter by phase, but KnockBack does. Verify whether a snorkel entering the pool sits in range long enough to matter — it is a short transient phase.
 
 ## Testing
 
@@ -304,27 +297,26 @@ Manual gameplay across adventure / survival / minigame modes. No automated test 
 
 ### Setup sanity
 
-- [ ] `GameConstants.h` compiles; `UMBRELLA_KNOCKBACK`, `UMBRELLA_KNOCKBACK_DAMAGE`, `UMBRELLA_KNOCKBACK_COOLDOWN`, `UMBRELLA_DAMAGE_FLAGS` all reachable.
+- [ ] `GameConstants.h` compiles; `UMBRELLA_KNOCKBACK`, `UMBRELLA_KNOCKBACK_DAMAGE`, `UMBRELLA_KNOCKBACK_COOLDOWN` all reachable.
 - [ ] New `PlantState` value appended at enum end; existing states' integer values unchanged (verify by reading `Plant.h` diff).
 
 ### Functional core
 
-- [ ] Adventure level with an Umbrella Leaf in a middle row: spawn/let a basic zombie approach. When the zombie enters `mPlantCol` or `mPlantCol + 1`, the leaf plays `"anim_block"`, the zombie's X jumps right by ~40 px, and its HP drops by 50. Repeat; confirm the cooldown (~0.9s) before next shove.
-- [ ] Confirm both cells trigger: zombie entering col `mPlantCol` only (standing in front of but not eating the leaf, e.g. a lane where the leaf is behind a wall-nut) — shoves.
-- [ ] Confirm right cell triggers: zombie entering `mPlantCol + 1` only — shoves.
-- [ ] Confirm col `mPlantCol - 1` (left cell, behind/past the leaf's front) does NOT trigger — zombie takes nothing.
-- [ ] Confirm adjacent row (mRow ± 1) does NOT trigger — zombie takes nothing.
+- [ ] Adventure level with an Umbrella Leaf in a middle row: spawn/let a basic zombie approach. When the zombie enters `mPlantCol` or `mPlantCol + 1`, the leaf plays `"anim_block"`, the zombie's X jumps right by ~40 px, AND the leaf loses 50 HP. Confirm HP delta via save-file export (`python scripts/pvzp-v4-converter.py export <save.v4> dump.yaml`) — the leaf's `mPlantHealth` drops by 50 per hit. Zombie's HP is unchanged. Repeat; confirm the cooldown (~0.9s) before next shove.
+- [ ] Confirm both cells trigger: zombie entering col `mPlantCol` only (standing in front of but not eating the leaf, e.g. a lane where the leaf is behind a wall-nut) — leaf shoves and loses 50 HP.
+- [ ] Confirm right cell triggers: zombie entering `mPlantCol + 1` only — leaf shoves and loses 50 HP.
+- [ ] Confirm col `mPlantCol - 1` (left cell, behind/past the leaf's front) does NOT trigger — zombie in place, leaf takes no damage.
+- [ ] Confirm adjacent row (mRow ± 1) does NOT trigger — zombie in place, leaf takes no damage.
 - [ ] Confirm `"anim_block"` animation plays exactly once per trigger (not looping, not double-firing on cooldown re-entry).
 
-### Damage & immunity
+### Self-exhaustion & knockback
 
-- [ ] Basic zombie (200 HP) takes 50 HP per shove — 4 shoves to death. Confirm HP delta via save-file export (`python scripts/pvzp-v4-converter.py export <save.v4> dump.yaml`) — zombie's `mHP` drops by 50 per hit.
-- [ ] Zombie with a cone bucket (helmet present): 50 raw → split between helmet → body; helmet degrades as per normal.
-- [ ] Door-shield zombie: 50 raw → absorbed by shield first, then body per `DAMAGE_HITS_SHIELD_AND_BODY`-based behavior (verify flags).
-- [ ] Zamboni in range: takes 50 damage but position unchanged (hurt-but-don't-move).
-- [ ] Football-zombie WITH helmet: 50 raw → football's 50% damage reduction applies (→ 25 HP).
-- [ ] Bungee zombie / Catapult: neither is hit by proximity (they are airborne/different phase).
-- [ ] Newspaper zombie while CALM (`PHASE_NEWSPAPER_READING`): takes the hit, gets shoved. Newspaper ENRAGED (`PHASE_NEWSPAPER_MADDENING` / `PHASE_NEWSPAPER_MAD`): per `KnockBack` immunity, no position delta; per design rule, still takes 50 damage.
+- [ ] Leaf HP budget: with base HP 300, the leaf survives exactly 6 shoves. On the 6th shove it drops to 50 HP; a 7th shove brings it to 0 HP, plays `FOLEY_SQUISH`, and the leaf dies. Verify `mPlantHealth` decrements by exactly 50 per shove, independent of how many zombies were shoved.
+- [ ] Confirm the leaf HP cost is **per-knockback-cycle**, not per-zombie: if 3 zombies are in range simultaneously, the leaf shoves all of them but pays only 50 HP total for that cycle.
+- [ ] Zamboni in range: `KnockBack` is no-op (heavy vehicle), but the leaf still pays 50 HP for the cycle — acceptable; Zamboni is a valid shoving target by cell match.
+- [ ] Bungee zombie / Catapult: FindUmbrellaTarget (cell-based) matches them; KnockBack skips the delta; leaf pays 50 HP. Documented as acceptable.
+- [ ] Newspaper zombie while CALM (`PHASE_NEWSPAPER_READING`): gets shoved, leaf pays 50 HP. Newspaper ENRAGED (`PHASE_NEWSPAPER_MADDENING` / `PHASE_NEWSPAPER_MAD`): `KnockBack` skips position delta (airborne-list), FindUmbrellaTarget still matches, leaf pays 50 HP. Acceptable.
+- [ ] **Zombie HP is unchanged** across all the above: the leaf does no damage to any zombie. Cross-check zombie's `mHP` in a save export before/after a shove — it must be identical.
 
 ### Parity & interactions
 
@@ -333,7 +325,7 @@ Manual gameplay across adventure / survival / minigame modes. No automated test 
 - [ ] Hypno zombie in range: gets shoved; its status does not matter.
 - [ ] Chilled zombie: shoved at normal-ish pace; chill does not stop the shove.
 - [ ] Umbrella Leaf at COL 8 (rightmost): cell-8-only match works; col-9 match is unreachable (documented).
-- [ ] TWO Umbrella Leaves in the same row, overlapping range: zombie shoved twice (verify HP and position).
+- [ ] TWO Umbrella Leaves in the same row, overlapping range: zombie shoved twice (verify position); BOTH leaves lose 50 HP on that cycle.
 - [ ] Leaf on high ground / zombie on low ground (if placeable): shove applies (no high-ground gate).
 
 ### Save/load
@@ -349,8 +341,7 @@ Manual gameplay across adventure / survival / minigame modes. No automated test 
 ## Notes for the implementer
 
 - **Do NOT add a `NUM_PLANTSTATES` sentinel** to `PlantState`, and do NOT insert `STATE_UMBRELLA_KNOCKING` in the middle of the enum — both would shift serialized state values and break save compatibility for every other state (`NUM_PLANT_LAYERS` exists in a DIFFERENT enum and is irrelevant here).
-- The `UMBRELLA_DAMAGE_FLAGS` value must match the project's "direct, shield-then-body" convention. Read `src/ConstEnums.h` `DamageFlags` and mirror whatever `SpikeweedAttack` / `DoRowAreaDamage` already pass (commonly `1U` or `33U`). If the chosen value's bitset bypasses the shield unexpectedly, the shield interaction test will catch it.
 - `mDoUmbrellaKnockbackFired` is a transient boolean reset on load — verify it is NOT added to the `Plant::Sync` block in `SaveGame.cpp`. If it is added, set `Sync` flags appropriately or omit.
-- Match 4-space indent / `mMember` naming of surrounding code in `Zombie.cpp` for `CanBeKnockedBack` (or `DoUmbrellaKnockback`'s inline mirroring of `KnockBack`'s immunity list) to stay project-idiomatic.
+- Match 4-space indent / `mMember` naming of surrounding code in `Zombie.cpp` if mirroring `KnockBack`'s immunity list anywhere in `Plant`.
 - No `/*inline*/` comment markers are required for the new helpers — they are plain methods.
 - `"anim_block"` is a short one-shot clip. If playtesting shows the hit firing on `mLoopCount > 0` reads as lagging the animation, move the `DoUmbrellaKnockback()` call to 2-3 frames after state entry (use a separate small counter) — a few lines, no structural change.

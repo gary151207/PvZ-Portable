@@ -1619,6 +1619,46 @@ void Plant::UpdateCoffeeBean()
     }
 }
 
+bool Plant::FindUmbrellaTarget() const
+{
+    Zombie* aZombie = nullptr;
+    while (mBoard->IterateZombies(aZombie))
+    {
+        if (aZombie->IsDeadOrDying() || aZombie->mRow != mRow)
+            continue;
+
+        // Skip Boss - umbrella should not be a Boss soft-lock.
+        if (aZombie->mZombieType == ZombieType::ZOMBIE_BOSS)
+            continue;
+
+        const int aCol = mBoard->PixelToGridX(aZombie->mX, aZombie->mY);
+        if (aCol == mPlantCol || aCol == mPlantCol + 1)
+            return true;
+    }
+    return false;
+}
+
+void Plant::DoUmbrellaKnockback()
+{
+    Zombie* aZombie = nullptr;
+    while (mBoard->IterateZombies(aZombie))
+    {
+        if (aZombie->IsDeadOrDying() || aZombie->mRow != mRow)
+            continue;
+
+        const int aCol = mBoard->PixelToGridX(aZombie->mX, aZombie->mY);
+        if (aCol != mPlantCol && aCol != mPlantCol + 1)
+            continue;
+
+        // KnockBack has its own immunity (heavy vehicles + airborne + enraged newspaper).
+        // Immune zombies take the damage but are NOT shoved (hurt-but-don't-move rule).
+        aZombie->KnockBack(UMBRELLA_KNOCKBACK);
+        aZombie->TakeDamage(UMBRELLA_KNOCKBACK_DAMAGE, 0U);   // 0U = standard direct damage (shield->body)
+    }
+
+    mApp->PlayFoley(FoleyType::FOLEY_SPLAT);
+}
+
 void Plant::UpdateUmbrella()
 {
     if (mState == PlantState::STATE_UMBRELLA_TRIGGERED)

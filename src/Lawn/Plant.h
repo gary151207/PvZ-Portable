@@ -22,6 +22,7 @@
 #pragma once
 
 #include <cstdint>
+#include <set>
 #include <string>
 #include "GameObject.h"
 
@@ -96,7 +97,8 @@ enum PlantState : int32_t
     STATE_ZEN_GARDEN_HAPPY,
     STATE_MARIGOLD_ENDING,
     STATE_FLOWERPOT_INVULNERABLE,
-    STATE_LILYPAD_INVULNERABLE
+    STATE_LILYPAD_INVULNERABLE,
+    STATE_UMBRELLA_KNOCKING   // proximity shove in progress
 };
 
 enum PLANT_LAYER : int32_t
@@ -213,6 +215,7 @@ public:
     int32_t                 mPottedPlantIndex;
     bool                    mAnimPing;
     bool                    mDead;
+    bool                    mDoUmbrellaKnockbackFired = false;   // prevents multi-fire of the one-shot shove
     bool                    mSquished;
     bool                    mIsAsleep;
     bool                    mIsOnBoard;
@@ -263,6 +266,8 @@ public:
     TodParticleSystem*      AddAttachedParticle(int thePosX, int thePosY, int theRenderPosition, ParticleEffect theEffect);
     void                    GetPeaHeadOffset(int& theOffsetX, int& theOffsetY);
     /*inline*/ bool         MakesSun();
+    void                    ProduceSunCoins();
+    void                    ChainProduceSun(std::set<Plant*>& theVisited);
     static void             DrawSeedType(Graphics* g, SeedType theSeedType, SeedType theImitaterType, DrawVariation theDrawVariation, float thePosX, float thePosY);
     void                    KillAllPlantsNearDoom();
     bool                    IsOnHighGround();
@@ -306,6 +311,8 @@ public:
     void                    RemoveEffects();
     void                    UpdateCoffeeBean();
     void                    UpdateUmbrella();
+    bool                    FindUmbrellaTarget() const;
+    void                    DoUmbrellaKnockback();
     void                    EndBlink();
     void                    AnimateGarlic();
     Coin*                   FindGoldMagnetTarget();

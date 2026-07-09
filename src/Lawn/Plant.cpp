@@ -86,7 +86,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_MELONPULT,         nullptr, ReanimationType::REANIM_MELONPULT,     14, 300,    750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "MELON_PULT" },
     { SeedType::SEED_GATLINGPEA,        nullptr, ReanimationType::REANIM_GATLINGPEA,    5,  300,    3000,    PlantSubClass::SUBCLASS_SHOOTER,    100,     "GATLING_PEA" },
     { SeedType::SEED_TWINSUNFLOWER,     nullptr, ReanimationType::REANIM_TWIN_SUNFLOWER,1,  150,    3000,   PlantSubClass::SUBCLASS_NORMAL,     1250,   "TWIN_SUNFLOWER" },
-    { SeedType::SEED_GLOOMSHROOM,       nullptr, ReanimationType::REANIM_GLOOMSHROOM,   27, 150,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    145,     "GLOOM_SHROOM" },
+    { SeedType::SEED_GLOOMSHROOM,       nullptr, ReanimationType::REANIM_GLOOMSHROOM,   27, 150,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    175,     "GLOOM_SHROOM" },
     { SeedType::SEED_CATTAIL,           nullptr, ReanimationType::REANIM_CATTAIL,       27, 225,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    100,    "CATTAIL" },
     { SeedType::SEED_WINTERMELON,       nullptr, ReanimationType::REANIM_WINTER_MELON,  27, 200,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    140,    "WINTER_MELON" },
     { SeedType::SEED_GOLD_MAGNET,       nullptr, ReanimationType::REANIM_GOLD_MAGNET,   27, 50,     3000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "GOLD_MAGNET" },
@@ -722,6 +722,13 @@ void Plant::DoRowAreaDamage(int theDamage, unsigned int theDamageFlags)
 
                 aZombie->TakeDamage(aDamage, theDamageFlags);
                 mApp->PlayFoley(FoleyType::FOLEY_SPLAT);
+
+                if (mSeedType == SeedType::SEED_GLOOMSHROOM)
+                {
+                    int aZombieCol = mBoard->PixelToGridX(aZombie->mX, aZombie->mY);
+                    if (aZombieCol == mPlantCol || aZombieCol == mPlantCol + 1)
+                        aZombie->KnockBack(GLOOM_KNOCKBACK);
+                }
             }
         }
     }
@@ -1008,25 +1015,17 @@ void Plant::UpdateProductionPlant()
         mLaunchCounter = RandRangeInt(mLaunchRate - 150, mLaunchRate);
         mApp->PlayFoley(FoleyType::FOLEY_SPAWN_SUN);
 
-        if (mSeedType == SeedType::SEED_SUNSHROOM)
+        if (MakesSun())
         {
-            if (mState == PlantState::STATE_SUNSHROOM_SMALL)
+            if (mSeedType == SeedType::SEED_TWINSUNFLOWER)
             {
-                mBoard->AddCoin(mX, mY, CoinType::COIN_SMALLSUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+                std::set<Plant*> aVisited;
+                ChainProduceSun(aVisited);
             }
             else
             {
-                mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+                ProduceSunCoins();
             }
-        }
-        else if (mSeedType == SeedType::SEED_SUNFLOWER)
-        {
-            mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
-        }
-        else if (mSeedType == SeedType::SEED_TWINSUNFLOWER)
-        {
-            mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
-            mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
         }
         else if (mSeedType == SeedType::SEED_MARIGOLD)
         {
@@ -1042,6 +1041,57 @@ void Plant::UpdateProductionPlant()
             else if (mSeedType == SeedType::SEED_MARIGOLD)
             {
                 mBoard->AddCoin(mX, mY, CoinType::COIN_SILVER, CoinMotion::COIN_MOTION_COIN);
+            }
+        }
+    }
+}
+
+void Plant::ProduceSunCoins()
+{
+    if (mSeedType == SeedType::SEED_SUNSHROOM)
+    {
+        if (mState == PlantState::STATE_SUNSHROOM_SMALL)
+        {
+            mBoard->AddCoin(mX, mY, CoinType::COIN_SMALLSUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+        }
+        else
+        {
+            mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+        }
+    }
+    else if (mSeedType == SeedType::SEED_SUNFLOWER)
+    {
+        mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+    }
+    else if (mSeedType == SeedType::SEED_TWINSUNFLOWER)
+    {
+        mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+        mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+    }
+}
+
+void Plant::ChainProduceSun(std::set<Plant*>& theVisited)
+{
+    if (theVisited.find(this) != theVisited.end())
+        return;
+    theVisited.insert(this);
+
+    ProduceSunCoins();
+
+    if (mSeedType == SeedType::SEED_TWINSUNFLOWER && Sexy::Rand(100) < 60)
+    {
+        for (int aRow = mRow - 1; aRow <= mRow + 1; aRow++)
+        {
+            for (int aCol = mPlantCol - 1; aCol <= mPlantCol + 1; aCol++)
+            {
+                if (aRow == mRow && aCol == mPlantCol)
+                    continue;
+
+                Plant* aPlant = mBoard->GetTopPlantAt(aCol, aRow, PlantPriority::TOPPLANT_ANY);
+                if (aPlant && aPlant->MakesSun())
+                {
+                    aPlant->ChainProduceSun(theVisited);
+                }
             }
         }
     }
@@ -1650,13 +1700,23 @@ void Plant::DoUmbrellaKnockback()
         if (aCol != mPlantCol && aCol != mPlantCol + 1)
             continue;
 
-        // KnockBack has its own immunity (heavy vehicles + airborne + enraged newspaper).
-        // Immune zombies take the damage but are NOT shoved (hurt-but-don't-move rule).
+        // KnockBack has its own immunity (heavy vehicles + airborne + enraged newspaper);
+        // immune zombies are simply not shoved, but the leaf still tires itself out below.
         aZombie->KnockBack(UMBRELLA_KNOCKBACK);
-        aZombie->TakeDamage(UMBRELLA_KNOCKBACK_DAMAGE, 0U);   // 0U = standard direct damage (shield->body)
     }
 
-    mApp->PlayFoley(FoleyType::FOLEY_SPLAT);
+    // The leaf exhausts itself shoving: lose 50 HP per knockback. At 0, it wilts.
+    mPlantHealth -= UMBRELLA_KNOCKBACK_DAMAGE;
+    if (mPlantHealth <= 0)
+    {
+        mPlantHealth = 0;
+        mApp->PlayFoley(FoleyType::FOLEY_SQUISH);
+        Die();
+    }
+    else
+    {
+        mApp->PlayFoley(FoleyType::FOLEY_SPLAT);
+    }
 }
 
 void Plant::UpdateUmbrella()

@@ -1679,6 +1679,33 @@ void Plant::UpdateUmbrella()
             mRenderOrder = CalcRenderOrder();
         }
     }
+    else if (mState == PlantState::STATE_UMBRELLA_KNOCKING)
+    {
+        Reanimation* aBodyReanim = mApp->ReanimationGet(mBodyReanimID);
+        if (!mDoUmbrellaKnockbackFired && aBodyReanim->mLoopCount > 0)
+        {
+            DoUmbrellaKnockback();
+            mDoUmbrellaKnockbackFired = true;
+        }
+
+        if (mStateCountdown == 0)
+        {
+            PlayIdleAnim(0.0f);
+            mState = PlantState::STATE_NOTREADY;
+            mStateCountdown = UMBRELLA_KNOCKBACK_COOLDOWN;
+            mDoUmbrellaKnockbackFired = false;
+        }
+    }
+    else if (mState == PlantState::STATE_NOTREADY)
+    {
+        if (mStateCountdown == 0 && FindUmbrellaTarget())
+        {
+            PlayBodyReanim("anim_block", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 22.0f);
+            mState = PlantState::STATE_UMBRELLA_KNOCKING;
+            mStateCountdown = UMBRELLA_KNOCKBACK_COOLDOWN;
+            mDoUmbrellaKnockbackFired = false;
+        }
+    }
 }
 
 // GOTY @Patoke: 0x4649F0

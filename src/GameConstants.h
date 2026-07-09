@@ -36,6 +36,10 @@ constexpr const int BOARD_IMAGE_WIDTH_OFFSET = 1180;
 constexpr const int BOARD_ICE_START = 800;
 constexpr const int LAWN_XMIN = 40;
 constexpr const int LAWN_YMIN = 80;
+constexpr const float GLOOM_KNOCKBACK = 35.0f;   // per-hit knockback distance for Gloom-shroom (pixels, +X)
+constexpr const float UMBRELLA_KNOCKBACK        = 40.0f;  // per-hit knockback distance for Umbrella Leaf (pixels, +X)
+constexpr const int   UMBRELLA_KNOCKBACK_DAMAGE = 50;     // raw HP removed per hit
+constexpr const int   UMBRELLA_KNOCKBACK_COOLDOWN = 90;   // frames of attack+cooldown per cycle (~0.9s @ 100fps)
 constexpr const int HIGH_GROUND_HEIGHT = 30;
 
 constexpr const int SEEDBANK_MAX = 10;

@@ -216,6 +216,7 @@ public:
     bool                    mAnimPing;
     bool                    mDead;
     bool                    mDoUmbrellaKnockbackFired = false;   // prevents multi-fire of the one-shot shove
+    int32_t                 mUmbrellaRegenCountdown = 0;          // counts down to next regen tick (starts expired => first heal after 5s)
     bool                    mSquished;
     bool                    mIsAsleep;
     bool                    mIsOnBoard;

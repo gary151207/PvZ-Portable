@@ -145,6 +145,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mBlinkCountdown = 0;
     mRecentlyEatenCountdown = 0;
     mTallnutCounterCooldown = 0;
+    mUmbrellaRegenCountdown = UMBRELLA_REGEN_COOLDOWN;
     mEatenFlashCountdown = 0;
     mBeghouledFlashCountdown = 0;
     mWidth = 80;
@@ -1721,6 +1722,19 @@ void Plant::DoUmbrellaKnockback()
 
 void Plant::UpdateUmbrella()
 {
+    // Regeneration: every UMBRELLA_REGEN_COOLDOWN frames, heal UMBRELLA_REGEN_AMOUNT (capped at max).
+    // Runs in every state so the leaf recovers between shoves and while idle.
+    if (--mUmbrellaRegenCountdown <= 0)
+    {
+        mUmbrellaRegenCountdown = UMBRELLA_REGEN_COOLDOWN;
+        if (mPlantHealth < mPlantMaxHealth)
+        {
+            mPlantHealth += UMBRELLA_REGEN_AMOUNT;
+            if (mPlantHealth > mPlantMaxHealth)
+                mPlantHealth = mPlantMaxHealth;
+        }
+    }
+
     if (mState == PlantState::STATE_UMBRELLA_TRIGGERED)
     {
         if (mStateCountdown == 0)

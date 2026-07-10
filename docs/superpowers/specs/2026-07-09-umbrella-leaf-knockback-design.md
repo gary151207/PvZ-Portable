@@ -2,11 +2,13 @@
 
 ## Summary
 
-Make the **Umbrella Leaf** (叶子保护伞 / Leaf Protector, `SEED_UMBRELLA`) knock back nearby zombies **at its own expense**. When a zombie is in the same cell as the plant or the cell immediately to its right (same row), the leaf "shoves" every qualifying zombie one step to the right and then **takes 50 HP of damage itself**. This is an entirely **new, additive behavior**; the pre-existing "reflect projectile" mechanic (反射, `anim_block`) stays untouched.
+Make the **Umbrella Leaf** (叶子保护伞 / Leaf Protector, `SEED_UMBRELLA`) knock back nearby zombies **at its own expense**, then **slowly recover**. When a zombie is in the same cell as the plant or the cell immediately to its right (same row), the leaf "shoves" every qualifying zombie one step to the right and then **takes 50 HP of damage itself**. Independently, the leaf **regenerates 25 HP every 5 seconds** (capped at max HP). This is an entirely **new, additive behavior**; the pre-existing "reflect projectile" mechanic (反射, `anim_block`) stays untouched.
 
 ## Motivation
 
 In vanilla PvZ the Leaf Protector's only job is reflecting Bungee-zombie grabs and catapult projectiles — a pure utility plant that does nothing once the front line closes in. Giving it a focused "proximity shove" turns it into a defensive plant with an active crowd-control role, synergizing thematically (a big leaf batting zombies away) and mechanically (creating breathing room for offensive plants behind it). The shove is **costly**: the leaf loses 50 HP each time it shoves. An unupgraded leaf starts at 300 HP, so it can absorb 6 shoves before wilting — a deliberate budget that keeps it a tempo tool, not a self-sufficient lane holder. The tight 2-cell range reinforces this: the leaf buys space, not a permanent wall.
+
+To avoid the leaf being a pure one-shot sacrifice, it **regenerates 25 HP every 5 seconds** (capped at max HP). This gives it staying power across a long fight: a leaf that shoves once every ~2.5 seconds breaks even (−50 per shove, +25 per 5s = net −25 per 5s), while a leaf shoved less often slowly recovers toward full. The regen runs in every state, so the leaf recovers between shoves and while idle.
 
 ## Current Umbrella Leaf behavior (code facts)
 
@@ -32,6 +34,7 @@ The mechanic runs as a **new, parallel attack loop** driven by a new `PlantState
 - **Hit frame**: at a fixed point in the attack animation (e.g. a frame near the start so the shove reads as causal), call `DoUmbrellaKnockback()` which scans the target zone again and, for each valid zombie:
   - applies `aZombie->KnockBack(UMBRELLA_KNOCKBACK)` to every qualifying zombie — a **~40 px rightward position delta** (same underlying method Gloom-shroom uses). Eating is interrupted, heavy/airborne zombies are skipped per `KnockBack`'s built-in immunity list. Immune zombies are simply not shoved; they are NOT damaged either.
   - **The leaf itself loses 50 HP** after the shove resolves: `mPlantHealth -= UMBRELLA_KNOCKBACK_DAMAGE`. If `mPlantHealth` drops to 0 or below, the leaf plays `FOLEY_SQUISH` and calls `Die()`. This is the leaf's "exhaustion" cost for shoving — its defining tradeoff.
+- **Regeneration**: independently of shoving, the leaf regenerates **25 HP every 5 seconds** (`UMBRELLA_REGEN_AMOUNT` per `UMBRELLA_REGEN_COOLDOWN` frames), capped at `mPlantMaxHealth`. The regen timer (`mUmbrellaRegenCountdown`) is initialized to one full cooldown at plant placement and ticks down every frame inside `UpdateUmbrella`, so the leaf recovers in every state — between shoves, while idling, and even while reflecting. This gives the leaf staying power across a long fight without making it self-sufficient.
 - **Cooldown**: after the attack animation + hit frame, the leaf enters a short cooldown (`STATE_NOTREADY` with `mStateCountdown`) before it can trigger another shove. This prevents per-frame multi-hitting.
 - **Not interrupted**: all pre-existing umbrella behavior (reflect on projectile contact) runs unchanged. A reflect can still interrupt or run between proximity attacks; both share the `"anim_block"` animation but use different state values, so they do not collide. Priority edge case: the existing reflect handler (`Plant.cpp:~4526`) checks `mState != STATE_UMBRELLA_TRIGGERED && mState != STATE_UMBRELLA_REFLECTING` — it does NOT guard on the new state, so a reflect that fires during a proximity attack overrides the attack state. Acceptable and rare; noted in Edge Cases.
 - **Range**: strictly same row, columns `mPlantCol` and `mPlantCol + 1`. Uses `Board::PixelToGridX` for cell resolution (consistent with Gloom and Scaredy-shroom). Adjacent-row zombies are intentionally NOT hit — the leaf is a leaf, not a shockwave.
@@ -45,6 +48,8 @@ The mechanic runs as a **new, parallel attack loop** driven by a new `PlantState
 | `UMBRELLA_KNOCKBACK_DAMAGE` | `50` (HP) | Self-exhaustion cost. With a base leaf at 300 HP, the plant can absorb 6 shoves; an unupgraded leaf must be budgeted carefully or it wilts mid-fight. |
 | `UMBRELLA_KNOCKBACK_COOLDOWN` | `90` frames (~0.9 s @ 100 fps) | Prevents per-frame multi-hit while remaining responsive to a crowd shuffling in. |
 | `UMBRELLA_KNOCKBACK_ANIM_FRAMES` | matches `"anim_block"` length; hit fires at frame ~8 of the one-shot | Reads as causal ("leaf pushes, zombie lurches") |
+| `UMBRELLA_REGEN_AMOUNT` | `25` (HP) | HP recovered per regen tick. Paired with the 50 HP shove cost, a leaf shoved once per ~2.5 s roughly breaks even. |
+| `UMBRELLA_REGEN_COOLDOWN` | `500` frames (~5 s @ 100 fps) | One regen tick every 5 seconds. Long enough that regen doesn't trivialize the shove cost, short enough to keep the leaf alive across a long fight. |
 
 ## Reasoning for cell-based range (the "本格 + 右边 1 格" rule)
 
@@ -61,7 +66,9 @@ Near the existing `GLOOM_KNOCKBACK` (around line 38), add:
 ```cpp
 constexpr const float UMBRELLA_KNOCKBACK        = 40.0f;  // per-hit knockback distance for Umbrella Leaf (pixels, +X)
 constexpr const int   UMBRELLA_KNOCKBACK_DAMAGE = 50;     // HP the leaf loses per shove (self-exhaustion cost)
-constexpr const int   UMBRELLA_KNOCKBACK_COOLDOWN = 90;   // frames between proximity attacks
+constexpr const int   UMBRELLA_KNOCKBACK_COOLDOWN = 90;   // frames between proximity attacks (~0.9s @ 100fps)
+constexpr const int   UMBRELLA_REGEN_AMOUNT      = 25;     // HP recovered per regen tick
+constexpr const int   UMBRELLA_REGEN_COOLDOWN    = 500;    // frames between regen ticks (~5s @ 100fps)
 ```
 
 No damage-flag constant is needed — zombies are no longer damaged; the leaf takes plain `mPlantHealth -= 50` damage to itself.
@@ -174,7 +181,31 @@ void Plant::UpdateUmbrella()
 }
 ```
 
-Replace the idle branch (`STATE_NOTREADY`) with gated cooldown handling + new state driving:
+Add regeneration at the top of `UpdateUmbrella` (runs in every state), then replace the idle branch (`STATE_NOTREADY`) with gated cooldown handling + new state driving:
+
+```cpp
+void Plant::UpdateUmbrella()
+{
+    // Regeneration: every UMBRELLA_REGEN_COOLDOWN frames, heal UMBRELLA_REGEN_AMOUNT (capped at max).
+    // Runs in every state so the leaf recovers between shoves and while idle.
+    if (--mUmbrellaRegenCountdown <= 0)
+    {
+        mUmbrellaRegenCountdown = UMBRELLA_REGEN_COOLDOWN;
+        if (mPlantHealth < mPlantMaxHealth)
+        {
+            mPlantHealth += UMBRELLA_REGEN_AMOUNT;
+            if (mPlantHealth > mPlantMaxHealth)
+                mPlantHealth = mPlantMaxHealth;
+        }
+    }
+
+    if (mState == PlantState::STATE_UMBRELLA_TRIGGERED)
+    {
+        ...
+    }
+    ...
+}
+```
 
 ```cpp
 void Plant::UpdateUmbrella()
@@ -246,12 +277,13 @@ else if (mSeedType == SeedType::SEED_UMBRELLA)                                  
 
 No change needed.
 
-### 7. New member — `src/Lawn/Plant.h`
+### 7. New members — `src/Lawn/Plant.h`
 
 In the `Plant` class private members, add:
 
 ```cpp
 bool                        mDoUmbrellaKnockbackFired = false;   // prevents multi-fire of the one-shot shove
+int32_t                 mUmbrellaRegenCountdown = 0;          // counts down to next regen tick (starts expired => first heal after 5s)
 ```
 
 And forward-declare the helpers:
@@ -261,11 +293,21 @@ bool                        FindUmbrellaTarget() const;
 void                        DoUmbrellaKnockback();
 ```
 
+### 8. Initialize regen timer — `src/Lawn/Plant.cpp` `PlantInitialize`
+
+After `mTallnutCounterCooldown = 0;` (~line 146), add:
+
+```cpp
+mUmbrellaRegenCountdown = UMBRELLA_REGEN_COOLDOWN;
+```
+
+This seeds the timer at one full cooldown so the first heal lands ~5s after placement (not on the first frame).
+
 ### Files Modified
 
-- `src/GameConstants.h` — new `UMBRELLA_KNOCKBACK`, `UMBRELLA_KNOCKBACK_DAMAGE`, `UMBRELLA_KNOCKBACK_COOLDOWN` constants.
-- `src/Lawn/Plant.h` — new `STATE_UMBRELLA_KNOCKING` enum value (appended), new `mDoUmbrellaKnockbackFired` member and `FindUmbrellaTarget` / `DoUmbrellaKnockback` declarations.
-- `src/Lawn/Plant.cpp` — `UpdateUmbrella` expanded with new state driver; `FindUmbrellaTarget` + `DoUmbrellaKnockback` definitions.
+- `src/GameConstants.h` — new `UMBRELLA_KNOCKBACK`, `UMBRELLA_KNOCKBACK_DAMAGE`, `UMBRELLA_KNOCKBACK_COOLDOWN`, `UMBRELLA_REGEN_AMOUNT`, `UMBRELLA_REGEN_COOLDOWN` constants.
+- `src/Lawn/Plant.h` — new `STATE_UMBRELLA_KNOCKING` enum value (appended), new `mDoUmbrellaKnockbackFired` and `mUmbrellaRegenCountdown` members and `FindUmbrellaTarget` / `DoUmbrellaKnockback` declarations.
+- `src/Lawn/Plant.cpp` — `UpdateUmbrella` expanded with regen + new state driver; `FindUmbrellaTarget` + `DoUmbrellaKnockback` definitions; regen timer init in `PlantInitialize`.
 
 ### Unchanged
 
@@ -280,10 +322,13 @@ void                        DoUmbrellaKnockback();
 - **Multiple Umbrella Leaves in the same row**: each triggers independently. A zombie in the shared range of two leaves could be shoved twice in one frame (≤80 px, ≤100 damage) — intentional, rewards stacking. Cooldowns are per-plant, so staggered timing is natural; simultaneous-trigger is rare.
 - **Zombie on high ground vs. leaf on low ground (and vice versa)**: `DoRowAreaDamage` normally checks `aZombie->mOnHighGround == IsOnHighGround()`. The umbrella proximity check **currently omits this filter**. Decision: the cell match is the gate; high/low mismatch does not block. If the project wants high-ground parity matching, add the check in `FindUmbrellaTarget`. The doc commits to **no gate** (theoretical; the leaf is only placeable on the same high-ground state in vanilla, but mods may break that). Add the `mOnHighGround` check if terrain parity matters.
 - **Reflect firing mid-knockback-attack** (rare): the existing projectile-hit handler at `~4526` overrides `mState` to `STATE_UMBRELLA_TRIGGERED` without checking `STATE_UMBRELLA_KNOCKING`. Result: the current attack cycle is interrupted, reflect plays, then the leaf re-arms after reflect completes. Acceptable — defensive utility takes priority. If the implementer wants strict separation, add `&& mState != STATE_UMBRELLA_KNOCKING` to the handler's guard.
-- **Umbrella Leaf self-exhaustion death mid-fight**: with base HP 300 and 50 HP per shove, the leaf survives 6 shoves. On the 7th shove `mPlantHealth` hits 0, `FOLEY_SQUISH` plays, `Die()` is called, `mDead = true`, and the plant is cleaned up on the next board tick. Design consequence: the leaf is a **consumable tempo tool**, not permanent defense. Players should budget shoves or tank with high-HP plants.
-- **Multiple Umbrella Leaves in the same row**: each triggers independently and each pays its own 50 HP cost. Stacking is a tempo choice, not free — two leaves both shoving means both lose 50 HP per cycle.
+- **Umbrella Leaf self-exhaustion death mid-fight**: with base HP 300 and 50 HP per shove (−50) plus regen of +25 per 5s, the leaf's net burn depends on shove frequency. A leaf shoved once per ~2.5 s roughly breaks even; faster shoves net-negative and the leaf eventually wilts (300 HP / 25 net per 5s → ~60 s of continuous shoving). At 0 HP `FOLEY_SQUISH` plays and `Die()` is called. Design consequence: the leaf is a **renewable-but-tempo-bound defensive tool** — it outlasts a single sacrifice but still can't hold a lane by itself.
+- **Regen at full HP**: when `mPlantHealth == mPlantMaxHealth`, the regen tick is a no-op (the `if (mPlantHealth < mPlantMaxHealth)` guard skips the add). The timer still resets, so no HP is wasted and no over-heal occurs.
+- **Regen during death window**: `Die()` sets `mDead = true`, and `Board::ProcessDeleteQueue()` runs *before* plant Updates each frame, so a dead leaf is freed before its next `UpdateUmbrella` call. No resurrection risk.
+- **Save/load**: the regen countdown (`mUmbrellaRegenCountdown`) is **not** serialized (it is not in the `SyncPlantTailPortable` block). On load it re-initializes to `UMBRELLA_REGEN_COOLDOWN` next time `PlantInitialize` runs (for newly placed leaves) or resets to 0 for leaves mid-life (they'll regen on first frame then settle into a 5s cycle). Minor, acceptable — no save-format change, no crash. The appended `STATE_UMBRELLA_KNOCKING` value does not shift existing state integer values.
+- **Multiple Umbrella Leaves in the same row**: each triggers independently and each pays its own 50 HP cost and runs its own regen timer. Stacking is a tempo choice: two overlapping leaves each shove (each −50) and each regen independently (+25/5s).
 - **Zombie on high ground vs. leaf on low ground (and vice versa)**: `DoRowAreaDamage` normally checks `aZombie->mOnHighGround == IsOnHighGround()`. The umbrella proximity check **currently omits this filter**. Decision: the cell match is the gate; high/low mismatch does not block. If the project wants high-ground parity matching, add the check in `FindUmbrellaTarget`. The doc commits to **no gate** (theoretical; the leaf is only placeable on the same high-ground state in vanilla, but mods may break that). Add the `mOnHighGround` check if terrain parity matters.
-- **Reflect firing mid-knockback-attack** (rare): the existing projectile-hit handler at `~4526` overrides `mState` to `STATE_UMBRELLA_TRIGGERED` without checking `STATE_UMBRELLA_KNOCKING`. Result: the current attack cycle is interrupted, reflect plays, then the leaf re-arms after reflect completes. Acceptable — defensive utility takes priority. If the implementer wants strict separation, add `&& mState != STATE_UMBRELLA_KNOCKING` to the handler's guard.
+- **Reflect firing mid-knockback-attack** (rare): the existing projectile-hit handler at `~4526` overrides `mState` to `STATE_UMBRELLA_TRIGGERED` without checking `STATE_UMBRELLA_KNOCKING`. Result: the current attack cycle is interrupted, reflect plays, then the leaf re-arms after reflect completes. Acceptable — defensive utility takes priority. The regen timer keeps ticking during reflect (it runs at the top of UpdateUmbrella regardless of state), which is fine. If the implementer wants strict separation, add `&& mState != STATE_UMBRELLA_KNOCKING` to the handler's guard.
 - **Boss (`ZOMBIE_BOSS`)**: the scan in `FindUmbrellaTarget` explicitly skips the Boss (treats it as every-row). This prevents the leaf from being a cheap Boss-lock that also self-destructs on the Boss's behalf. If a future version wants the leaf to boss-hit, remove the skip.
 - **Save/load round-trip**: new enum value appended at the end does not shift existing values. A save written by this build with `mState == STATE_UMBRELLA_KNOCKING` cannot be loaded by vanilla (acceptable — this is the mod's new state). A vanilla save will never contain the new value. The new member `mDoUmbrellaKnockbackFired` defaults to `false` and is not persisted (boolean flags that reset on load are safe). WARN: the implementer MUST confirm `Plant`::'s `Sync` block in `SaveGame.cpp` does **not** Sync this bool (it shouldn't — it isn't in the current sync block). Verify by reading the plant sync block (~line 879).
 - **Chilled / buttered zombie in range**: cell match still triggers; chill/butter affect movement speed and eating speed, not position shifts. Shove applies normally and the leaf still pays 50 HP.
@@ -297,8 +342,9 @@ Manual gameplay across adventure / survival / minigame modes. No automated test 
 
 ### Setup sanity
 
-- [ ] `GameConstants.h` compiles; `UMBRELLA_KNOCKBACK`, `UMBRELLA_KNOCKBACK_DAMAGE`, `UMBRELLA_KNOCKBACK_COOLDOWN` all reachable.
+- [ ] `GameConstants.h` compiles; `UMBRELLA_KNOCKBACK`, `UMBRELLA_KNOCKBACK_DAMAGE`, `UMBRELLA_KNOCKBACK_COOLDOWN`, `UMBRELLA_REGEN_AMOUNT`, `UMBRELLA_REGEN_COOLDOWN` all reachable.
 - [ ] New `PlantState` value appended at enum end; existing states' integer values unchanged (verify by reading `Plant.h` diff).
+- [ ] Confirm `mUmbrellaRegenCountdown` is NOT in the `SyncPlantPortable` block in `SaveGame.cpp` (it isn't).
 
 ### Functional core
 
@@ -311,12 +357,19 @@ Manual gameplay across adventure / survival / minigame modes. No automated test 
 
 ### Self-exhaustion & knockback
 
-- [ ] Leaf HP budget: with base HP 300, the leaf survives exactly 6 shoves. On the 6th shove it drops to 50 HP; a 7th shove brings it to 0 HP, plays `FOLEY_SQUISH`, and the leaf dies. Verify `mPlantHealth` decrements by exactly 50 per shove, independent of how many zombies were shoved.
-- [ ] Confirm the leaf HP cost is **per-knockback-cycle**, not per-zombie: if 3 zombies are in range simultaneously, the leaf shoves all of them but pays only 50 HP total for that cycle.
+- [ ] Confirm the leaf HP cost is **per-knockback-cycle**, not per-zombie: if 3 zombies are in range simultaneously, the leaf shoves all of them but pays only 50 HP total for that cycle. Verify via save export that `mPlantHealth` drops by exactly 50 per shove.
+- [ ] Death timing: with base HP 300 and no regen, the leaf survives 6 shoves (300→250→200→150→100→50→0). On the 6th shove it hits 0 HP, plays `FOLEY_SQUISH`, and dies. With regen active, the leaf survives longer — confirm the regen meaningfully extends its life.
+- [ ] Confirm zombie HP is **unchanged** by the shove: the leaf does no damage to any zombie. Cross-check zombie `mHP` in a save export before/after a shove — it must be identical.
+
+### Regeneration
+
+- [ ] With the leaf at less than full HP and no zombies in range, wait 5 seconds: the leaf gains exactly 25 HP. Confirm via save export that `mPlantHealth` increases by 25 per 5s tick.
+- [ ] Regen cap: when the leaf is within 25 HP of `mPlantMaxHealth`, a tick brings it exactly to `mPlantMaxHealth` (no over-heal). Confirm `mPlantHealth` never exceeds `mPlantMaxHealth`.
+- [ ] Regen at full HP: when already at `mPlantMaxHealth`, a tick is a no-op (no HP change, no foley). Confirm no `FOLEY_SPLAT` plays on a full-HP regen tick.
+- [ ] Regen + shove interleaving: shove once (−50), wait 5s (+25), repeat. Confirm the leaf oscillates and the net burn rate matches the design (−25 per 5s when shoving once per 5s).
 - [ ] Zamboni in range: `KnockBack` is no-op (heavy vehicle), but the leaf still pays 50 HP for the cycle — acceptable; Zamboni is a valid shoving target by cell match.
 - [ ] Bungee zombie / Catapult: FindUmbrellaTarget (cell-based) matches them; KnockBack skips the delta; leaf pays 50 HP. Documented as acceptable.
 - [ ] Newspaper zombie while CALM (`PHASE_NEWSPAPER_READING`): gets shoved, leaf pays 50 HP. Newspaper ENRAGED (`PHASE_NEWSPAPER_MADDENING` / `PHASE_NEWSPAPER_MAD`): `KnockBack` skips position delta (airborne-list), FindUmbrellaTarget still matches, leaf pays 50 HP. Acceptable.
-- [ ] **Zombie HP is unchanged** across all the above: the leaf does no damage to any zombie. Cross-check zombie's `mHP` in a save export before/after a shove — it must be identical.
 
 ### Parity & interactions
 
@@ -341,7 +394,8 @@ Manual gameplay across adventure / survival / minigame modes. No automated test 
 ## Notes for the implementer
 
 - **Do NOT add a `NUM_PLANTSTATES` sentinel** to `PlantState`, and do NOT insert `STATE_UMBRELLA_KNOCKING` in the middle of the enum — both would shift serialized state values and break save compatibility for every other state (`NUM_PLANT_LAYERS` exists in a DIFFERENT enum and is irrelevant here).
-- `mDoUmbrellaKnockbackFired` is a transient boolean reset on load — verify it is NOT added to the `Plant::Sync` block in `SaveGame.cpp`. If it is added, set `Sync` flags appropriately or omit.
+- `mDoUmbrellaKnockbackFired` and `mUmbrellaRegenCountdown` are transient and reset on load — verify neither is added to the `Plant::Sync` block in `SaveGame.cpp`. They aren't in the current sync block; keep it that way.
+- Initialize `mUmbrellaRegenCountdown = UMBRELLA_REGEN_COOLDOWN` in the **common** `PlantInitialize` (not in a per-seed branch) so every plant is covered; the value only matters for `SEED_UMBRELLA` plants.
 - Match 4-space indent / `mMember` naming of surrounding code in `Zombie.cpp` if mirroring `KnockBack`'s immunity list anywhere in `Plant`.
 - No `/*inline*/` comment markers are required for the new helpers — they are plain methods.
 - `"anim_block"` is a short one-shot clip. If playtesting shows the hit firing on `mLoopCount > 0` reads as lagging the animation, move the `DoUmbrellaKnockback()` call to 2-3 frames after state entry (use a separate small counter) — a few lines, no structural change.

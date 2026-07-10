@@ -1755,29 +1755,26 @@ void Plant::UpdateUmbrella()
     }
     else if (mState == PlantState::STATE_UMBRELLA_KNOCKING)
     {
-        Reanimation* aBodyReanim = mApp->ReanimationGet(mBodyReanimID);
-        if (!mDoUmbrellaKnockbackFired && aBodyReanim->mLoopCount > 0)
-        {
-            DoUmbrellaKnockback();
-            mDoUmbrellaKnockbackFired = true;
-        }
-
         if (mStateCountdown == 0)
         {
             PlayIdleAnim(0.0f);
             mState = PlantState::STATE_NOTREADY;
             mStateCountdown = UMBRELLA_KNOCKBACK_COOLDOWN;
-            mDoUmbrellaKnockbackFired = false;
         }
     }
     else if (mState == PlantState::STATE_NOTREADY)
     {
-        if (mStateCountdown == 0 && FindUmbrellaTarget())
+        // Refuse to shove when below 1/3 HP ("too wounded to bat zombies away").
+        // The leaf keeps regenerating, so once it recovers above the threshold it
+        // starts shoving again.
+        if (mStateCountdown == 0 && mPlantHealth * 3 >= mPlantMaxHealth && FindUmbrellaTarget())
         {
+            // Fire the knockback on the same frame the open-umbrella animation starts,
+            // so the shove is causally synced with the anim's visual impact.
+            DoUmbrellaKnockback();
             PlayBodyReanim("anim_block", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 22.0f);
             mState = PlantState::STATE_UMBRELLA_KNOCKING;
             mStateCountdown = UMBRELLA_KNOCKBACK_COOLDOWN;
-            mDoUmbrellaKnockbackFired = false;
         }
     }
 }

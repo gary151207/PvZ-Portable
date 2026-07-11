@@ -2748,6 +2748,14 @@ Zombie* Board::AddZombieInRow(ZombieType theZombieType, int theRow, int theFromW
 		aBalloonPeaHead = true;
 	}
 
+	// 铁桶僵尸有 20% 概率变为坚果头僵尸（调试召唤除外）
+	if (theZombieType == ZombieType::ZOMBIE_PAIL &&
+		theFromWave != Zombie::ZOMBIE_WAVE_DEBUG &&
+		!Rand(5))
+	{
+		theZombieType = ZombieType::ZOMBIE_WALLNUT_HEAD;
+	}
+
 	// @Patoke: implemented
 	if (theZombieType == ZombieType::ZOMBIE_YETI) {
 		if (mApp->IsAdventureMode() && mLevel == 40 && theFromWave >= 0)
@@ -7918,6 +7926,24 @@ void Board::KeyDown(KeyCode theKey)
 		{
 			mApp->PlaySample(Sexy::SOUND_PAUSE);
 			mApp->DoPauseDialog();
+		}
+	}
+	else if (theKey == KeyCode::KEYCODE_SHIFT)
+	{
+		if (mShowShovel && mCursorObject->mCursorType == CursorType::CURSOR_TYPE_NORMAL && 
+			mApp->mGameScene == GameScenes::SCENE_PLAYING && !IsScaryPotterDaveTalking())
+		{
+			PickUpTool(GameObjectType::OBJECT_TYPE_SHOVEL);
+		}
+	}
+	else if (theKey >= KeyCode::KEYCODE_ASCIIBEGIN && theKey <= KeyCode(0x39)) // '0' ~ '9'
+	{
+		int aSlot = (theKey == KeyCode(0x30)) ? 9 : (int(theKey) - int(KeyCode(0x31)));
+		if (aSlot >= 0 && aSlot < mSeedBank->mNumPackets && 
+			mCursorObject->mCursorType == CursorType::CURSOR_TYPE_NORMAL &&
+			mApp->mGameScene == GameScenes::SCENE_PLAYING && !IsScaryPotterDaveTalking())
+		{
+			mSeedBank->mSeedPackets[aSlot].MouseDown(0, 0, 0);
 		}
 	}
 	else if (theKey == KeyCode::KEYCODE_ESCAPE)

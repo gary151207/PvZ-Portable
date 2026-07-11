@@ -204,7 +204,9 @@ public:
     void                            DrawZombiePart(Graphics* g, Image* theImage, int theFrame, int theRow, const ZombieDrawPosition& theDrawPos);
     void                            DrawBungeeCord(Graphics* g, int theOffsetX);
     void                            TakeDamage(int theDamage, unsigned int theDamageFlags);
+    /*inline*/ void                 Heal(int theAmount);
     /*inline*/ void                 SetRow(int theRow);
+    void                            KnockBack(float theAmount);
     float                           GetPosYBasedOnRow(int theRow);
     void                            ApplyChill(bool theIsIceTrap);
     void                            UpdateZombieBungee();

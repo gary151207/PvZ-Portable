@@ -2382,7 +2382,6 @@ void Zombie::UpdateZombiePeaHead()
 
         float aOriginX = mPosX + aTransform.mTransX - 9.0f;
         float aOriginY = mPosY + aTransform.mTransY + 6.0f - mAltitude;
-#ifdef DO_FIX_BUGS
         if (mMindControlled)  // 魅惑修复
         {
             aOriginX += 90.0f * mScaleZombie;
@@ -2394,10 +2393,6 @@ void Zombie::UpdateZombiePeaHead()
             Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
             aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
         }
-#else
-        Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
-        aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
-#endif
 
         mPhaseCounter = 150;
     }
@@ -2497,7 +2492,6 @@ void Zombie::UpdateZombieGatlingHead()
 
         float aOriginX = mPosX + aTransform.mTransX - 9.0f;
         float aOriginY = mPosY + aTransform.mTransY + 6.0f;
-#ifdef DO_FIX_BUGS
         if (mMindControlled)  // 魅惑修复
         {
             aOriginX += 90.0f * mScaleZombie;
@@ -2517,14 +2511,6 @@ void Zombie::UpdateZombieGatlingHead()
                 aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
             }
         }
-#else
-        for (int i = 0; i < 3; i++)
-        {
-            float aY = aOriginY + (i - 1) * 8.0f;
-            Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
-            aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
-        }
-#endif
     }
     else if (mPhaseCounter == 0)
     {
@@ -4932,6 +4918,21 @@ void Zombie::Animate()
         UpdateYuckyFace();
     }
 
+    // 路障僵尸啃咬时持续回复血量（优先回复身体，身体满血则回复头盔）
+    if (mIsEating && mZombieType == ZombieType::ZOMBIE_TRAFFIC_CONE)
+    {
+        if (mBodyHealth < mBodyMaxHealth)
+        {
+            Heal(1);
+        }
+        else if (mHelmHealth > 0 && mHelmHealth < mHelmMaxHealth)
+        {
+            mHelmHealth++;
+            if (mHelmHealth > mHelmMaxHealth)
+                mHelmHealth = mHelmMaxHealth;
+        }
+    }
+
     if (mIsEating && mHasHead)
     {
         int aFrameLength = 6;
@@ -6803,6 +6804,36 @@ void Zombie::StopEating()
     UpdateAnimSpeed();
 }
 
+void Zombie::KnockBack(float theAmount)
+{
+    if (mZombieType == ZombieType::ZOMBIE_ZAMBONI || mZombieType == ZombieType::ZOMBIE_CATAPULT)
+        return;
+
+    if (mZombiePhase == ZombiePhase::PHASE_POLEVAULTER_IN_VAULT ||
+        mZombiePhase == ZombiePhase::PHASE_POLEVAULTER_PRE_VAULT ||
+        mZombiePhase == ZombiePhase::PHASE_DOLPHIN_IN_JUMP ||
+        mZombiePhase == ZombiePhase::PHASE_BALLOON_FLYING ||
+        mZombiePhase == ZombiePhase::PHASE_BUNGEE_DIVING ||
+        mZombiePhase == ZombiePhase::PHASE_BUNGEE_DIVING_SCREAMING ||
+        mZombiePhase == ZombiePhase::PHASE_BUNGEE_RISING ||
+        mZombiePhase == ZombiePhase::PHASE_IMP_GETTING_THROWN ||
+        mZombiePhase == ZombiePhase::PHASE_SNORKEL_INTO_POOL ||
+        mZombiePhase == ZombiePhase::PHASE_NEWSPAPER_MADDENING ||
+        mZombiePhase == ZombiePhase::PHASE_NEWSPAPER_MAD ||
+        IsBouncingPogo())
+        return;
+
+    if (mIsEating)
+        StopEating();
+
+    mPosX += theAmount;
+    const float aRightCap = static_cast<float>(WIDE_BOARD_WIDTH + 150);
+    if (mPosX > aRightCap)
+        mPosX = aRightCap;
+
+    mX = static_cast<int>(mPosX);
+}
+
 void Zombie::CheckIfPreyCaught()
 {
     if (mZombieType == ZombieType::ZOMBIE_BUNGEE ||
@@ -7319,6 +7350,16 @@ void Zombie::DieWithLoot()
     DropLoot();
 }
 
+void Zombie::Heal(int theAmount)
+{
+    if (mBodyHealth < mBodyMaxHealth)
+    {
+        mBodyHealth += theAmount;
+        if (mBodyHealth > mBodyMaxHealth)
+            mBodyHealth = mBodyMaxHealth;
+    }
+}
+
 void Zombie::BobsledDie()
 {
     if (!IsBobsledTeamWithSled() || !IsOnBoard())
@@ -7433,6 +7474,26 @@ void Zombie::DieNoLoot()
     if (mZombieType == ZombieType::ZOMBIE_BOSS)
     {
         BossDie();
+    }
+
+    // 魅惑僵尸死亡时释放毁灭菇效果（不留弹坑）
+    if (mMindControlled && mBoard)
+    {
+        static bool sDoomInProgress = false;
+        if (!sDoomInProgress)
+        {
+            sDoomInProgress = true;
+
+            int aPosX = mPosX + mWidth / 2;
+            int aPosY = mPosY + mHeight / 2;
+
+            mApp->PlaySample(SOUND_DOOMSHROOM);
+            mBoard->KillAllZombiesInRadius(mRow, aPosX, aPosY, 250, 3, true, 127);
+            mApp->AddTodParticle(aPosX, aPosY, static_cast<int>(RenderLayer::RENDER_LAYER_TOP), ParticleEffect::PARTICLE_DOOM);
+            mBoard->ShakeBoard(3, -4);
+
+            sDoomInProgress = false;
+        }
     }
 }
 
@@ -7971,6 +8032,20 @@ void Zombie::TakeDamage(int theDamage, unsigned int theDamageFlags)
 
     int aDamageRemaining = theDamage;
 
+    // Boss aura: 60% damage reduction for all zombies when Boss is on the field
+    if (mZombieType != ZombieType::ZOMBIE_BOSS)
+    {
+        Zombie* aBossZombie = mBoard->GetBossZombie();
+        if (aBossZombie && !aBossZombie->IsDeadOrDying())
+        {
+            aDamageRemaining = (aDamageRemaining * 40) / 100;
+            if (aDamageRemaining == 0)
+            {
+                aDamageRemaining = 1;
+            }
+        }
+    }
+
     // Football zombie with helmet takes 50% reduced damage
     if (mZombieType == ZombieType::ZOMBIE_FOOTBALL && mHelmType != HelmType::HELMTYPE_NONE)
     {
@@ -8038,6 +8113,9 @@ bool Zombie::CanBeChilled()
         return false;
 
     if (IsDeadOrDying())
+        return false;
+
+    if (mZombieType == ZombieType::ZOMBIE_NEWSPAPER && mZombiePhase == ZombiePhase::PHASE_NEWSPAPER_MAD)
         return false;
 
     if (mZombiePhase == ZombiePhase::PHASE_DIGGER_TUNNELING ||
@@ -9865,8 +9943,27 @@ void Zombie::BossSpawnContact()
         aZombieType = TodPickFromArray(gBossZombieList, aZombieTypeCount);
     }
 
-    Zombie* aZombie = mBoard->AddZombieInRow(aZombieType, mTargetRow, 0);
-    aZombie->mPosX = 600.0f;
+    int aSpawnCount = RandRangeInt(2, 5);
+    for (int i = 0; i < aSpawnCount; i++)
+    {
+        int aSpawnRow = mTargetRow;
+
+        // Pick a random zombie type for each spawn in later phases
+        ZombieType aSpawnType = aZombieType;
+        if (mZombieAge >= 12500 && i > 0)
+        {
+            int aTypeCount = LENGTH(gBossZombieList);
+            if (aSpawnRow == 0)
+            {
+                TOD_ASSERT(gBossZombieList[aTypeCount - 1] == ZombieType::ZOMBIE_GARGANTUAR);
+                aTypeCount--;
+            }
+            aSpawnType = TodPickFromArray(gBossZombieList, aTypeCount);
+        }
+
+        Zombie* aZombie = mBoard->AddZombieInRow(aSpawnType, aSpawnRow, 0);
+        aZombie->mPosX = 600.0f;
+    }
 }
 
 void Zombie::BossStompAttack()

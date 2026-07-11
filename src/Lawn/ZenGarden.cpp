@@ -1310,20 +1310,22 @@ void ZenGarden::StinkyPickGoal(GridItem* theStinky)
 {
     float aCurDistToGoal = Distance2D(theStinky->mGoalX, theStinky->mGoalY, theStinky->mPosX, theStinky->mPosY);
 
+    // Priority 1: Gold and Diamond coins
     Coin* aBestCoin = nullptr;
     float aCurWeight = 0.0f;
     {
         Coin* aCoin = nullptr;
         while (mBoard->IterateCoins(aCoin))
         {
-            if (!aCoin->mIsBeingCollected && aCoin->mPosY == aCoin->mGroundY)
+            if (!aCoin->mIsBeingCollected && aCoin->mPosY == aCoin->mGroundY &&
+                (aCoin->mType == CoinType::COIN_GOLD || aCoin->mType == CoinType::COIN_DIAMOND))
             {
                 float aWeight = Distance2D(aCoin->mPosX, aCoin->mPosY + 30.0f, theStinky->mPosX, theStinky->mPosY);
                 if (aCoin->mType == CoinType::COIN_GOLD)
                 {
                     aWeight -= 40.0f;
                 }
-                else if (aCoin->mType == CoinType::COIN_DIAMOND)
+                else
                 {
                     aWeight -= 80.0f;
                 }
@@ -1351,40 +1353,185 @@ void ZenGarden::StinkyPickGoal(GridItem* theStinky)
     }
     else
     {
-        if (aCurDistToGoal > 10.0f)
+        bool aFoundGoal = false;
+
+        // Priority 2: Bug Spray plants
         {
-            return;
+            TodWeightedGridArray aBugPicks[MAX_GRID_SIZE_X * MAX_GRID_SIZE_Y];
+            int aBugPickCount = 0;
+
+            int aSpecialCount;
+            SpecialGridPlacement* aSpecialGrids = GetSpecialGridPlacements(aSpecialCount);
+            for (int i = 0; i < aSpecialCount; i++)
+            {
+                SpecialGridPlacement& aGrid = aSpecialGrids[i];
+                Plant* aPlant = mBoard->GetTopPlantAt(aGrid.mGridX, aGrid.mGridY, PlantPriority::TOPPLANT_ZEN_TOOL_ORDER);
+                if (aPlant && aPlant->mPottedPlantIndex != -1)
+                {
+                    PottedPlant* aPottedPlant = PottedPlantFromIndex(aPlant->mPottedPlantIndex);
+                    if (GetPlantsNeed(aPottedPlant) == PottedPlantNeed::PLANTNEED_BUGSPRAY &&
+                        mApp->mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_BUG_SPRAY] > PURCHASE_COUNT_OFFSET)
+                    {
+                        aBugPicks[aBugPickCount].mX = aGrid.mPixelX + 15;
+                        aBugPicks[aBugPickCount].mY = aGrid.mPixelY + 80;
+                        aBugPicks[aBugPickCount].mWeight = 2000 - abs(static_cast<int>(aGrid.mPixelY + 80 - theStinky->mPosY));
+                        aBugPickCount++;
+                    }
+                }
+            }
+
+            if (aBugPickCount > 0)
+            {
+                TodWeightedGridArray* aTarget = TodPickFromWeightedGridArray(aBugPicks, aBugPickCount);
+                theStinky->mGoalX = aTarget->mX;
+                theStinky->mGoalY = aTarget->mY;
+                aFoundGoal = true;
+            }
         }
 
-        TodWeightedGridArray aPicks[MAX_GRID_SIZE_X * MAX_GRID_SIZE_Y];
-        int aPickCount = 0;
-
-        int aCount;
-        SpecialGridPlacement* aSpecialGrids = GetSpecialGridPlacements(aCount);
-        TOD_ASSERT(aCount < MAX_GRID_SIZE_X * MAX_GRID_SIZE_Y);
-
-        for (int i = 0; i < aCount; i++)
+        // Priority 3: Phonograph plants
         {
-            SpecialGridPlacement& aGrid = aSpecialGrids[i];
-            Plant* aPlant = mBoard->GetTopPlantAt(aGrid.mGridX, aGrid.mGridY, PlantPriority::TOPPLANT_ANY);
-            aPicks[aPickCount].mX = aGrid.mPixelX + 15;
-            aPicks[aPickCount].mY = aGrid.mPixelY + 80;
+            TodWeightedGridArray aPhonoPicks[MAX_GRID_SIZE_X * MAX_GRID_SIZE_Y];
+            int aPhonoPickCount = 0;
 
-            if (aPlant)
+            int aSpecialCount;
+            SpecialGridPlacement* aSpecialGrids = GetSpecialGridPlacements(aSpecialCount);
+            for (int i = 0; i < aSpecialCount; i++)
             {
-                aPicks[aPickCount].mWeight = 2000 - abs(aPicks[aPickCount].mY - theStinky->mPosY);
-            }
-            else
-            {
-                aPicks[aPickCount].mWeight = 1;
+                SpecialGridPlacement& aGrid = aSpecialGrids[i];
+                Plant* aPlant = mBoard->GetTopPlantAt(aGrid.mGridX, aGrid.mGridY, PlantPriority::TOPPLANT_ZEN_TOOL_ORDER);
+                if (aPlant && aPlant->mPottedPlantIndex != -1)
+                {
+                    PottedPlant* aPottedPlant = PottedPlantFromIndex(aPlant->mPottedPlantIndex);
+                    if (GetPlantsNeed(aPottedPlant) == PottedPlantNeed::PLANTNEED_PHONOGRAPH)
+                    {
+                        aPhonoPicks[aPhonoPickCount].mX = aGrid.mPixelX + 15;
+                        aPhonoPicks[aPhonoPickCount].mY = aGrid.mPixelY + 80;
+                        aPhonoPicks[aPhonoPickCount].mWeight = 2000 - abs(static_cast<int>(aGrid.mPixelY + 80 - theStinky->mPosY));
+                        aPhonoPickCount++;
+                    }
+                }
             }
 
-            aPickCount++;
+            if (aPhonoPickCount > 0)
+            {
+                TodWeightedGridArray* aTarget = TodPickFromWeightedGridArray(aPhonoPicks, aPhonoPickCount);
+                theStinky->mGoalX = aTarget->mX;
+                theStinky->mGoalY = aTarget->mY;
+                aFoundGoal = true;
+            }
         }
 
-        TodWeightedGridArray* aTarget = TodPickFromWeightedGridArray(aPicks, aPickCount);
-        theStinky->mGoalX = aTarget->mX;
-        theStinky->mGoalY = aTarget->mY;
+        // Priority 4: Silver coins
+        if (!aFoundGoal)
+        {
+            Coin* aBestSilver = nullptr;
+            float aSilverWeight = 0.0f;
+            {
+                Coin* aCoin = nullptr;
+                while (mBoard->IterateCoins(aCoin))
+                {
+                    if (!aCoin->mIsBeingCollected && aCoin->mPosY == aCoin->mGroundY &&
+                        aCoin->mType != CoinType::COIN_GOLD && aCoin->mType != CoinType::COIN_DIAMOND)
+                    {
+                        float aWeight = Distance2D(aCoin->mPosX, aCoin->mPosY + 30.0f, theStinky->mPosX, theStinky->mPosY);
+
+                        float aDistFromLastGoal = Distance2D(aCoin->mPosX, aCoin->mPosY + 30.0f, theStinky->mGoalX, theStinky->mGoalY);
+                        if (aDistFromLastGoal < 5.0f)
+                        {
+                            aWeight -= 20.0f;
+                            aWeight += TodAnimateCurve(3000, 6000, aCoin->mDisappearCounter, 0, -40, TodCurves::CURVE_LINEAR);
+                        }
+
+                        if (aBestSilver == nullptr || aWeight < aSilverWeight)
+                        {
+                            aBestSilver = aCoin;
+                            aSilverWeight = aWeight;
+                        }
+                    }
+                }
+            }
+
+            if (aBestSilver)
+            {
+                theStinky->mGoalX = aBestSilver->mPosX;
+                theStinky->mGoalY = aBestSilver->mPosY + 30.0f;
+                aFoundGoal = true;
+            }
+        }
+
+        // Priority 5: Water-needing plants
+        if (!aFoundGoal)
+        {
+            TodWeightedGridArray aWaterPicks[MAX_GRID_SIZE_X * MAX_GRID_SIZE_Y];
+            int aWaterPickCount = 0;
+
+            int aSpecialCount;
+            SpecialGridPlacement* aSpecialGrids = GetSpecialGridPlacements(aSpecialCount);
+            for (int i = 0; i < aSpecialCount; i++)
+            {
+                SpecialGridPlacement& aGrid = aSpecialGrids[i];
+                Plant* aPlant = mBoard->GetTopPlantAt(aGrid.mGridX, aGrid.mGridY, PlantPriority::TOPPLANT_ZEN_TOOL_ORDER);
+                if (aPlant && aPlant->mPottedPlantIndex != -1)
+                {
+                    PottedPlant* aPottedPlant = PottedPlantFromIndex(aPlant->mPottedPlantIndex);
+                    if (GetPlantsNeed(aPottedPlant) == PottedPlantNeed::PLANTNEED_WATER)
+                    {
+                        aWaterPicks[aWaterPickCount].mX = aGrid.mPixelX + 15;
+                        aWaterPicks[aWaterPickCount].mY = aGrid.mPixelY + 80;
+                        aWaterPicks[aWaterPickCount].mWeight = 2000 - abs(static_cast<int>(aGrid.mPixelY + 80 - theStinky->mPosY));
+                        aWaterPickCount++;
+                    }
+                }
+            }
+
+            if (aWaterPickCount > 0)
+            {
+                TodWeightedGridArray* aTarget = TodPickFromWeightedGridArray(aWaterPicks, aWaterPickCount);
+                theStinky->mGoalX = aTarget->mX;
+                theStinky->mGoalY = aTarget->mY;
+                aFoundGoal = true;
+            }
+        }
+
+        // Priority 6: Random walk
+        if (!aFoundGoal)
+        {
+            if (aCurDistToGoal > 10.0f)
+            {
+                return;
+            }
+
+            TodWeightedGridArray aPicks[MAX_GRID_SIZE_X * MAX_GRID_SIZE_Y];
+            int aPickCount = 0;
+
+            int aCount;
+            SpecialGridPlacement* aSpecialGrids2 = GetSpecialGridPlacements(aCount);
+            TOD_ASSERT(aCount < MAX_GRID_SIZE_X * MAX_GRID_SIZE_Y);
+
+            for (int i = 0; i < aCount; i++)
+            {
+                SpecialGridPlacement& aGrid = aSpecialGrids2[i];
+                Plant* aPlant = mBoard->GetTopPlantAt(aGrid.mGridX, aGrid.mGridY, PlantPriority::TOPPLANT_ANY);
+                aPicks[aPickCount].mX = aGrid.mPixelX + 15;
+                aPicks[aPickCount].mY = aGrid.mPixelY + 80;
+
+                if (aPlant)
+                {
+                    aPicks[aPickCount].mWeight = 2000 - abs(aPicks[aPickCount].mY - theStinky->mPosY);
+                }
+                else
+                {
+                    aPicks[aPickCount].mWeight = 1;
+                }
+
+                aPickCount++;
+            }
+
+            TodWeightedGridArray* aTarget = TodPickFromWeightedGridArray(aPicks, aPickCount);
+            theStinky->mGoalX = aTarget->mX;
+            theStinky->mGoalY = aTarget->mY;
+        }
     }
 
     theStinky->mGridItemCounter = 100;
@@ -1770,6 +1917,86 @@ void ZenGarden::ZenGardenUpdate()
             else if (aGridItem->mGridItemType == GridItemType::GRIDITEM_STINKY)
             {
                 StinkyUpdate(aGridItem);
+            }
+        }
+    }
+
+    // Auto-water: check if Stinky is near a thirsty plant
+    if (mGardenType == GardenType::GARDEN_MAIN)
+    {
+        GridItem* aStinky = GetStinky();
+        if (aStinky && ShouldStinkyBeAwake() &&
+            (aStinky->mGridItemState == GridItemState::GRIDITEM_STINKY_WALKING_LEFT ||
+             aStinky->mGridItemState == GridItemState::GRIDITEM_STINKY_WALKING_RIGHT))
+        {
+            int aGridX = PixelToGridX(static_cast<int>(aStinky->mPosX), static_cast<int>(aStinky->mPosY));
+            int aGridY = PixelToGridY(static_cast<int>(aStinky->mPosX), static_cast<int>(aStinky->mPosY));
+            if (aGridX != -1 && aGridY != -1)
+            {
+                Plant* aPlant = mBoard->GetTopPlantAt(aGridX, aGridY, PlantPriority::TOPPLANT_ZEN_TOOL_ORDER);
+                if (aPlant && aPlant->mPottedPlantIndex != -1)
+                {
+                    PottedPlant* aPottedPlant = PottedPlantFromIndex(aPlant->mPottedPlantIndex);
+                    PottedPlantNeed aNeed = GetPlantsNeed(aPottedPlant);
+
+                    if (aNeed == PottedPlantNeed::PLANTNEED_BUGSPRAY &&
+                             mApp->mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_BUG_SPRAY] > PURCHASE_COUNT_OFFSET)
+                    {
+                        GridItem* aZenTool = mBoard->mGridItems.DataArrayAlloc();
+                        aZenTool->mGridItemType = GridItemType::GRIDITEM_ZEN_TOOL;
+                        aZenTool->mGridX = aPlant->mPlantCol;
+                        aZenTool->mGridY = aPlant->mRow;
+                        aZenTool->mPosX = aPlant->mX + 40;
+                        aZenTool->mPosY = aPlant->mY + 40;
+                        aZenTool->mRenderOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_ABOVE_UI, 0, 0);
+
+                        Reanimation* aBugSprayReanim = mApp->AddReanimation(aPlant->mX + 54, aPlant->mY, 0, ReanimationType::REANIM_ZENGARDEN_BUGSPRAY);
+                        aBugSprayReanim->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
+                        aZenTool->mGridItemReanimID = mApp->ReanimationGetID(aBugSprayReanim);
+                        aZenTool->mGridItemState = GridItemState::GRIDITEM_STATE_ZEN_TOOL_BUG_SPRAY;
+                        mApp->PlayFoley(FoleyType::FOLEY_BUGSPRAY);
+                        mApp->mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_BUG_SPRAY]--;
+
+                        PlantFulfillNeed(aPlant);
+                    }
+                    else if (aNeed == PottedPlantNeed::PLANTNEED_PHONOGRAPH)
+                    {
+                        GridItem* aZenTool = mBoard->mGridItems.DataArrayAlloc();
+                        aZenTool->mGridItemType = GridItemType::GRIDITEM_ZEN_TOOL;
+                        aZenTool->mGridX = aPlant->mPlantCol;
+                        aZenTool->mGridY = aPlant->mRow;
+                        aZenTool->mPosX = aPlant->mX + 40;
+                        aZenTool->mPosY = aPlant->mY + 40;
+                        aZenTool->mRenderOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_ABOVE_UI, 0, 0);
+
+                        Reanimation* aPhonographReanim = mApp->AddReanimation(aPlant->mX + 20, aPlant->mY + 34, 0, ReanimationType::REANIM_ZENGARDEN_PHONOGRAPH);
+                        aPhonographReanim->mAnimRate = 20.0f;
+                        aPhonographReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
+                        aZenTool->mGridItemReanimID = mApp->ReanimationGetID(aPhonographReanim);
+                        aZenTool->mGridItemState = GridItemState::GRIDITEM_STATE_ZEN_TOOL_PHONOGRAPH;
+                        mApp->PlayFoley(FoleyType::FOLEY_PHONOGRAPH);
+
+                        PlantFulfillNeed(aPlant);
+                    }
+                    else if (aNeed == PottedPlantNeed::PLANTNEED_WATER)
+                    {
+                        GridItem* aZenTool = mBoard->mGridItems.DataArrayAlloc();
+                        aZenTool->mGridItemType = GridItemType::GRIDITEM_ZEN_TOOL;
+                        aZenTool->mGridX = aPlant->mPlantCol;
+                        aZenTool->mGridY = aPlant->mRow;
+                        aZenTool->mPosX = aPlant->mX + 40;
+                        aZenTool->mPosY = aPlant->mY + 40;
+                        aZenTool->mRenderOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_ABOVE_UI, 0, 0);
+
+                        Reanimation* aWateringCanReanim = mApp->AddReanimation(aPlant->mX + 32, aPlant->mY, 0, ReanimationType::REANIM_ZENGARDEN_WATERINGCAN);
+                        aWateringCanReanim->PlayReanim("anim_water", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 0.0f);
+                        aZenTool->mGridItemReanimID = mApp->ReanimationGetID(aWateringCanReanim);
+                        aZenTool->mGridItemState = GridItemState::GRIDITEM_STATE_ZEN_TOOL_WATERING_CAN;
+                        mApp->PlayFoley(FoleyType::FOLEY_WATERING);
+
+                        PlantWatered(aPlant);
+                    }
+                }
             }
         }
     }

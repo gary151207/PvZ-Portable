@@ -42,6 +42,8 @@ constexpr const int   UMBRELLA_KNOCKBACK_DAMAGE = 50;     // HP the leaf loses p
 constexpr const int   UMBRELLA_KNOCKBACK_COOLDOWN = 90;   // frames of attack+cooldown per cycle (~0.9s @ 100fps)
 constexpr const int   UMBRELLA_REGEN_AMOUNT      = 25;     // HP recovered per regen tick
 constexpr const int   UMBRELLA_REGEN_COOLDOWN    = 500;    // frames between regen ticks (~5s @ 100fps)
+constexpr const int   PUMPKIN_HEAL_AMOUNT        = 45;     // HP recovered per inner-plant heal tick
+constexpr const int   PUMPKIN_HEAL_COOLDOWN      = 200;    // frames between heal ticks (~2s @ 100fps)
 constexpr const int HIGH_GROUND_HEIGHT = 30;
 
 constexpr const int SEEDBANK_MAX = 10;

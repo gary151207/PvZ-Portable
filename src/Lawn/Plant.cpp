@@ -405,6 +405,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     {
         mPlantHealth = 4000;
         mWidth = 120;
+        mPumpkinRegenCountdown = PUMPKIN_HEAL_COOLDOWN;
 
         TOD_ASSERT(aBodyReanim);
         aBodyReanim->AssignRenderGroupToTrack("Pumpkin_back", 1);
@@ -727,7 +728,7 @@ void Plant::DoRowAreaDamage(int theDamage, unsigned int theDamageFlags)
                 if (mSeedType == SeedType::SEED_GLOOMSHROOM)
                 {
                     int aZombieCol = mBoard->PixelToGridX(aZombie->mX, aZombie->mY);
-                    if (aZombieCol == mPlantCol || aZombieCol == mPlantCol + 1)
+                    if ((aZombieCol == mPlantCol || aZombieCol == mPlantCol + 1) && Sexy::Rand(2) == 0)
                         aZombie->KnockBack(GLOOM_KNOCKBACK);
                 }
             }
@@ -1717,6 +1718,24 @@ void Plant::DoUmbrellaKnockback()
     else
     {
         mApp->PlayFoley(FoleyType::FOLEY_SPLAT);
+    }
+}
+
+void Plant::UpdatePumpkin()
+{
+    // Inner-plant healing: every PUMPKIN_HEAL_COOLDOWN frames, heal the contained plant
+    // PUMPKIN_HEAL_AMOUNT HP (capped at that plant's max health).
+    if (--mPumpkinRegenCountdown <= 0)
+    {
+        mPumpkinRegenCountdown = PUMPKIN_HEAL_COOLDOWN;
+        if (IsOnBoard())
+        {
+            Plant* aInner = mBoard->GetTopPlantAt(mPlantCol, mRow, PlantPriority::TOPPLANT_ONLY_NORMAL_POSITION);
+            if (aInner && aInner != this && aInner->mPlantHealth < aInner->mPlantMaxHealth)
+            {
+                aInner->mPlantHealth = std::min(aInner->mPlantMaxHealth, aInner->mPlantHealth + PUMPKIN_HEAL_AMOUNT);
+            }
+        }
     }
 }
 
@@ -2743,6 +2762,7 @@ void Plant::UpdateAbilities()
     else if (mSeedType == SeedType::SEED_IMITATER)                                              UpdateImitater();
     else if (mSeedType == SeedType::SEED_INSTANT_COFFEE)                                        UpdateCoffeeBean();
     else if (mSeedType == SeedType::SEED_UMBRELLA)                                              UpdateUmbrella();
+    else if (mSeedType == SeedType::SEED_PUMPKINSHELL)                                          UpdatePumpkin();
     else if (mSeedType == SeedType::SEED_COBCANNON)                                             UpdateCobCannon();
     else if (mSeedType == SeedType::SEED_CACTUS)                                                UpdateCactus();
     else if (mSeedType == SeedType::SEED_MAGNETSHROOM)                                          UpdateMagnetShroom();

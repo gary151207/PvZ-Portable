@@ -215,8 +215,8 @@ public:
     int32_t                 mPottedPlantIndex;
     bool                    mAnimPing;
     bool                    mDead;
-    bool                    mDoUmbrellaKnockbackFired = false;   // prevents multi-fire of the one-shot shove
     int32_t                 mUmbrellaRegenCountdown = 0;          // counts down to next regen tick (starts expired => first heal after 5s)
+    int32_t                 mPumpkinRegenCountdown = 0;           // counts down to next inner-plant heal tick
     bool                    mSquished;
     bool                    mIsAsleep;
     bool                    mIsOnBoard;
@@ -312,6 +312,7 @@ public:
     void                    RemoveEffects();
     void                    UpdateCoffeeBean();
     void                    UpdateUmbrella();
+    void                    UpdatePumpkin();
     bool                    FindUmbrellaTarget() const;
     void                    DoUmbrellaKnockback();
     void                    EndBlink();

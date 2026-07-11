@@ -3192,6 +3192,27 @@ Zombie* Board::ZombieHitTest(int theMouseX, int theMouseY)
 	return aRecord;
 }
 
+Plant* Board::PlantHitTest(int theMouseX, int theMouseY)
+{
+	Plant* aPlant = nullptr;
+	Plant* aRecord = nullptr;
+	while (IteratePlants(aPlant))
+	{
+		if (aPlant->mDead)
+			continue;
+
+		if (aPlant->GetPlantRect().Contains(theMouseX, theMouseY))
+		{
+			if (aRecord == nullptr || aPlant->mY > aRecord->mY)
+			{
+				aRecord = aPlant;
+			}
+		}
+	}
+
+	return aRecord;
+}
+
 bool Board::IsPlantInGoldWateringCanRange(int theMouseX, int theMouseY, Plant* thePlant)
 {
 	/*

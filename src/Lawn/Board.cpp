@@ -3488,6 +3488,21 @@ void Board::UpdateToolTip()
 		return;
 	}
 
+	Plant* aPlant = PlantHitTest(aMouseX, aMouseY);
+	if (aPlant)
+	{
+		mToolTip->SetTitle(Plant::GetNameString(aPlant->mSeedType, aPlant->mImitaterType));
+		mToolTip->SetLabel(StrFormat("HP: %d/%d", aPlant->mPlantHealth, aPlant->mPlantMaxHealth));
+		mToolTip->SetWarningText("");
+
+		Rect aRect = aPlant->GetPlantRect();
+		mToolTip->mX = aRect.mWidth / 2 + aRect.mX + 5;
+		mToolTip->mY = aRect.mHeight + aRect.mY - 10;
+		mToolTip->mCenter = true;
+		mToolTip->mVisible = true;
+		return;
+	}
+
 	if (mChallenge->UpdateToolTip(aMouseX, aMouseY))
 	{
 		return;

@@ -62,7 +62,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_DOOMSHROOM,        nullptr, ReanimationType::REANIM_DOOMSHROOM,    20, 125,    3000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "DOOM_SHROOM" },
     { SeedType::SEED_LILYPAD,           nullptr, ReanimationType::REANIM_LILYPAD,       19, 0,      150,    PlantSubClass::SUBCLASS_NORMAL,     0,      "LILY_PAD" },
     { SeedType::SEED_SQUASH,            nullptr, ReanimationType::REANIM_SQUASH,        21, 50,     2000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "SQUASH" },
-    { SeedType::SEED_THREEPEATER,       nullptr, ReanimationType::REANIM_THREEPEATER,   12, 325,    750,    PlantSubClass::SUBCLASS_SHOOTER,    55,     "THREEPEATER" },
+    { SeedType::SEED_THREEPEATER,       nullptr, ReanimationType::REANIM_THREEPEATER,   12, 325,    750,    PlantSubClass::SUBCLASS_SHOOTER,    90,     "THREEPEATER" },
     { SeedType::SEED_TANGLEKELP,        nullptr, ReanimationType::REANIM_TANGLEKELP,    17, 25,     2000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "TANGLE_KELP" },
     { SeedType::SEED_JALAPENO,          nullptr, ReanimationType::REANIM_JALAPENO,      11, 125,    3000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "JALAPENO" },
     { SeedType::SEED_SPIKEWEED,         nullptr, ReanimationType::REANIM_SPIKEWEED,     22, 100,    750,    PlantSubClass::SUBCLASS_NORMAL,     0,      "SPIKEWEED" },
@@ -70,7 +70,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_TALLNUT,           nullptr, ReanimationType::REANIM_TALLNUT,       28, 125,    2000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "TALL_NUT" },
     { SeedType::SEED_SEASHROOM,         nullptr, ReanimationType::REANIM_SEASHROOM,     39, 0,      2000,   PlantSubClass::SUBCLASS_SHOOTER,    75,     "SEA_SHROOM" },
     { SeedType::SEED_PLANTERN,          nullptr, ReanimationType::REANIM_PLANTERN,      38, 25,     2000,   PlantSubClass::SUBCLASS_NORMAL,     2500,   "PLANTERN" },
-    { SeedType::SEED_CACTUS,            nullptr, ReanimationType::REANIM_CACTUS,        15, 125,    750,    PlantSubClass::SUBCLASS_SHOOTER,    60,    "CACTUS" },
+    { SeedType::SEED_CACTUS,            nullptr, ReanimationType::REANIM_CACTUS,        15, 125,    750,    PlantSubClass::SUBCLASS_SHOOTER,    60 ,    "CACTUS" },
     { SeedType::SEED_BLOVER,            nullptr, ReanimationType::REANIM_BLOVER,        18, 100,    750,    PlantSubClass::SUBCLASS_NORMAL,     0,      "BLOVER" },
     { SeedType::SEED_SPLITPEA,          nullptr, ReanimationType::REANIM_SPLITPEA,      32, 125,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "SPLIT_PEA" },
     { SeedType::SEED_STARFRUIT,         nullptr, ReanimationType::REANIM_STARFRUIT,     30, 125,    750,    PlantSubClass::SUBCLASS_SHOOTER,    100,    "STARFRUIT" },
@@ -839,37 +839,36 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
 
 void Plant::LaunchThreepeater()
 {
-    int rowAbove = mRow - 1;
-    int rowBelow = mRow + 1;
+    bool aHasTarget = false;
+    for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+    {
+        if (mBoard->RowCanHaveZombies(aRow) && FindTargetZombie(aRow, PlantWeapon::WEAPON_PRIMARY))
+        {
+            aHasTarget = true;
+            break;
+        }
+    }
 
-    if ((FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY)) ||
-        (mBoard->RowCanHaveZombies(rowAbove) && FindTargetZombie(rowAbove, PlantWeapon::WEAPON_PRIMARY)) ||
-        (mBoard->RowCanHaveZombies(rowBelow) && FindTargetZombie(rowBelow, PlantWeapon::WEAPON_PRIMARY)))
+    if (aHasTarget)
     {
         Reanimation* aHeadReanim1 = mApp->ReanimationGet(mHeadReanimID);
         Reanimation* aHeadReanim2 = mApp->ReanimationGet(mHeadReanimID2);
         Reanimation* aHeadReanim3 = mApp->ReanimationGet(mHeadReanimID3);
 
-        if (mBoard->RowCanHaveZombies(rowBelow))
-        {
-            aHeadReanim1->StartBlend(10);
-            aHeadReanim1->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
-            aHeadReanim1->mAnimRate = 20.0f;
-            aHeadReanim1->SetFramesForLayer("anim_shooting1");
-        }
+        aHeadReanim1->StartBlend(10);
+        aHeadReanim1->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
+        aHeadReanim1->mAnimRate = 20.0f;
+        aHeadReanim1->SetFramesForLayer("anim_shooting1");
 
         aHeadReanim2->StartBlend(10);
         aHeadReanim2->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
         aHeadReanim2->mAnimRate = 20.0f;
         aHeadReanim2->SetFramesForLayer("anim_shooting2");
 
-        if (mBoard->RowCanHaveZombies(rowAbove))
-        {
-            aHeadReanim3->StartBlend(10);
-            aHeadReanim3->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
-            aHeadReanim3->mAnimRate = 20.0f;
-            aHeadReanim3->SetFramesForLayer("anim_shooting3");
-        }
+        aHeadReanim3->StartBlend(10);
+        aHeadReanim3->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
+        aHeadReanim3->mAnimRate = 20.0f;
+        aHeadReanim3->SetFramesForLayer("anim_shooting3");
 
         mShootingCounter = 35;
     }
@@ -3507,23 +3506,12 @@ void Plant::UpdateShooting()
     {
         if (mSeedType == SeedType::SEED_THREEPEATER)
         {
-            int rowAbove = mRow - 1;
-            int rowBelow = mRow + 1;
-            Reanimation* aHeadReanim2 = mApp->ReanimationGet(mHeadReanimID2);
-            Reanimation* aHeadReanim3 = mApp->ReanimationGet(mHeadReanimID3);
-            Reanimation* aHeadReanim1 = mApp->ReanimationGet(mHeadReanimID);
-
-            if (aHeadReanim1->mLoopType == ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD)
+            for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
             {
-                Fire(nullptr, rowBelow, PlantWeapon::WEAPON_PRIMARY);
-            }
-            if (aHeadReanim2->mLoopType == ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD)
-            {
-                Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
-            }
-            if (aHeadReanim3->mLoopType == ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD)
-            {
-                Fire(nullptr, rowAbove, PlantWeapon::WEAPON_PRIMARY);
+                if (mBoard->RowCanHaveZombies(aRow))
+                {
+                    Fire(nullptr, aRow, PlantWeapon::WEAPON_PRIMARY);
+                }
             }
         }
         else if (mSeedType == SeedType::SEED_SPLITPEA)
@@ -5023,17 +5011,12 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     }
     else if (mSeedType == SeedType::SEED_THREEPEATER)
     {
-        if (theRow < mRow)
+        if (theRow != mRow)
         {
+            int aRowDiff = theRow - mRow;
             aProjectile->mMotionType = ProjectileMotion::MOTION_THREEPEATER;
-            aProjectile->mVelY = -3.0f;
-            aProjectile->mShadowY += 80.0f;
-        }
-        else if (theRow > mRow)
-        {
-            aProjectile->mMotionType = ProjectileMotion::MOTION_THREEPEATER;
-            aProjectile->mVelY = 3.0f;
-            aProjectile->mShadowY -= 80.0f;
+            aProjectile->mVelY = 3.0f * aRowDiff;
+            aProjectile->mShadowY -= 80.0f * aRowDiff;
         }
     }
     else if (mSeedType == SeedType::SEED_PUFFSHROOM || mSeedType == SeedType::SEED_SEASHROOM)

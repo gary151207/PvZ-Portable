@@ -157,6 +157,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mOnBungeeState = PlantOnBungeeState::NOT_ON_BUNGEE;
     mPottedPlantIndex = -1;
     mLaunchRate = aPlantDef.mLaunchRate;
+    mScaredyShroomLaunchRate = 150;
     mSubclass = aPlantDef.mSubClass;
     mRenderOrder = CalcRenderOrder();
     mIsElite = ((theSeedType == SeedType::SEED_PEASHOOTER || theSeedType == SeedType::SEED_REPEATER) && Sexy::Rand(100) < 20);
@@ -929,7 +930,20 @@ void Plant::UpdateShooter()
     mLaunchCounter--;
     if (mLaunchCounter <= 0)
     {
-        mLaunchCounter = mLaunchRate - Sexy::Rand(15);
+        if (mSeedType == SeedType::SEED_SCAREDYSHROOM)
+        {
+            mLaunchCounter = mScaredyShroomLaunchRate - Sexy::Rand(15);
+            if (mScaredyShroomLaunchRate > 60)
+            {
+                mScaredyShroomLaunchRate -= 10;
+                if (mScaredyShroomLaunchRate < 60)
+                    mScaredyShroomLaunchRate = 60;
+            }
+        }
+        else
+        {
+            mLaunchCounter = mLaunchRate - Sexy::Rand(15);
+        }
 
         if (mSeedType == SeedType::SEED_THREEPEATER)
         {
@@ -1369,6 +1383,7 @@ void Plant::UpdateScaredyShroom()
         if (aBodyReanim->mLoopCount > 0)
         {
             mState = PlantState::STATE_SCAREDYSHROOM_SCARED;
+            mScaredyShroomLaunchRate = 150;
             mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
             mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
             PlayBodyReanim("anim_scaredidle", ReanimLoopType::REANIM_LOOP, 10, 0.0f);

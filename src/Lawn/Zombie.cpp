@@ -7118,13 +7118,18 @@ void Zombie::EatPlant(Plant* thePlant)
         }
     }
 
-    thePlant->mPlantHealth -= DAMAGE_PER_EAT;
+    int aEatDamage = DAMAGE_PER_EAT;
+    if (mMindControlled && mZombieType == ZombieType::ZOMBIE_NEWSPAPER)
+    {
+        aEatDamage *= 15;
+    }
+    thePlant->mPlantHealth -= aEatDamage;
     thePlant->mRecentlyEatenCountdown = 50;
     if (mApp->IsIZombieLevel() && mJustGotShotCounter < -500)
     {
         if (thePlant->mSeedType == SeedType::SEED_WALLNUT || thePlant->mSeedType == SeedType::SEED_TALLNUT || thePlant->mSeedType == SeedType::SEED_PUMPKINSHELL)
         {
-            thePlant->mPlantHealth -= DAMAGE_PER_EAT;
+            thePlant->mPlantHealth -= aEatDamage;
         }
     }
 
@@ -7476,23 +7481,24 @@ void Zombie::DieNoLoot()
         BossDie();
     }
 
-    // 魅惑僵尸死亡时释放毁灭菇效果（不留弹坑）
+    // 魅惑僵尸死亡时释放樱桃炸弹效果
     if (mMindControlled && mBoard)
     {
-        static bool sDoomInProgress = false;
-        if (!sDoomInProgress)
+        static bool sCherryInProgress = false;
+        if (!sCherryInProgress)
         {
-            sDoomInProgress = true;
+            sCherryInProgress = true;
 
             int aPosX = mPosX + mWidth / 2;
             int aPosY = mPosY + mHeight / 2;
 
-            mApp->PlaySample(SOUND_DOOMSHROOM);
-            mBoard->KillAllZombiesInRadius(mRow, aPosX, aPosY, 250, 3, true, 127);
-            mApp->AddTodParticle(aPosX, aPosY, static_cast<int>(RenderLayer::RENDER_LAYER_TOP), ParticleEffect::PARTICLE_DOOM);
+            mApp->PlayFoley(FoleyType::FOLEY_CHERRYBOMB);
+            mApp->PlayFoley(FoleyType::FOLEY_JUICY);
+            mBoard->KillAllZombiesInRadius(mRow, aPosX, aPosY, 115, 1, true, 127);
+            mApp->AddTodParticle(aPosX, aPosY, static_cast<int>(RenderLayer::RENDER_LAYER_TOP), ParticleEffect::PARTICLE_POWIE);
             mBoard->ShakeBoard(3, -4);
 
-            sDoomInProgress = false;
+            sCherryInProgress = false;
         }
     }
 }
@@ -8056,7 +8062,7 @@ void Zombie::TakeDamage(int theDamage, unsigned int theDamageFlags)
     {
         aDamageRemaining = TakeFlyingDamage(aDamageRemaining, theDamageFlags);
     }
-    if (aDamageRemaining > 0 && mShieldType != ShieldType::SHIELDTYPE_NONE && !TestBit(theDamageFlags, static_cast<int>(DamageFlags::DAMAGE_BYPASSES_SHIELD)))
+    if (aDamageRemaining > 0 && mShieldType != ShieldType::SHIELDTYPE_NONE && (mShieldType == ShieldType::SHIELDTYPE_NEWSPAPER || !TestBit(theDamageFlags, static_cast<int>(DamageFlags::DAMAGE_BYPASSES_SHIELD))))
     {
         aDamageRemaining = TakeShieldDamage(aDamageRemaining, theDamageFlags);
         if (TestBit(theDamageFlags, static_cast<int>(DamageFlags::DAMAGE_HITS_SHIELD_AND_BODY)))

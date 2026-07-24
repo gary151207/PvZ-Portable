@@ -892,6 +892,7 @@ static void SyncPlantTailPortable(PortableSaveContext& theContext, Plant& thePla
 	theContext.SyncInt32(thePlant.mStartRow);
 	SyncEnumU32(theContext, thePlant.mParticleID);
 	theContext.SyncInt32(thePlant.mShootingCounter);
+	theContext.SyncInt32(thePlant.mScaredyShroomLaunchRate);
 	SyncEnumU32(theContext, thePlant.mBodyReanimID);
 	SyncEnumU32(theContext, thePlant.mHeadReanimID);
 	SyncEnumU32(theContext, thePlant.mHeadReanimID2);

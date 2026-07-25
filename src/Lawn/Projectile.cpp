@@ -43,7 +43,7 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_WINTERMELON,   0,  80  },
 	{ ProjectileType::PROJECTILE_FIREBALL,      0,  40  },
 	{ ProjectileType::PROJECTILE_STAR,          0,  20  },
-	{ ProjectileType::PROJECTILE_SPIKE,         0,  45  },
+	{ ProjectileType::PROJECTILE_SPIKE,         0,  30  },
 	{ ProjectileType::PROJECTILE_BASKETBALL,    0,  75  },
 	{ ProjectileType::PROJECTILE_KERNEL,        0,  20  },
 	{ ProjectileType::PROJECTILE_COBBIG,        0,  300 },
@@ -99,6 +99,13 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 	mAnimTicksPerFrame = 0;
 	mDamageOverride = 0;
 	mRenderScale = 1.0f;
+
+	mPenetrations = 0;
+	mLastHitZombieID = ZombieID::ZOMBIEID_NULL;
+	if (mProjectileType == ProjectileType::PROJECTILE_SPIKE)
+	{
+		mPenetrations = 2;
+	}
 
 	switch (mProjectileType)
 	{
@@ -227,6 +234,24 @@ Zombie* Projectile::FindCollisionTarget()
 	if (PeaAboutToHitTorchwood())  // “卡火炬”的原理，这段代码在两版内测版中均不存在
 		return nullptr;
 
+	if (mLastHitZombieID != ZombieID::ZOMBIEID_NULL)
+	{
+		Zombie* aLastHitZombie = mBoard->ZombieTryToGet(mLastHitZombieID);
+		if (!aLastHitZombie || aLastHitZombie->mDead)
+		{
+			mLastHitZombieID = ZombieID::ZOMBIEID_NULL;
+		}
+		else
+		{
+			Rect aProjectileRect = GetProjectileRect();
+			Rect aZombieRect = aLastHitZombie->GetZombieRect();
+			if (GetRectOverlap(aProjectileRect, aZombieRect) <= 0)
+			{
+				mLastHitZombieID = ZombieID::ZOMBIEID_NULL;
+			}
+		}
+	}
+
 	Rect aProjectileRect = GetProjectileRect();
 	Zombie* aBestZombie = nullptr;
 	int aMinX = 0;
@@ -234,6 +259,9 @@ Zombie* Projectile::FindCollisionTarget()
 	Zombie* aZombie = nullptr;
 	while (mBoard->IterateZombies(aZombie))
 	{
+		if (mBoard->ZombieGetID(aZombie) == mLastHitZombieID)
+			continue;
+
 		if ((aZombie->mZombieType == ZombieType::ZOMBIE_BOSS || aZombie->mRow == mRow) && aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
 		{
 			if (aZombie->mZombiePhase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL && mPosZ >= 45.0f)
@@ -261,6 +289,33 @@ Zombie* Projectile::FindCollisionTarget()
 	return aBestZombie;
 }
 
+void Projectile::FindNewHomingTarget()
+{
+	Zombie* aBestZombie = nullptr;
+	int aMinX = INT32_MAX;
+
+	Zombie* aZombie = nullptr;
+	while (mBoard->IterateZombies(aZombie))
+	{
+		if (mBoard->ZombieGetID(aZombie) == mLastHitZombieID)
+			continue;
+
+		if ((aZombie->mZombieType == ZombieType::ZOMBIE_BOSS || aZombie->mRow == mRow) && aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+		{
+			if (aZombie->mX < aMinX)
+			{
+				aMinX = aZombie->mX;
+				aBestZombie = aZombie;
+			}
+		}
+	}
+
+	if (aBestZombie)
+	{
+		mTargetZombieID = mBoard->ZombieGetID(aBestZombie);
+	}
+}
+
 void Projectile::CheckForCollision()
 {
 	if (mMotionType == ProjectileMotion::MOTION_PUFF && mProjectileAge >= 75)
@@ -277,6 +332,10 @@ void Projectile::CheckForCollision()
 
 	if (mMotionType == ProjectileMotion::MOTION_HOMING)
 	{
+		if (mTargetZombieID == ZombieID::ZOMBIEID_NULL)
+		{
+			FindNewHomingTarget();
+		}
 		Zombie* aZombie = mBoard->ZombieTryToGet(mTargetZombieID);
 		if (aZombie && aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
 		{
@@ -660,6 +719,10 @@ void Projectile::UpdateNormalMotion()
 	}
 	else if (mMotionType == ProjectileMotion::MOTION_HOMING)
 	{
+		if (mTargetZombieID == ZombieID::ZOMBIEID_NULL)
+		{
+			FindNewHomingTarget();
+		}
 		Zombie* aZombie = mBoard->ZombieTryToGet(mTargetZombieID);
 		if (aZombie && aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
 		{
@@ -1004,6 +1067,14 @@ void Projectile::DoImpact(Zombie* theZombie)
 		{
 			mApp->AddTodParticle(aSplatPosX, aSplatPosY, mRenderOrder + 1, aEffect);
 		}
+	}
+
+	if (mPenetrations > 0 && theZombie)
+	{
+		mPenetrations--;
+		mLastHitZombieID = mBoard->ZombieGetID(theZombie);
+		mTargetZombieID = ZombieID::ZOMBIEID_NULL;
+		return;
 	}
 
 	Die();

@@ -234,7 +234,7 @@ public:
     void                    Draw(Graphics* g);
     void                    MouseDown(int x, int y, int theClickCount);
     void                    DoSpecial();
-    void                    Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY);
+    void                    Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY, int theYOffset = 0);
     Zombie*                 FindTargetZombie(int theRow, PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY);
     void                    Die();
     void                    UpdateProductionPlant();

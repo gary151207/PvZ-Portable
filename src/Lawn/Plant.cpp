@@ -70,7 +70,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_TALLNUT,           nullptr, ReanimationType::REANIM_TALLNUT,       28, 125,    2000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "TALL_NUT" },
     { SeedType::SEED_SEASHROOM,         nullptr, ReanimationType::REANIM_SEASHROOM,     39, 0,      2000,   PlantSubClass::SUBCLASS_SHOOTER,    75,     "SEA_SHROOM" },
     { SeedType::SEED_PLANTERN,          nullptr, ReanimationType::REANIM_PLANTERN,      38, 25,     2000,   PlantSubClass::SUBCLASS_NORMAL,     2500,   "PLANTERN" },
-    { SeedType::SEED_CACTUS,            nullptr, ReanimationType::REANIM_CACTUS,        15, 125,    750,    PlantSubClass::SUBCLASS_SHOOTER,    60 ,    "CACTUS" },
+    { SeedType::SEED_CACTUS,            nullptr, ReanimationType::REANIM_CACTUS,        15, 125,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "CACTUS" },
     { SeedType::SEED_BLOVER,            nullptr, ReanimationType::REANIM_BLOVER,        18, 100,    750,    PlantSubClass::SUBCLASS_NORMAL,     0,      "BLOVER" },
     { SeedType::SEED_SPLITPEA,          nullptr, ReanimationType::REANIM_SPLITPEA,      32, 125,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "SPLIT_PEA" },
     { SeedType::SEED_STARFRUIT,         nullptr, ReanimationType::REANIM_STARFRUIT,     30, 125,    750,    PlantSubClass::SUBCLASS_SHOOTER,    100,    "STARFRUIT" },
@@ -3507,13 +3507,20 @@ void Plant::UpdateShooting()
     {
         if (mShootingCounter == 19)
         {
-            for (int i = 0; i < 3; i++)
+            Zombie* aZombie1 = FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY);
+            Zombie* aZombie2 = FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY);
+            Zombie* aZombie3 = FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY);
+            if (aZombie1)
             {
-                Zombie* aZombie = FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY);
-                if (aZombie)
-                {
-                    Fire(aZombie, mRow, PlantWeapon::WEAPON_PRIMARY);
-                }
+                Fire(aZombie1, mRow, PlantWeapon::WEAPON_PRIMARY, -12);
+            }
+            if (aZombie2)
+            {
+                Fire(aZombie2, mRow, PlantWeapon::WEAPON_PRIMARY, 0);
+            }
+            if (aZombie3)
+            {
+                Fire(aZombie3, mRow, PlantWeapon::WEAPON_PRIMARY, 12);
             }
         }
     }
@@ -4760,7 +4767,7 @@ void Plant::CobCannonFire(int theTargetX, int theTargetY)
     aTrackInstance->mTrackColor = Color::White;
 }
 
-void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon)
+void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon, int theYOffset)
 {
     if (mSeedType == SeedType::SEED_FUMESHROOM)
     {
@@ -4860,7 +4867,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     else if (mSeedType == SeedType::SEED_CATTAIL)
     {
         aOriginX = mX + 20;
-        aOriginY = mY - 3;
+        aOriginY = mY - 3 + theYOffset;
     }
     else if (mSeedType == SeedType::SEED_KERNELPULT && thePlantWeapon == PlantWeapon::WEAPON_PRIMARY)
     {

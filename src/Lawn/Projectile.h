@@ -76,6 +76,8 @@ public:
     int32_t                 mLastPortalX;
     int32_t                 mDamageOverride = 0;
     float                   mRenderScale = 1.0f;
+    int32_t                 mPenetrations = 0;
+    ZombieID                mLastHitZombieID = ZombieID::ZOMBIEID_NULL;
 
 public:
     Projectile();
@@ -105,6 +107,7 @@ public:
     void                    PlayImpactSound(Zombie* theZombie);
     bool                    IsZombieHitBySplash(Zombie* theZombie);
     bool                    PeaAboutToHitTorchwood();
+    void                    FindNewHomingTarget();
 
 };
 

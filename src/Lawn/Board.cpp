@@ -1264,19 +1264,19 @@ void Board::InitZombieWaves()
 	mApp->mSawYeti = false;
 	if (mApp->IsFirstTimeAdventureMode() && mLevel == 2)
 	{
-		mZombieCountDown = ZOMBIE_COUNTDOWN * 2;
+		mZombieCountDown = ZOMBIE_COUNTDOWN * 4;
 	}
 	else if (mApp->IsSurvivalMode() && mChallenge->mSurvivalStage > 0)
 	{
-		mZombieCountDown = ZOMBIE_COUNTDOWN_RANGE;
+		mZombieCountDown = ZOMBIE_COUNTDOWN_RANGE * 2;
 	}
 	else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 	{
-		mZombieCountDown = 6000;
+		mZombieCountDown = 12000;
 	}
 	else
 	{
-		mZombieCountDown = ZOMBIE_COUNTDOWN_FIRST_WAVE;
+		mZombieCountDown = ZOMBIE_COUNTDOWN_FIRST_WAVE * 2;
 	}
 
 	mZombieHealthWaveStart = 0;

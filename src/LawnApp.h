@@ -268,6 +268,7 @@ public:
 	/*inline*/ bool					IsMiniBossLevel();
 	/*inline*/ bool					IsSlotMachineLevel();
 	/*inline*/ bool					IsLittleTroubleLevel();
+	/*inline*/ bool					IsCricketFightLevel();
 	/*inline*/ bool					IsStormyNightLevel();
 	/*inline*/ bool					IsFinalBossLevel();
 	/*inline*/ bool					IsBungeeBlitzLevel();

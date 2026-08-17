@@ -2244,6 +2244,11 @@ bool LawnApp::IsLittleTroubleLevel()
 	return (mBoard && (mGameMode == GameMode::GAMEMODE_CHALLENGE_LITTLE_TROUBLE || (mGameMode == GameMode::GAMEMODE_ADVENTURE && mBoard->mLevel == 25)));
 }
 
+bool LawnApp::IsCricketFightLevel()
+{
+	return mGameMode == GameMode::GAMEMODE_CHALLENGE_CRICKET;
+}
+
 bool LawnApp::IsScaryPotterLevel()
 {
 	if (mGameMode >= GameMode::GAMEMODE_SCARY_POTTER_1 && mGameMode <= GameMode::GAMEMODE_SCARY_POTTER_ENDLESS)
@@ -2296,6 +2301,7 @@ bool LawnApp::IsFinalBossLevel()
 bool LawnApp::IsChallengeWithoutSeedBank()
 {
 	return 
+		IsCricketFightLevel() || 
 		mGameMode == GameMode::GAMEMODE_CHALLENGE_RAINING_SEEDS || 
 		mGameMode == GameMode::GAMEMODE_UPSELL || 
 		mGameMode == GameMode::GAMEMODE_INTRO || 

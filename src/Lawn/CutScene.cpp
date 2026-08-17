@@ -739,7 +739,8 @@ void CutScene::StartLevelIntro()
 		mApp->mGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM ||
 		mApp->IsIZombieLevel() ||
 		mApp->IsWhackAZombieLevel() ||
-		mApp->IsScaryPotterLevel())
+		mApp->IsScaryPotterLevel() ||
+		mApp->IsCricketFightLevel())
 	{
 		mReadySetPlantTime = 0;
 	}
@@ -749,7 +750,7 @@ void CutScene::StartLevelIntro()
 	}
 
 	mLawnMowerTime = 0;
-	if (!IsSurvivalRepick())
+	if (!IsSurvivalRepick() && !mApp->IsCricketFightLevel())
 	{
 		mLawnMowerTime = 550;
 	}

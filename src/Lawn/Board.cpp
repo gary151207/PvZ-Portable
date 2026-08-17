@@ -632,6 +632,8 @@ void Board::PickZombieWaves()
 			mNumWaves = 0;
 		else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_WHACK_A_ZOMBIE)
 			mNumWaves = 12;
+		else if (mApp->IsCricketFightLevel())
+			mNumWaves = 1;
 		else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_WALLNUT_BOWLING || aGameMode == GameMode::GAMEMODE_CHALLENGE_AIR_RAID ||
 				 aGameMode == GameMode::GAMEMODE_CHALLENGE_GRAVE_DANGER || aGameMode == GameMode::GAMEMODE_CHALLENGE_HIGH_GRAVITY ||
 				 aGameMode == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT || aGameMode == GameMode::GAMEMODE_CHALLENGE_WAR_AND_PEAS ||
@@ -827,6 +829,26 @@ void Board::PickZombieWaves()
 			ZombieType aZombieType = PickZombieType(aZombiePoints, aWave, &aZombiePicker);
 			PutZombieInWave(aZombieType, aWave, &aZombiePicker);
 		}
+	}
+
+	// 斗蛐蛐：覆盖标准随机填充，一波直接出 6 只随机僵尸（技术安全池，见规格）
+	if (mApp->IsCricketFightLevel())
+	{
+		static const ZombieType gCricketZombiePool[] = {
+			ZombieType::ZOMBIE_NORMAL, ZombieType::ZOMBIE_FLAG, ZombieType::ZOMBIE_TRAFFIC_CONE,
+			ZombieType::ZOMBIE_POLEVAULTER, ZombieType::ZOMBIE_PAIL, ZombieType::ZOMBIE_NEWSPAPER,
+			ZombieType::ZOMBIE_DOOR, ZombieType::ZOMBIE_FOOTBALL, ZombieType::ZOMBIE_DANCER,
+			ZombieType::ZOMBIE_ZAMBONI, ZombieType::ZOMBIE_JACK_IN_THE_BOX, ZombieType::ZOMBIE_BALLOON,
+			ZombieType::ZOMBIE_DIGGER, ZombieType::ZOMBIE_POGO, ZombieType::ZOMBIE_BUNGEE,
+			ZombieType::ZOMBIE_LADDER, ZombieType::ZOMBIE_CATAPULT, ZombieType::ZOMBIE_GARGANTUAR,
+			ZombieType::ZOMBIE_IMP, ZombieType::ZOMBIE_REDEYE_GARGANTUAR
+		};
+		const int aPoolSize = static_cast<int>(sizeof(gCricketZombiePool) / sizeof(gCricketZombiePool[0]));
+		for (int i = 0; i < 6; i++)
+		{
+			mZombiesInWave[0][i] = gCricketZombiePool[Rand(aPoolSize)];
+		}
+		mZombiesInWave[0][6] = ZombieType::ZOMBIE_INVALID;
 	}
 }
 
@@ -1273,6 +1295,10 @@ void Board::InitZombieWaves()
 	else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 	{
 		mZombieCountDown = 12000;
+	}
+	else if (mApp->IsCricketFightLevel())
+	{
+		mZombieCountDown = 1;   // 斗蛐蛐：开战后立即刷出整波
 	}
 	else
 	{
@@ -5174,7 +5200,10 @@ void Board::SpawnZombieWave()
 			}
 			else
 			{
-				AddZombie(aZombieType, mCurrentWave);
+				if (mApp->IsCricketFightLevel())
+					AddZombieInRow(aZombieType, 2, mCurrentWave);   // 斗蛐蛐：全部走第 3 行（中间格线）
+				else
+					AddZombie(aZombieType, mCurrentWave);
 			}
 		}
 	}

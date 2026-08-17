@@ -5735,7 +5735,7 @@ void Board::UpdateProgressMeter()
 			mProgressMeterWidth = 150;
 		}
 	}
-	else if (mCurrentWave != 0)
+	else if (mCurrentWave != 0 && !mApp->IsCricketFightLevel())
 	{
 		// 更新旗帜升起倒计时
 		if (mFlagRaiseCounter > 0)

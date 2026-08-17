@@ -236,6 +236,12 @@ void LawnMower::Update()
                 // 蹦极僵尸或已死亡的僵尸不能主动触发小推车
                 if (mMowerState != LawnMowerState::MOWER_READY || (aZombie->mZombieType != ZombieType::ZOMBIE_BUNGEE && aZombie->mHasHead))
                 {
+                    if (mApp->IsCricketFightLevel())
+                    {
+                        // 斗蛐蛐：僵尸碰到小推车 → 立即判负（不刈草）
+                        mBoard->ZombiesWon(aZombie);
+                        return;
+                    }
                     MowZombie(aZombie);
                 }
             }

@@ -1012,6 +1012,7 @@ void Board::PickBackground()
 	case GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_8:
 	case GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_9:
 	case GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS:
+	case GameMode::GAMEMODE_CHALLENGE_CRICKET:
 		mBackground = BackgroundType::BACKGROUND_2_NIGHT;
 		break;
 
@@ -1441,7 +1442,7 @@ void Board::InitLevel()
 	InitZombieWaves();
 	// 设定关卡初始阳光数量
 	if (aGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || aGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST ||
-		mApp->IsScaryPotterLevel() || mApp->IsWhackAZombieLevel())
+		mApp->IsScaryPotterLevel() || mApp->IsWhackAZombieLevel() || mApp->IsCricketFightLevel())
 	{
 		mSunMoney = 0;
 	}
@@ -1714,6 +1715,7 @@ void Board::InitLawnMowers()
 	{
 		if ((aGameMode == GameMode::GAMEMODE_CHALLENGE_RESODDED && aRow <= 4) || 
 			(mApp->IsAdventureMode() && mLevel == 35) ||   // 这里原版没有对于行的判断，故冒险模式 4-5 关卡有 6 行小推车
+			(mApp->IsCricketFightLevel() && aRow == 2) ||   // 斗蛐蛐：仅第 3 行 1 辆小推车作为判负边界
 			(!mApp->IsScaryPotterLevel() && mPlantRow[aRow] != PlantRowType::PLANTROW_DIRT))  // 除冒险模式 4-5 关卡外的破罐者模式关卡无小推车
 		{
 			LawnMower* aLawnMower = mLawnMowers.DataArrayAlloc();
@@ -1741,11 +1743,41 @@ bool Board::ChooseSeedsOnCurrentLevel()
 }
 
 // GOTY @Patoke: 0x40E6A0
+void Board::SetupCricketFight()
+{
+	static const SeedType gCricketPlantPool[] = {
+		SeedType::SEED_PEASHOOTER, SeedType::SEED_SUNFLOWER, SeedType::SEED_CHERRYBOMB,
+		SeedType::SEED_WALLNUT, SeedType::SEED_POTATOMINE, SeedType::SEED_SNOWPEA,
+		SeedType::SEED_CHOMPER, SeedType::SEED_REPEATER, SeedType::SEED_PUFFSHROOM,
+		SeedType::SEED_SUNSHROOM, SeedType::SEED_FUMESHROOM, SeedType::SEED_GRAVEBUSTER,
+		SeedType::SEED_HYPNOSHROOM, SeedType::SEED_SCAREDYSHROOM, SeedType::SEED_ICESHROOM,
+		SeedType::SEED_DOOMSHROOM, SeedType::SEED_SQUASH, SeedType::SEED_THREEPEATER,
+		SeedType::SEED_JALAPENO, SeedType::SEED_SPIKEWEED, SeedType::SEED_TORCHWOOD,
+		SeedType::SEED_TALLNUT, SeedType::SEED_SEASHROOM, SeedType::SEED_PLANTERN,
+		SeedType::SEED_CACTUS, SeedType::SEED_BLOVER, SeedType::SEED_SPLITPEA,
+		SeedType::SEED_STARFRUIT, SeedType::SEED_MAGNETSHROOM, SeedType::SEED_CABBAGEPULT,
+		SeedType::SEED_KERNELPULT, SeedType::SEED_INSTANT_COFFEE, SeedType::SEED_GARLIC,
+		SeedType::SEED_UMBRELLA, SeedType::SEED_MARIGOLD, SeedType::SEED_MELONPULT,
+		SeedType::SEED_GATLINGPEA, SeedType::SEED_TWINSUNFLOWER, SeedType::SEED_GLOOMSHROOM,
+		SeedType::SEED_WINTERMELON, SeedType::SEED_GOLD_MAGNET, SeedType::SEED_SPIKEROCK
+	};
+	const int aPoolSize = static_cast<int>(sizeof(gCricketPlantPool) / sizeof(gCricketPlantPool[0]));
+	for (int aCol = 0; aCol < 5; aCol++)
+	{
+		AddPlant(aCol, 2, gCricketPlantPool[Rand(aPoolSize)]);
+	}
+}
+
 void Board::StartLevel()
 {
 	mCoinBankFadeCount = 0;
 	mApp->mLastLevelStats->Reset();
 	mChallenge->StartLevel();
+
+	if (mApp->IsCricketFightLevel())
+	{
+		SetupCricketFight();   // 斗蛐蛐：开局摆 5 个随机植物（第 3 行第 1-5 列）
+	}
 
 	// @Patoke: implemented, i think it's intentional to cause an underflow here?
 	unsigned int aSurvivalStage = mApp->mGameMode - GAMEMODE_SURVIVAL_ENDLESS_STAGE_1;

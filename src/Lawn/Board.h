@@ -369,6 +369,7 @@ public:
 	/*inline*/ Zombie*				AddZombieInRow(ZombieType theZombieType, int theRow, int theFromWave);
 	/*inline*/ bool					IsPoolSquare(int theGridX, int theGridY);
 	void							PickZombieWaves();
+	void							SetupCricketFight();
 	void							StopAllZombieSounds();
 	/*inline*/ bool					HasLevelAwardDropped();
 	void							UpdateProgressMeter();

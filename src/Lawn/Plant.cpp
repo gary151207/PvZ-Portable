@@ -84,7 +84,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_UMBRELLA,          nullptr, ReanimationType::REANIM_UMBRELLALEAF,  23, 100,    750,    PlantSubClass::SUBCLASS_NORMAL,     0,      "UMBRELLA_LEAF" },
     { SeedType::SEED_MARIGOLD,          nullptr, ReanimationType::REANIM_MARIGOLD,      24, 50,     2000,   PlantSubClass::SUBCLASS_NORMAL,     2500,   "MARIGOLD" },
     { SeedType::SEED_MELONPULT,         nullptr, ReanimationType::REANIM_MELONPULT,     14, 300,    750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "MELON_PULT" },
-    { SeedType::SEED_GATLINGPEA,        nullptr, ReanimationType::REANIM_GATLINGPEA,    5,  300,    3000,    PlantSubClass::SUBCLASS_SHOOTER,    100,     "GATLING_PEA" },
+    { SeedType::SEED_GATLINGPEA,        nullptr, ReanimationType::REANIM_GATLINGPEA,    5,  250,    3000,    PlantSubClass::SUBCLASS_SHOOTER,    100,     "GATLING_PEA" },
     { SeedType::SEED_TWINSUNFLOWER,     nullptr, ReanimationType::REANIM_TWIN_SUNFLOWER,1,  150,    3000,   PlantSubClass::SUBCLASS_NORMAL,     1250,   "TWIN_SUNFLOWER" },
     { SeedType::SEED_GLOOMSHROOM,       nullptr, ReanimationType::REANIM_GLOOMSHROOM,   27, 150,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    175,     "GLOOM_SHROOM" },
     { SeedType::SEED_CATTAIL,           nullptr, ReanimationType::REANIM_CATTAIL,       27, 225,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    100,    "CATTAIL" },
@@ -144,6 +144,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mEliteSunReanimID = ReanimationID::REANIMATIONID_NULL;
     mBlinkCountdown = 0;
     mRecentlyEatenCountdown = 0;
+    mGatlingScatterCountdown = 0;
     mTallnutCounterCooldown = 0;
     mUmbrellaRegenCountdown = UMBRELLA_REGEN_COOLDOWN;
     mEatenFlashCountdown = 0;
@@ -348,7 +349,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         if (IsInPlay())
         {
             aBodyReanim->AssignRenderGroupToTrack("anim_glow", RENDER_GROUP_HIDDEN);
-            mStateCountdown = 1500;
+            mStateCountdown = 150;
         }
         else
         {
@@ -785,7 +786,7 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
         else if (mSeedType == SeedType::SEED_GATLINGPEA)
         {
             aHeadReanim->mAnimRate = 38.0f;
-            mShootingCounter = 20;
+            mShootingCounter = 100;
         }
     }
     else if (mState == PlantState::STATE_CACTUS_HIGH)
@@ -2759,6 +2760,8 @@ void Plant::UpdateAbilities()
 
     if (mStateCountdown > 0)
         mStateCountdown--;
+    if (mGatlingScatterCountdown > 0)
+        mGatlingScatterCountdown--;
 
     if (mApp->IsWallnutBowlingLevel())
     {
@@ -3494,13 +3497,17 @@ void Plant::UpdateShooting()
     }
     else if (mSeedType == SeedType::SEED_GATLINGPEA)
     {
-        if (mShootingCounter == 1)
+        if (mGatlingScatterCountdown > 0)
+        {
+            // 散射状态：持续连发（每 10 帧一发），每发都带散射
+            if (mShootingCounter % 10 == 1)
+            {
+                Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
+            }
+        }
+        else if (mShootingCounter == 18 || mShootingCounter == 35 || mShootingCounter == 51 || mShootingCounter == 68)
         {
             Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
-            if (FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY) && !mIsAsleep)
-            {
-                mShootingCounter = 10;
-            }
         }
     }
     else if (mSeedType == SeedType::SEED_CATTAIL)
@@ -4897,15 +4904,8 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     {
         int aOffsetX, aOffsetY;
         GetPeaHeadOffset(aOffsetX, aOffsetY);
-        int aBaseX = mX + aOffsetX + 34;
-        int aBaseY = mY + aOffsetY - 33;
-
-        for (int i = 0; i < 3; i++)
-        {
-            int aY = aBaseY + (i - 1) * 8;
-            Projectile* aProjectile = mBoard->AddProjectile(aBaseX, aY, mRenderOrder - 1, theRow, aProjectileType);
-            aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
-        }
+        aOriginX = mX + aOffsetX + 34;
+        aOriginY = mY + aOffsetY - 33;
     }
     else if (mSeedType == SeedType::SEED_SPLITPEA)
     {
@@ -4976,19 +4976,45 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         mApp->AddTodParticle(aOriginX + 27, aOriginY + 13, aRenderPosition, ParticleEffect::PARTICLE_PUFFSHROOM_MUZZLE);
     }
 
-    if (mSeedType != SeedType::SEED_GATLINGPEA)
+    Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
+    aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+
+    if (mSeedType == SeedType::SEED_PEASHOOTER && !mHasFiredFirstPea)
     {
-        Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
-        aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+        aProjectile->mDamageOverride = 300;
+        aProjectile->mRenderScale = 2.0f;
+        mHasFiredFirstPea = true;
+    }
 
-        if (mSeedType == SeedType::SEED_PEASHOOTER && !mHasFiredFirstPea)
+    // Gatling Pea: 20% chance per shot to enter scatter mode; every shot scatters while active (3 s)
+    if (mSeedType == SeedType::SEED_GATLINGPEA)
+    {
+        if (mGatlingScatterCountdown == 0 && Rand(100) < 20)
         {
-            aProjectile->mDamageOverride = 300;
-            aProjectile->mRenderScale = 2.0f;
-            mHasFiredFirstPea = true;
+            mGatlingScatterCountdown = 300;  // 3 s (100 ticks = 1 s)
         }
+        if (mGatlingScatterCountdown > 0)
+        {
+            constexpr int SCATTER_COUNT = 4;
+            constexpr float SCATTER_ANGLE = 3.0f;
+            constexpr float PEA_SPEED = 3.33f;
+            constexpr float ANGLE_STEP = 2.0f * SCATTER_ANGLE / SCATTER_COUNT;
 
-        if (mSeedType == SeedType::SEED_CABBAGEPULT || mSeedType == SeedType::SEED_KERNELPULT ||
+            for (int i = 0; i < SCATTER_COUNT; i++)
+            {
+                float aAngle = (i < SCATTER_COUNT / 2) ? -(SCATTER_ANGLE - i * ANGLE_STEP) : ((i - SCATTER_COUNT / 2 + 1) * ANGLE_STEP);
+                float aAngleRad = DEG_TO_RAD(aAngle);
+
+                Projectile* aScatterPea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
+                aScatterPea->mMotionType = ProjectileMotion::MOTION_STAR;
+                aScatterPea->mVelX = PEA_SPEED * cos(aAngleRad);
+                aScatterPea->mVelY = PEA_SPEED * sin(aAngleRad);
+                aScatterPea->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+            }
+        }
+    }
+
+    if (mSeedType == SeedType::SEED_CABBAGEPULT || mSeedType == SeedType::SEED_KERNELPULT ||
         mSeedType == SeedType::SEED_MELONPULT || mSeedType == SeedType::SEED_WINTERMELON)
     {
         float aRangeX, aRangeY;
@@ -5069,7 +5095,6 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectile->mVelZ = -8.0f;
         aProjectile->mCobTargetX = mTargetX - 40;
         aProjectile->mCobTargetRow = mBoard->PixelToGridYKeepOnBoard(mTargetX, mTargetY);
-    }
     }
 
     if ((mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_REPEATER) && mIsElite)

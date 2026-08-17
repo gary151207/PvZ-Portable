@@ -220,6 +220,16 @@ void LawnMower::Update()
             aZombie->EffectedByDamage(127U))
         {
             Rect aZombieRect = aZombie->GetZombieRect();
+            if (aZombie->mZombiePhase == ZombiePhase::PHASE_POLEVAULTER_IN_VAULT)
+            {
+                int aRectRight = aZombieRect.mX + aZombieRect.mWidth;
+                int aJumpEndLeft = aZombieRect.mX - 150;
+                if (aJumpEndLeft < aZombieRect.mX)
+                {
+                    aZombieRect.mX = aJumpEndLeft;
+                }
+                aZombieRect.mWidth = aRectRight - aZombieRect.mX;
+            }
             int aOverlap = GetRectOverlap(aAttackRect, aZombieRect);
             if (aOverlap > (aZombie->mZombieType == ZombieType::ZOMBIE_BALLOON ? 20 : 0))
             {

@@ -148,6 +148,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mZombiePhase = ZombiePhase::PHASE_ZOMBIE_NORMAL;
     mZombieHeight = ZombieHeight::HEIGHT_ZOMBIE_NORMAL;
     mPhaseCounter = 0;
+    mGatlingScatterCountdown = 0;
     mHitUmbrella = false;
     mDroppedLoot = false;
     mDroppedSun = false;
@@ -2481,7 +2482,8 @@ void Zombie::UpdateZombieGatlingHead()
         Reanimation* aHeadReanim = mApp->ReanimationGet(mSpecialHeadReanimID);
         aHeadReanim->PlayReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 38.0f);
     }
-    else if (mPhaseCounter == 68)
+    else if ((mGatlingScatterCountdown > 0 && mPhaseCounter % 10 == 1) ||
+             (mGatlingScatterCountdown == 0 && (mPhaseCounter == 18 || mPhaseCounter == 35 || mPhaseCounter == 51 || mPhaseCounter == 68)))
     {
         mApp->PlayFoley(FoleyType::FOLEY_THROW);
 
@@ -2492,23 +2494,44 @@ void Zombie::UpdateZombieGatlingHead()
 
         float aOriginX = mPosX + aTransform.mTransX - 9.0f;
         float aOriginY = mPosY + aTransform.mTransY + 6.0f;
+#ifdef DO_FIX_BUGS
         if (mMindControlled)  // 魅惑修复
         {
             aOriginX += 90.0f * mScaleZombie;
-            for (int i = 0; i < 3; i++)
-            {
-                float aY = aOriginY + (i - 1) * 8.0f;  // -8, 0, +8 与植物机枪射手一致
-                Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aY, mRenderOrder, mRow, ProjectileType::PROJECTILE_PEA);
-                aProjectile->mDamageRangeFlags = 1;
-            }
+            Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_PEA);
+            aProjectile->mDamageRangeFlags = 1;
         }
         else
         {
-            for (int i = 0; i < 3; i++)
+            Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
+            aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
+        }
+#else
+        Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
+        aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
+#endif
+
+        // 散射状态：20% 概率进入，持续 3 秒；期间每发额外散射 4 颗
+        if (mGatlingScatterCountdown == 0 && Rand(100) < 20)
+        {
+            mGatlingScatterCountdown = 300;  // 3 s (100 ticks = 1 s)
+        }
+        if (mGatlingScatterCountdown > 0)
+        {
+            constexpr int SCATTER_COUNT = 4;
+            constexpr float SCATTER_ANGLE = 3.0f;
+            constexpr float PEA_SPEED = 3.33f;
+            constexpr float ANGLE_STEP = 2.0f * SCATTER_ANGLE / SCATTER_COUNT;
+
+            for (int i = 0; i < SCATTER_COUNT; i++)
             {
-                float aY = aOriginY + (i - 1) * 8.0f;
-                Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
-                aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
+                float aAngle = (i < SCATTER_COUNT / 2) ? -(SCATTER_ANGLE - i * ANGLE_STEP) : ((i - SCATTER_COUNT / 2 + 1) * ANGLE_STEP);
+                float aAngleRad = aAngle * 0.017453292f;
+
+                Projectile* aScatterPea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
+                aScatterPea->mMotionType = ProjectileMotion::MOTION_STAR;
+                aScatterPea->mVelX = -PEA_SPEED * cos(aAngleRad);  // 向后（朝植物方向）
+                aScatterPea->mVelY = PEA_SPEED * sin(aAngleRad);
             }
         }
     }
@@ -2516,7 +2539,7 @@ void Zombie::UpdateZombieGatlingHead()
     {
         Reanimation* aHeadReanim = mApp->ReanimationGet(mSpecialHeadReanimID);
         aHeadReanim->PlayReanim("anim_head_idle", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 15.0f);
-        mPhaseCounter = 101;  // 周期对齐植物机枪射手 mLaunchRate=100；+1 因每帧先递减再检测
+        mPhaseCounter = 150;
     }
 }
 
@@ -4302,6 +4325,10 @@ void Zombie::Update()
             if (mPhaseCounter > 0 && !IsImmobilizied())
             {
                 mPhaseCounter--;
+            }
+            if (mGatlingScatterCountdown > 0 && !IsImmobilizied())
+            {
+                mGatlingScatterCountdown--;
             }
 
             if (mApp->mGameScene == GameScenes::SCENE_ZOMBIES_WON)

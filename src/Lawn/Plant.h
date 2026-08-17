@@ -192,6 +192,7 @@ public:
     int32_t                 mStartRow;
     ParticleSystemID        mParticleID;
     int32_t                 mShootingCounter;
+    int32_t                 mGatlingScatterCountdown;
     int32_t                 mScaredyShroomLaunchRate;
     ReanimationID           mBodyReanimID;
     ReanimationID           mHeadReanimID;

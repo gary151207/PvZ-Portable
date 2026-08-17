@@ -748,7 +748,7 @@ void Projectile::UpdateNormalMotion()
 	}
 	else if (mMotionType == ProjectileMotion::MOTION_STAR)
 	{
-		if (mProjectileAge >= 24)
+		if (mProjectileType == ProjectileType::PROJECTILE_STAR && mProjectileAge >= 24)
 		{
 			bool aNeedNewTarget = (mTargetZombieID == ZombieID::ZOMBIEID_NULL);
 			if (!aNeedNewTarget)

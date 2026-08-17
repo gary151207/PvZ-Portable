@@ -128,6 +128,7 @@ public:
     int32_t                         mZombieAge;
     ZombieHeight                    mZombieHeight;
     int32_t                         mPhaseCounter;
+    int32_t                         mGatlingScatterCountdown;
     int32_t                         mFromWave;
     bool                            mDroppedLoot;
     bool                            mDroppedSun;

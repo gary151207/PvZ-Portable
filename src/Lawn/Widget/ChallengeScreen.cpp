@@ -105,6 +105,7 @@ ChallengeDefinition gChallengeDefs[NUM_CHALLENGE_MODES] = {
 	{ GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_8,                    11,  ChallengePage::CHALLENGE_PAGE_PUZZLE,      3,  2,  "[I_ZOMBIE_8]" },
 	{ GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_9,                    11,  ChallengePage::CHALLENGE_PAGE_PUZZLE,      3,  3,  "[I_ZOMBIE_9]" },
 	{ GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS,              11,  ChallengePage::CHALLENGE_PAGE_PUZZLE,      3,  4,  "[I_ZOMBIE_ENDLESS]" },
+	{ GameMode::GAMEMODE_CHALLENGE_CRICKET,                    12,  ChallengePage::CHALLENGE_PAGE_CHALLENGE,   4,  0,  "斗蛐蛐" },
 	{ GameMode::GAMEMODE_UPSELL,                               10,  ChallengePage::CHALLENGE_PAGE_LIMBO,       3,  4,  "Upsell" },
 	{ GameMode::GAMEMODE_INTRO,                                10,  ChallengePage::CHALLENGE_PAGE_LIMBO,       2,  3,  "Intro" }
 };

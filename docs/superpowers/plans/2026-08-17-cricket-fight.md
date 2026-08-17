@@ -32,7 +32,7 @@
 **Interfaces:**
 - Produces: `GameMode::GAMEMODE_CHALLENGE_CRICKET` 枚举值；`bool LawnApp::IsCricketFightLevel()`（无参、无 board 依赖、返回 `mGameMode == GameMode::GAMEMODE_CHALLENGE_CRICKET`）。后续所有任务都依赖这两个符号。
 
-- [ ] **Step 1: 在 ConstEnums.h 新增枚举值**
+- [x] **Step 1: 在 ConstEnums.h 新增枚举值**
 
 找到 `src/ConstEnums.h` 中 `GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS,` 与 `GAMEMODE_UPSELL,` 之间，插入：
 
@@ -42,7 +42,7 @@
 	GAMEMODE_UPSELL,
 ```
 
-- [ ] **Step 2: 在 LawnApp.h 声明帮助函数**
+- [x] **Step 2: 在 LawnApp.h 声明帮助函数**
 
 找到 `/*inline*/ bool IsLittleTroubleLevel();` 声明（约 270 行），在其后插入：
 
@@ -50,7 +50,7 @@
 	/*inline*/ bool					IsCricketFightLevel();
 ```
 
-- [ ] **Step 3: 在 LawnApp.cpp 实现帮助函数**
+- [x] **Step 3: 在 LawnApp.cpp 实现帮助函数**
 
 找到 `IsLittleTroubleLevel()` 的实现（约 2242 行），在其后插入：
 
@@ -61,7 +61,7 @@ bool LawnApp::IsCricketFightLevel()
 }
 ```
 
-- [ ] **Step 4: 将斗蛐蛐加入 IsChallengeWithoutSeedBank**
+- [x] **Step 4: 将斗蛐蛐加入 IsChallengeWithoutSeedBank**
 
 找到 `bool LawnApp::IsChallengeWithoutSeedBank()`（约 2296 行），在返回列表中加入 `IsCricketFightLevel() ||`：
 
@@ -76,12 +76,12 @@ bool LawnApp::IsChallengeWithoutSeedBank()
 
 该函数同时驱动：种子栏不滑入、选卡界面不绘制、`GetNumSeedsInBank()` 返回 0（Start 按钮仍可点击开始）。
 
-- [ ] **Step 5: 构建验证**
+- [x] **Step 5: 构建验证**
 
 Run: `cmake --build build`
 Expected: 编译通过，无错误。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add src/ConstEnums.h src/LawnApp.h src/LawnApp.cpp
@@ -99,7 +99,7 @@ git commit -m "feat(cricket): add GAMEMODE_CHALLENGE_CRICKET enum and IsCricketF
 - Consumes: `GameMode::GAMEMODE_CHALLENGE_CRICKET`（Task 1）
 - Produces: 小游戏页（`CHALLENGE_PAGE_CHALLENGE`）row 4 col 0 的可点击按钮「斗蛐蛐」。按钮解锁遵循标准公式（row*5+col=20 → 需要约 18 个小游戏奖杯，与 Snowy Day 同页同机制）。
 
-- [ ] **Step 1: 在 gChallengeDefs 插入条目**
+- [x] **Step 1: 在 gChallengeDefs 插入条目**
 
 找到 `{ GameMode::GAMEMODE_UPSELL, ... }` 条目，在其前插入（icon 12 复用「小麻烦」图标，row 4 col 0 为空位）：
 
@@ -109,12 +109,12 @@ git commit -m "feat(cricket): add GAMEMODE_CHALLENGE_CRICKET enum and IsCricketF
 
 注意：`GetChallengeDefinition` 断言数组索引与枚举偏移一致，因此该条目**必须**插在 UPSELL 条目之前（与 Task 1 的枚举插入位置对应）。
 
-- [ ] **Step 2: 构建验证**
+- [x] **Step 2: 构建验证**
 
 Run: `cmake --build build`
 Expected: 编译通过。`GetChallengeDefinition` 断言（`TOD_ASSERT(aDef.mChallengeMode == theChallengeMode + GAMEMODE_SURVIVAL_NORMAL_STAGE_1)`）在 Release 下不触发；Debug 下若枚举/数组错位会立即暴露。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add src/Lawn/Widget/ChallengeScreen.cpp
@@ -135,7 +135,7 @@ git commit -m "feat(cricket): add 斗蛐蛐 button to minigame challenge screen"
 - Consumes: `IsCricketFightLevel()`（Task 1）
 - Produces: `mNumWaves == 1`；`mZombiesInWave[0][0..5]` 为 6 个随机安全池僵尸、`[6]` 为 `ZOMBIE_INVALID`；僵尸经 `AddZombieInRow(type, 2, wave)` 全部落第 3 行；`mZombieCountDown == 1`（开战后 1 帧刷出）。
 
-- [ ] **Step 1: Challenge::InitZombieWaves 允许随机池僵尸**
+- [x] **Step 1: Challenge::InitZombieWaves 允许随机池僵尸**
 
 找到 `void Challenge::InitZombieWaves()` 中 `else if (aGameMode == GAMEMODE_CHALLENGE_SPEED)` 分支，在其前插入：
 
@@ -165,7 +165,7 @@ git commit -m "feat(cricket): add 斗蛐蛐 button to minigame challenge screen"
 	}
 ```
 
-- [ ] **Step 2: PickZombieWaves 设置单波**
+- [x] **Step 2: PickZombieWaves 设置单波**
 
 在 `PickZombieWaves()` 的波数分支链（`else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_WHACK_A_ZOMBIE) mNumWaves = 12;` 之后）插入：
 
@@ -174,7 +174,7 @@ git commit -m "feat(cricket): add 斗蛐蛐 button to minigame challenge screen"
 			mNumWaves = 1;
 ```
 
-- [ ] **Step 3: PickZombieWaves 覆盖波 0 为 6 只随机僵尸**
+- [x] **Step 3: PickZombieWaves 覆盖波 0 为 6 只随机僵尸**
 
 在 `PickZombieWaves()` 的 `for (int aWave = 0; aWave < mNumWaves; aWave++)` 循环结束的 `}` 之后、函数结束的 `}` 之前（即 `PutZombieInWave(...)` 调用后的两个闭合大括号之间）插入：
 
@@ -202,7 +202,7 @@ git commit -m "feat(cricket): add 斗蛐蛐 button to minigame challenge screen"
 
 （`Rand()` 已在 Board.cpp 中可用，别处已有 `Rand(100)` 用法。`IsZombieWaveDistributionOk` 仅 Adventure 模式断言，不受影响。）
 
-- [ ] **Step 4: SpawnZombieWave 强制第 3 行**
+- [x] **Step 4: SpawnZombieWave 强制第 3 行**
 
 在 `SpawnZombieWave()` 的 `else { ... AddZombie(aZombieType, mCurrentWave); }` 分支中，将 `AddZombie(aZombieType, mCurrentWave);`（约 5174 行）替换为：
 
@@ -213,7 +213,7 @@ git commit -m "feat(cricket): add 斗蛐蛐 button to minigame challenge screen"
 					AddZombie(aZombieType, mCurrentWave);
 ```
 
-- [ ] **Step 5: InitZombieWaves 开局即刷**
+- [x] **Step 5: InitZombieWaves 开局即刷**
 
 在 `InitZombieWaves()` 的 `mZombieCountDown` 分支链中，`else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)` 分支之后、最终 `else` 之前插入：
 
@@ -224,12 +224,12 @@ git commit -m "feat(cricket): add 斗蛐蛐 button to minigame challenge screen"
 	}
 ```
 
-- [ ] **Step 6: 构建验证**
+- [x] **Step 6: 构建验证**
 
 Run: `cmake --build build`
 Expected: 编译通过。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add src/Lawn/Challenge.cpp src/Lawn/Board.cpp
@@ -251,7 +251,7 @@ git commit -m "feat(cricket): single-wave 6 random zombies on middle row, spawn 
 - Consumes: `IsCricketFightLevel()`（Task 1）、`Board::AddPlant(int, int, SeedType, SeedType)`（已存在，不做地面校验）
 - Produces: `BackgroundType::BACKGROUND_2_NIGHT`；`mSunMoney = 0`；**仅第 3 行 1 辆小推车**；`SetupCricketFight()` 在 (0-4, 2) 摆 5 个随机植物。
 
-- [ ] **Step 1: 黑夜背景**
+- [x] **Step 1: 黑夜背景**
 
 在 `PickBackground()` 的 `BACKGROUND_2_NIGHT` case 组（含 `GAMEMODE_PUZZLE_I_ZOMBIE_8/9/ENDLESS` 等）中，`mBackground = BackgroundType::BACKGROUND_2_NIGHT; break;` 之前追加：
 
@@ -259,7 +259,7 @@ git commit -m "feat(cricket): single-wave 6 random zombies on middle row, spawn 
 	case GameMode::GAMEMODE_CHALLENGE_CRICKET:
 ```
 
-- [ ] **Step 2: 初始阳光为 0**
+- [x] **Step 2: 初始阳光为 0**
 
 在 `InitLevel()` 的初始阳光分支（`mApp->IsScaryPotterLevel() || mApp->IsWhackAZombieLevel()` 条件）中追加 `|| mApp->IsCricketFightLevel()`：
 
@@ -271,7 +271,7 @@ git commit -m "feat(cricket): single-wave 6 random zombies on middle row, spawn 
 	}
 ```
 
-- [ ] **Step 3: 只创建第 3 行的小推车**
+- [x] **Step 3: 只创建第 3 行的小推车**
 
 `SetupLawnMowers()` 中**不要**把斗蛐蛐加入跳过列表（否则没有判负边界）。改为在行循环条件中加入斗蛐蛐分支，只创建第 3 行（aRow == 2）的小推车：
 
@@ -310,7 +310,7 @@ git commit -m "feat(cricket): single-wave 6 random zombies on middle row, spawn 
 
 （小推车在过场中由 `CutScene::Update` 自动置为可见并滑入 — `TimeLawnMowerStart[2] = 6200 < TimeIntro_End(13890)`，不受 Task 6 的 `mLawnMowerTime = 0` 影响。）
 
-- [ ] **Step 4: 在 Board.h 声明 SetupCricketFight**
+- [x] **Step 4: 在 Board.h 声明 SetupCricketFight**
 
 在 `src/Lawn/Board.h` 的 `void PickZombieWaves();` 声明附近插入：
 
@@ -318,7 +318,7 @@ git commit -m "feat(cricket): single-wave 6 random zombies on middle row, spawn 
 	void							SetupCricketFight();
 ```
 
-- [ ] **Step 5: 实现 SetupCricketFight**
+- [x] **Step 5: 实现 SetupCricketFight**
 
 在 `Board::StartLevel()` 定义之前插入新方法（42 种植物池，排除 7 种技术异常种；摆放第 3 行（索引 2）第 1-5 列（索引 0-4），每格 1 个随机植物）：
 
@@ -349,7 +349,7 @@ void Board::SetupCricketFight()
 }
 ```
 
-- [ ] **Step 6: StartLevel 调用布阵**
+- [x] **Step 6: StartLevel 调用布阵**
 
 在 `Board::StartLevel()` 中 `mChallenge->StartLevel();` 之后立即插入：
 
@@ -362,12 +362,12 @@ void Board::SetupCricketFight()
 
 （此时 SCENE 即将切为 PLAYING，植物放置后立即进入战斗；`mZombieCountDown = 1` 保证僵尸 1 帧后刷出。）
 
-- [ ] **Step 7: 构建验证**
+- [x] **Step 7: 构建验证**
 
 Run: `cmake --build build`
 Expected: 编译通过。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add src/Lawn/Board.h src/Lawn/Board.cpp
@@ -386,7 +386,7 @@ git commit -m "feat(cricket): night background, no sun/mowers, auto-place 5 rand
 - Consumes: `IsCricketFightLevel()`（Task 1）、`Board::ZombiesWon(Zombie*)`（已存在）、`MowZombie(Zombie*)`（已存在，不调用）
 - Produces: 斗蛐蛐模式下任意僵尸矩形碰到第 3 行小推车 → `ZombiesWon()` 立即判负（不刈草）；进度条避免 `mNumWaves - 1 == 0` 除零。
 
-- [ ] **Step 1: LawnMower::Update 加入斗蛐蛐判负分支**
+- [x] **Step 1: LawnMower::Update 加入斗蛐蛐判负分支**
 
 找到 `LawnMower::Update()` 中矩形重叠检测后的 `MowZombie(aZombie);` 调用处（约 239 行，上下文含「蹦极僵尸或已死亡的僵尸不能主动触发小推车」注释）：
 
@@ -419,7 +419,7 @@ git commit -m "feat(cricket): night background, no sun/mowers, auto-place 5 rand
 
 （`LawnMower` 已有 `mApp` 与 `mBoard` 成员，`ZombiesWon` 内部对入参有空指针保护，会走「僵尸获胜」结局路径并置 `BOARDRESULT_LOST`。气球僵尸沿用 >20 重叠阈值；蹦极僵尸从空中落下不会碰到小推车；矿工钻地到小推车之后由原版「进家」判定兜底。）
 
-- [ ] **Step 2: 进度条除零保护**
+- [x] **Step 2: 进度条除零保护**
 
 将 `UpdateProgressMeter()` 中：
 
@@ -435,12 +435,12 @@ git commit -m "feat(cricket): night background, no sun/mowers, auto-place 5 rand
 
 （斗蛐蛐 `mNumWaves == 1`，`aTotalWidth / (mNumWaves - 1)` 会除零；观战模式不需要进度条。）
 
-- [ ] **Step 3: 构建验证**
+- [x] **Step 3: 构建验证**
 
 Run: `cmake --build build`
 Expected: 编译通过。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add src/Lawn/LawnMower.cpp src/Lawn/Board.cpp
@@ -459,7 +459,7 @@ git commit -m "feat(cricket): zombie touching lawnmower = instant loss; guard pr
 - Consumes: `IsCricketFightLevel()`（Task 1）
 - Produces: 斗蛐蛐过场无 Ready Set Plant 阶段（`mReadySetPlantTime = 0`）、无小推车滚动动画（`mLawnMowerTime = 0`），过场为最短标准时长后自动进入战斗。
 
-- [ ] **Step 1: 跳过 Ready Set Plant**
+- [x] **Step 1: 跳过 Ready Set Plant**
 
 在 `StartLevelIntro()` 的 `mReadySetPlantTime = 0;` 分支条件（`mApp->IsScaryPotterLevel() ||` 附近，即 `IsShovelLevel/IsSquirrelLevel/IsWallnutBowlingLevel/ZOMBIQUARIUM/LAST_STAND/TREE_OF_WISDOM/IZombie/WhackAZombie/ScaryPotter` 列表）追加 `mApp->IsCricketFightLevel() ||`：
 
@@ -479,7 +479,7 @@ git commit -m "feat(cricket): zombie touching lawnmower = instant loss; guard pr
 	}
 ```
 
-- [ ] **Step 2: 跳过小推车动画**
+- [x] **Step 2: 跳过小推车动画**
 
 将：
 
@@ -501,12 +501,12 @@ git commit -m "feat(cricket): zombie touching lawnmower = instant loss; guard pr
 	}
 ```
 
-- [ ] **Step 3: 构建验证**
+- [x] **Step 3: 构建验证**
 
 Run: `cmake --build build`
 Expected: 编译通过。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add src/Lawn/CutScene.cpp
@@ -519,16 +519,16 @@ git commit -m "feat(cricket): skip Ready-Set-Plant and lawnmower intro animation
 
 **Files:** 无代码改动。
 
-- [ ] **Step 1: 完整构建**
+- [x] **Step 1: 完整构建**
 
 Run: `cmake --build build`
 Expected: 编译链接通过，产物 `build/pvz-portable.exe` 更新。
 
-- [ ] **Step 2: 解锁快速测试入口（临时）**
+- [x] **Step 2: 解锁快速测试入口（临时）**
 
 斗蛐蛐按钮位于小游戏页 row 4 col 0，标准解锁公式要求约 18 个奖杯。若测试存档奖杯不足，临时将 `ChallengeScreen::MoreTrophiesNeeded` 中 `CHALLENGE_PAGE_CHALLENGE` 分支改为对 `GAMEMODE_CHALLENGE_CRICKET` 返回 0（测试后还原）；或在 Debug 构建用 `-tod` 参数。
 
-- [ ] **Step 3: 手动验证清单（每项记录结果）**
+- [x] **Step 3: 手动验证清单（每项记录结果）**
 
 从小游戏页进入「斗蛐蛐」后依次确认：
 
@@ -546,7 +546,7 @@ Expected: 编译链接通过，产物 `build/pvz-portable.exe` 更新。
 12. 胜利/失败后返回小游戏列表无异常；再进入可正常开始新一局。
 13. 回归：正常小游戏（如「小麻烦」）、冒险模式第 1 关可正常游玩（确认枚举新增未破坏现有流程）。
 
-- [ ] **Step 4: 修复发现的问题并提交**
+- [x] **Step 4: 修复发现的问题并提交**
 
 如有问题：回到对应任务修复 → 重新构建 → 重跑清单对应项 → 单独提交修复。
 

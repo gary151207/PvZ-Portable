@@ -17,6 +17,7 @@
   - 植物 42 种 = `SEED_PEASHOOTER(0)` 至 `SEED_IMITATER(48)` 排除 `SEED_LILYPAD`/`SEED_TANGLEKELP`/`SEED_PUMPKINSHELL`/`SEED_FLOWERPOT`/`SEED_CATTAIL`/`SEED_COBCANNON`/`SEED_IMITATER`
   - 僵尸 20 种 = `ZOMBIE_NORMAL(0)` 至 `ZOMBIE_REDEYE_GARGANTUAR(32)` 排除 `ZOMBIE_BACKUP_DANCER`/`ZOMBIE_DUCKY_TUBE`/`ZOMBIE_SNORKEL`/`ZOMBIE_DOLPHIN_RIDER`/`ZOMBIE_BOBSLED`/`ZOMBIE_YETI`/`ZOMBIE_BOSS`/`ZOMBIE_PEA_HEAD`/`ZOMBIE_WALLNUT_HEAD`/`ZOMBIE_JALAPENO_HEAD`/`ZOMBIE_GATLING_HEAD`/`ZOMBIE_SQUASH_HEAD`/`ZOMBIE_TALLNUT_HEAD`
 - 棋盘第 3 行 = 网格行索引 **2**；第 1-5 列 = 网格列索引 **0-4**。
+- **判负边界**：第 3 行左侧创建 1 辆小推车（不刈草，仅作边界线），任意僵尸矩形碰到它 = 立即判负；不再有「植物全灭判负」规则。
 - 构建命令：`cmake --build build`（已有配置），产物 `build/pvz-portable.exe`。
 
 ---
@@ -237,18 +238,18 @@ git commit -m "feat(cricket): single-wave 6 random zombies on middle row, spawn 
 
 ---
 
-### Task 4: 地图与布阵（黑夜、无阳光、无小推车、摆 5 植物）
+### Task 4: 地图与布阵（黑夜、无阳光、仅第 3 行小推车、摆 5 植物）
 
 **Files:**
 - Modify: `src/Lawn/Board.cpp:980-994`（`PickBackground` 的 `BACKGROUND_2_NIGHT` 组）
 - Modify: `src/Lawn/Board.cpp:1400-1410`（`InitLevel` 的 `mSunMoney = 0` 分支）
-- Modify: `src/Lawn/Board.cpp:1680-1683`（`SetupLawnMowers` 跳过列表）
+- Modify: `src/Lawn/Board.cpp:1680-1697`（`SetupLawnMowers` 跳过列表与行循环）
 - Modify: `src/Lawn/Board.cpp:1718-1722`（`StartLevel` 开头）、`src/Lawn/Board.h:371`（方法声明区）
 - Create: `src/Lawn/Board.cpp` 内新增 `SetupCricketFight()`（放在 `StartLevel()` 定义附近）
 
 **Interfaces:**
 - Consumes: `IsCricketFightLevel()`（Task 1）、`Board::AddPlant(int, int, SeedType, SeedType)`（已存在，不做地面校验）
-- Produces: `BackgroundType::BACKGROUND_2_NIGHT`；`mSunMoney = 0`；无小推车；`SetupCricketFight()` 在 (0-4, 2) 摆 5 个随机植物。
+- Produces: `BackgroundType::BACKGROUND_2_NIGHT`；`mSunMoney = 0`；**仅第 3 行 1 辆小推车**；`SetupCricketFight()` 在 (0-4, 2) 摆 5 个随机植物。
 
 - [ ] **Step 1: 黑夜背景**
 
@@ -270,19 +271,44 @@ git commit -m "feat(cricket): single-wave 6 random zombies on middle row, spawn 
 	}
 ```
 
-- [ ] **Step 3: 不创建小推车**
+- [ ] **Step 3: 只创建第 3 行的小推车**
 
-在 `SetupLawnMowers()` 的跳过列表（`mApp->IsIZombieLevel() ||` 附近）追加 `mApp->IsCricketFightLevel() ||`：
+`SetupLawnMowers()` 中**不要**把斗蛐蛐加入跳过列表（否则没有判负边界）。改为在行循环条件中加入斗蛐蛐分支，只创建第 3 行（aRow == 2）的小推车：
+
+将行循环条件：
 
 ```cpp
-	if (aGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || aGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST ||
-		aGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN || aGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM ||
-		aGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || aGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM ||
-		mApp->IsCricketFightLevel() || mApp->IsSquirrelLevel() || mApp->IsIZombieLevel() || (StageHasRoof() && ...))
-		return;
+	for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+	{
+		if ((aGameMode == GameMode::GAMEMODE_CHALLENGE_RESODDED && aRow <= 4) || 
+			(mApp->IsAdventureMode() && mLevel == 35) ||
+			(!mApp->IsScaryPotterLevel() && mPlantRow[aRow] != PlantRowType::PLANTROW_DIRT))
+		{
+			LawnMower* aLawnMower = mLawnMowers.DataArrayAlloc();
+			aLawnMower->LawnMowerInitialize(aRow);
+			aLawnMower->mVisible = false;
+		}
+	}
 ```
 
-（只需把 `mApp->IsCricketFightLevel() ||` 加入该 if 条件即可，其余部分不动。）
+改为在条件中追加 `(mApp->IsCricketFightLevel() && aRow == 2) ||`：
+
+```cpp
+	for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+	{
+		if ((aGameMode == GameMode::GAMEMODE_CHALLENGE_RESODDED && aRow <= 4) || 
+			(mApp->IsAdventureMode() && mLevel == 35) ||
+			(mApp->IsCricketFightLevel() && aRow == 2) ||   // 斗蛐蛐：仅第 3 行 1 辆小推车作为判负边界
+			(!mApp->IsScaryPotterLevel() && mPlantRow[aRow] != PlantRowType::PLANTROW_DIRT))
+		{
+			LawnMower* aLawnMower = mLawnMowers.DataArrayAlloc();
+			aLawnMower->LawnMowerInitialize(aRow);
+			aLawnMower->mVisible = false;
+		}
+	}
+```
+
+（小推车在过场中由 `CutScene::Update` 自动置为可见并滑入 — `TimeLawnMowerStart[2] = 6200 < TimeIntro_End(13890)`，不受 Task 6 的 `mLawnMowerTime = 0` 影响。）
 
 - [ ] **Step 4: 在 Board.h 声明 SetupCricketFight**
 
@@ -350,62 +376,50 @@ git commit -m "feat(cricket): night background, no sun/mowers, auto-place 5 rand
 
 ---
 
-### Task 5: 胜负判定与进度条除零保护
+### Task 5: 判负判定（僵尸碰小推车）与进度条除零保护
 
 **Files:**
-- Modify: `src/Lawn/Board.h:371`（方法声明区）
-- Modify: `src/Lawn/Board.cpp:5883-5890`（`UpdateGame` 的 `UpdateGameObjects()` 之后）
+- Modify: `src/Lawn/LawnMower.cpp:233-244`（`Update()` 的矩形重叠 → `MowZombie` 调用处）
 - Modify: `src/Lawn/Board.cpp:5652-5653`（`UpdateProgressMeter` 的 `else if (mCurrentWave != 0)`）
 
 **Interfaces:**
-- Consumes: `ZombiesWon(Zombie*)`（已存在，`nullptr` 安全 — 内部有 `if (theZombie)` 判空）、`AreEnemyZombiesOnScreen()`（已存在）、`HasLevelAwardDropped()`（已存在）
-- Produces: `bool Board::HasAlivePlant()`；斗蛐蛐植物全灭即时判负；进度条避免 `mNumWaves - 1 == 0` 除零。
+- Consumes: `IsCricketFightLevel()`（Task 1）、`Board::ZombiesWon(Zombie*)`（已存在）、`MowZombie(Zombie*)`（已存在，不调用）
+- Produces: 斗蛐蛐模式下任意僵尸矩形碰到第 3 行小推车 → `ZombiesWon()` 立即判负（不刈草）；进度条避免 `mNumWaves - 1 == 0` 除零。
 
-- [ ] **Step 1: Board.h 声明 HasAlivePlant**
+- [ ] **Step 1: LawnMower::Update 加入斗蛐蛐判负分支**
 
-在 `SetupCricketFight();` 声明旁插入：
-
-```cpp
-	bool							HasAlivePlant();
-```
-
-- [ ] **Step 2: 实现 HasAlivePlant**
-
-在 `SetupCricketFight()` 定义之后插入：
+找到 `LawnMower::Update()` 中矩形重叠检测后的 `MowZombie(aZombie);` 调用处（约 239 行，上下文含「蹦极僵尸或已死亡的僵尸不能主动触发小推车」注释）：
 
 ```cpp
-bool Board::HasAlivePlant()
-{
-	Plant* aPlant = nullptr;
-	while (IteratePlants(aPlant))
-	{
-		if (!aPlant->mDead && !aPlant->mSquished)
-		{
-			return true;
-		}
-	}
-	return false;
-}
+			int aOverlap = GetRectOverlap(aAttackRect, aZombieRect);
+			if (aOverlap > (aZombie->mZombieType == ZombieType::ZOMBIE_BALLOON ? 20 : 0))
+			{
+				// 蹦极僵尸或已死亡的僵尸不能主动触发小推车
+				if (mMowerState != LawnMowerState::MOWER_READY || (aZombie->mZombieType != ZombieType::ZOMBIE_BUNGEE && aZombie->mHasHead))
+				{
+					MowZombie(aZombie);
+				}
+			}
 ```
 
-- [ ] **Step 3: UpdateGame 加入植物全灭判负**
-
-在 `Board::UpdateGame()` 中 `UpdateGameObjects();` 之后插入：
+将 `MowZombie(aZombie);` 替换为：
 
 ```cpp
-	// 斗蛐蛐：植物全灭且场上仍有僵尸 → 立即判负（决斗语义）
-	if (mApp->IsCricketFightLevel() && mApp->mGameScene == GameScenes::SCENE_PLAYING &&
-		mCurrentWave >= mNumWaves && !HasLevelAwardDropped() &&
-		AreEnemyZombiesOnScreen() && !HasAlivePlant())
-	{
-		ZombiesWon(nullptr);
-		return;
-	}
+				if (mMowerState != LawnMowerState::MOWER_READY || (aZombie->mZombieType != ZombieType::ZOMBIE_BUNGEE && aZombie->mHasHead))
+				{
+					if (mApp->IsCricketFightLevel())
+					{
+						// 斗蛐蛐：僵尸碰到小推车 → 立即判负（不刈草）
+						mBoard->ZombiesWon(aZombie);
+						return;
+					}
+					MowZombie(aZombie);
+				}
 ```
 
-（`ZombiesWon` 内对 `theZombie` 已有空指针保护，`nullptr` 走「僵尸获胜」结局路径，`mBoardResult = BOARDRESULT_LOST`。）
+（`LawnMower` 已有 `mApp` 与 `mBoard` 成员，`ZombiesWon` 内部对入参有空指针保护，会走「僵尸获胜」结局路径并置 `BOARDRESULT_LOST`。气球僵尸沿用 >20 重叠阈值；蹦极僵尸从空中落下不会碰到小推车；矿工钻地到小推车之后由原版「进家」判定兜底。）
 
-- [ ] **Step 4: 进度条除零保护**
+- [ ] **Step 2: 进度条除零保护**
 
 将 `UpdateProgressMeter()` 中：
 
@@ -421,16 +435,16 @@ bool Board::HasAlivePlant()
 
 （斗蛐蛐 `mNumWaves == 1`，`aTotalWidth / (mNumWaves - 1)` 会除零；观战模式不需要进度条。）
 
-- [ ] **Step 5: 构建验证**
+- [ ] **Step 3: 构建验证**
 
 Run: `cmake --build build`
 Expected: 编译通过。
 
-- [ ] **Step 6: 提交**
+- [ ] **Step 4: 提交**
 
 ```bash
-git add src/Lawn/Board.h src/Lawn/Board.cpp
-git commit -m "feat(cricket): instant loss when all plants die; guard progress-meter div-by-zero"
+git add src/Lawn/LawnMower.cpp src/Lawn/Board.cpp
+git commit -m "feat(cricket): zombie touching lawnmower = instant loss; guard progress-meter div-by-zero"
 ```
 
 ---
@@ -519,17 +533,18 @@ Expected: 编译链接通过，产物 `build/pvz-portable.exe` 更新。
 从小游戏页进入「斗蛐蛐」后依次确认：
 
 1. 背景为**黑夜**（`BACKGROUND_2_NIGHT`）。
-2. 过场为最短时长，无 Ready Set Plant、无小推车滚动，结束后自动开战（无需点选卡）。
+2. 过场为最短时长，无 Ready Set Plant、无小推车滚动动画，结束后自动开战（无需点选卡）。
 3. 开战后第 3 行（中间格线）第 1-5 列有 **5 个随机植物**，每列 1 个。
-4. 第 3 行右侧出现 **6 个随机僵尸**，全部沿第 3 行走来。
-5. **无种子栏、无铲子、无阳光计数**，玩家无法交互（纯观战）。
-6. 再次进入同一局后 **重新进入小游戏列表再进入**，植物种类/位置（顺序）与僵尸种类明显变化（完全随机）。
-7. 多次进入（≥5 次）观察：出现过不同植物组合（如含向日葵的弱阵）、不同僵尸组合（如含伽刚特尔/气球）。
-8. 胜利路径：6 僵尸全灭 → 正常胜利结算（奖杯/奖励）。
-9. 失败路径 A：僵尸进家 → 僵尸获胜结局。
-10. 失败路径 B：5 植物全灭且僵尸仍在场 → 立即判负（决斗语义）。
-11. 胜利/失败后返回小游戏列表无异常；再进入可正常开始新一局。
-12. 回归：正常小游戏（如「小麻烦」）、冒险模式第 1 关可正常游玩（确认枚举新增未破坏现有流程）。
+4. 第 3 行左侧有 **1 辆小推车**（其余行无），过场中正常滑入显示。
+5. 第 3 行右侧出现 **6 个随机僵尸**，全部沿第 3 行走来。
+6. **无种子栏、无铲子、无阳光计数**，玩家无法交互（纯观战）。
+7. 再次进入小游戏列表后再进入，植物种类与僵尸种类明显变化（完全随机）。
+8. 多次进入（≥5 次）观察：出现过不同植物组合（如含向日葵的弱阵）、不同僵尸组合（如含伽刚特尔/气球）。
+9. 胜利路径：6 僵尸全灭 → 正常胜利结算（奖杯/奖励）。
+10. 失败路径：任意僵尸碰到第 3 行小推车 → 立即判负（僵尸获胜结局）。确认小推车**不会刈草**（无割草动画/杀僵尸）。
+11. 特殊僵尸兜底：若抽到气球/矿工，观察其越过小推车后由「进家」判定判负（可选验证，概率低）。
+12. 胜利/失败后返回小游戏列表无异常；再进入可正常开始新一局。
+13. 回归：正常小游戏（如「小麻烦」）、冒险模式第 1 关可正常游玩（确认枚举新增未破坏现有流程）。
 
 - [ ] **Step 4: 修复发现的问题并提交**
 
@@ -539,6 +554,6 @@ Expected: 编译链接通过，产物 `build/pvz-portable.exe` 更新。
 
 ## Self-Review 记录
 
-- **规格覆盖**：黑夜背景（T4）、中间行布阵（T4）、单波 6 随机僵尸（T3）、全走第 3 行（T3）、纯自动无 UI（T1 IsChallengeWithoutSeedBank + T4 无阳光/小推车）、完全随机（T3/T4 随机池）、胜负规则含植物全灭判负（T5）、单场制（标准结算流程，无额外代码）、小游戏入口（T2）、过场简化（T6）。
+- **规格覆盖**：黑夜背景（T4）、中间行布阵（T4）、单波 6 随机僵尸（T3）、全走第 3 行（T3）、纯自动无 UI（T1 IsChallengeWithoutSeedBank + T4 无阳光）、完全随机（T3/T4 随机池）、胜利 = 僵尸全灭（标准结算）、失败 = 僵尸碰小推车（T5，不刈草；进家兑底不变）、单场制（标准结算流程）、小游戏入口（T2）、过场简化（T6）。
 - **占位符扫描**：无 TBD/TODO；所有插入点给出精确锚点与完整代码。
-- **类型一致性**：`IsCricketFightLevel()`、`SetupCricketFight()`、`HasAlivePlant()`、`AddZombieInRow(type, 2, wave)`、`ZombiesWon(nullptr)` 在定义与调用处签名一致。
+- **类型一致性**：`IsCricketFightLevel()`、`SetupCricketFight()`、`AddZombieInRow(type, 2, wave)`、`ZombiesWon(aZombie)`、`MowZombie`（不调用）在定义与调用处签名一致；Task 5 已删除 `HasAlivePlant`/植物全灭判定（用户选择 B）。

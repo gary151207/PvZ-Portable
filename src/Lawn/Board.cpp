@@ -842,7 +842,7 @@ void Board::PickZombieWaves()
 			ZombieType::ZOMBIE_NORMAL, ZombieType::ZOMBIE_FLAG, ZombieType::ZOMBIE_TRAFFIC_CONE,
 			ZombieType::ZOMBIE_POLEVAULTER, ZombieType::ZOMBIE_PAIL, ZombieType::ZOMBIE_NEWSPAPER,
 			ZombieType::ZOMBIE_DOOR, ZombieType::ZOMBIE_FOOTBALL, ZombieType::ZOMBIE_DANCER,
-			ZombieType::ZOMBIE_ZAMBONI, ZombieType::ZOMBIE_JACK_IN_THE_BOX, ZombieType::ZOMBIE_BALLOON,
+			ZombieType::ZOMBIE_ZAMBONI, ZombieType::ZOMBIE_JACK_IN_THE_BOX,
 			ZombieType::ZOMBIE_DIGGER, ZombieType::ZOMBIE_POGO, ZombieType::ZOMBIE_BUNGEE,
 			ZombieType::ZOMBIE_LADDER, ZombieType::ZOMBIE_CATAPULT, ZombieType::ZOMBIE_GARGANTUAR,
 			ZombieType::ZOMBIE_IMP, ZombieType::ZOMBIE_REDEYE_GARGANTUAR

@@ -5451,13 +5451,13 @@ void Board::ZombiesWon(Zombie* theZombie)
 	if (mApp->mGameScene == GameScenes::SCENE_ZOMBIES_WON)
 		return;
 
-	// 斗蛐蛐：失败后短暂停留，直接进入下一场（停留期间防止重复触发）
+	// 斗蛐蛐：失败后短暂停留，直接进入下一场（停留期间防止重复触发/重复统计）
 	if (mApp->IsCricketFightLevel())
 	{
-		mApp->mBoardResult = BoardResult::BOARDRESULT_LOST;
-		RecordCricketMatchResult(false);
 		if (mNextSurvivalStageCounter == 0)
 		{
+			mApp->mBoardResult = BoardResult::BOARDRESULT_LOST;
+			RecordCricketMatchResult(false);
 			mNextSurvivalStageCounter = 150;
 		}
 		return;

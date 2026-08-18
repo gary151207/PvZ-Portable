@@ -21,6 +21,7 @@
 
 #include <time.h>
 #include <algorithm>
+#include <vector>
 #include <SDL.h>
 #include "ZenGarden.h"
 #include "BoardInclude.h"
@@ -3304,6 +3305,16 @@ void Board::MouseMove(int x, int y)
 {
 	Widget::MouseMove(x, y);
 	mChallenge->MouseMove(x, y);
+}
+
+void Board::MouseWheel(int theDelta)
+{
+	if (mCricketStatsPanel != 0 && mApp->IsCricketFightLevel())
+	{
+		mCricketStatsScroll -= theDelta;
+		if (mCricketStatsScroll < 0)
+			mCricketStatsScroll = 0;
+	}
 }
 
 void Board::MouseDrag(int x, int y)
@@ -7910,6 +7921,64 @@ void Board::DrawUITop(Graphics* g)
 	DrawDebugObjectRects(g);
 }
 
+void Board::DrawCricketStatsPanel(Graphics* g)
+{
+	if (mCricketStatsPanel == 0 || !mApp->IsCricketFightLevel())
+		return;
+
+	struct StatsEntry
+	{
+		std::string mName;
+		int mWins;
+		int mLosses;
+		int mRate;
+	};
+
+	const int aListCount = (mCricketStatsPanel == 1) ? static_cast<int>(SeedType::NUM_SEED_TYPES) : static_cast<int>(ZombieType::NUM_ZOMBIE_TYPES);
+	std::vector<StatsEntry> aEntries;
+	int aTotal = 0;
+	for (int i = 0; i < aListCount; i++)
+	{
+		int aWins = (mCricketStatsPanel == 1) ? mApp->mCricketPlantWins[i] : mApp->mCricketZombieWins[i];
+		int aLosses = (mCricketStatsPanel == 1) ? mApp->mCricketPlantLosses[i] : mApp->mCricketZombieLosses[i];
+		if (aWins + aLosses <= 0)
+			continue;
+		aTotal += aWins + aLosses;
+		std::string aName = (mCricketStatsPanel == 1)
+			? Plant::GetNameString((SeedType)i)
+			: GetZombieDefinition((ZombieType)i).mZombieName;
+		aEntries.push_back({ aName, aWins, aLosses, aWins * 100 / (aWins + aLosses) });
+	}
+	std::stable_sort(aEntries.begin(), aEntries.end(),
+		[](const StatsEntry& a, const StatsEntry& b) { return a.mRate > b.mRate; });
+
+	const int aMaxLines = 22;
+	const int aLineHeight = 16;
+	const int aPanelX = 20, aPanelY = 50;
+	const int aPanelW = 400;
+	const int aPanelH = aMaxLines * aLineHeight + 44;
+	if (mCricketStatsScroll > static_cast<int>(aEntries.size()) - aMaxLines)
+		mCricketStatsScroll = std::max(0, static_cast<int>(aEntries.size()) - aMaxLines);
+
+	g->SetColor(Color(0, 0, 0, 200));
+	g->FillRect(aPanelX, aPanelY, aPanelW, aPanelH);
+
+	std::string aTitle = (mCricketStatsPanel == 1)
+		? StrFormat("PLANT WIN RATES (%d games)", aTotal)
+		: StrFormat("ZOMBIE WIN RATES (%d games)", aTotal);
+	TodDrawString(g, aTitle, aPanelX + aPanelW / 2, aPanelY + 22, Sexy::FONT_BRIANNETOD12, Color::White, DS_ALIGN_CENTER);
+	TodDrawString(g, "[Tab] switch list    [Up/Down/Wheel] scroll", aPanelX + 8, aPanelY + 38, Sexy::FONT_BRIANNETOD12, Color(200, 200, 200), DS_ALIGN_LEFT);
+
+	int aY = aPanelY + 54;
+	for (int i = mCricketStatsScroll; i < static_cast<int>(aEntries.size()) && i < mCricketStatsScroll + aMaxLines; i++)
+	{
+		StatsEntry& aEntry = aEntries[i];
+		std::string aLine = StrFormat("%s  %d%% (%d/%d)", aEntry.mName.c_str(), aEntry.mRate, aEntry.mWins, aEntry.mWins + aEntry.mLosses);
+		TodDrawString(g, aLine, aPanelX + 8, aY, Sexy::FONT_BRIANNETOD12, Color::White, DS_ALIGN_LEFT);
+		aY += aLineHeight;
+	}
+}
+
 void Board::Draw(Graphics* g)
 {
 	if (mApp->GetDialog(Dialogs::DIALOG_STORE) || mApp->GetDialog(Dialogs::DIALOG_ALMANAC))
@@ -7940,6 +8009,7 @@ void Board::Draw(Graphics* g)
 
 	mDrawCount++;
 	DrawGameObjects(g);
+	DrawCricketStatsPanel(g);
 }
 
 // GOTY @Patoke: 0x41D910
@@ -8143,6 +8213,21 @@ void Board::KeyDown(KeyCode theKey)
 		{
 			mSeedBank->mSeedPackets[aSlot].MouseDown(0, 0, 0);
 		}
+	}
+	else if (theKey == KeyCode::KEYCODE_TAB && mApp->IsCricketFightLevel())
+	{
+		// 斗蛐蛐胜率面板：关闭 → 植物 → 僵尸 → 关闭 循环
+		mCricketStatsPanel++;
+		if (mCricketStatsPanel > 2)
+			mCricketStatsPanel = 0;
+		mCricketStatsScroll = 0;
+	}
+	else if ((theKey == KeyCode::KEYCODE_UP || theKey == KeyCode::KEYCODE_DOWN) &&
+		mCricketStatsPanel != 0 && mApp->IsCricketFightLevel())
+	{
+		mCricketStatsScroll += (theKey == KeyCode::KEYCODE_UP) ? -1 : 1;
+		if (mCricketStatsScroll < 0)
+			mCricketStatsScroll = 0;
 	}
 	else if (theKey == KeyCode::KEYCODE_ESCAPE)
 	{

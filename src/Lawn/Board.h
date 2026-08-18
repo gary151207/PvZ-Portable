@@ -285,6 +285,7 @@ public:
 	virtual void					KeyChar(char theChar);
 	virtual void					KeyUp(KeyCode) {}
 	virtual void					KeyDown(KeyCode theKey);
+	virtual void					MouseWheel(int theDelta);
 	virtual void					Update();
 	void							UpdateLayers();
 	virtual void					Draw(Graphics* g);
@@ -372,8 +373,11 @@ public:
 	void							SetupCricketFight();
 	void							RestartCricketMatch();
 	void							RecordCricketMatchResult(bool thePlantsWon);
+	void							DrawCricketStatsPanel(Graphics* g);
 	SeedType					mCricketBattlePlants[5];
 	ZombieType					mCricketBattleZombies[6];
+	int							mCricketStatsPanel;   // 0=关, 1=植物, 2=僵尸
+	int							mCricketStatsScroll;
 	void							StopAllZombieSounds();
 	/*inline*/ bool					HasLevelAwardDropped();
 	void							UpdateProgressMeter();

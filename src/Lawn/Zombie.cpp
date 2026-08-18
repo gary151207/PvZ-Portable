@@ -4771,6 +4771,19 @@ void Zombie::UpdateYuckyFace()
     {
         StartWalkAnim(20);
 
+        // 斗蛐蛐：被大蒜引路的僵尸强制回到第 3 行最后一列（不换行，从右侧重新进场）
+        if (mApp->IsCricketFightLevel())
+        {
+            SetRow(2);
+            mPosX = mBoard->GridToPixelX(8, 2) + 20.0f;
+            mPosY = mBoard->GetPosYBasedOnRow(mPosX, 2);
+            mX = static_cast<int>(mPosX);
+            mY = static_cast<int>(mPosY);
+            mYuckyFace = false;
+            mYuckyFaceCounter = 0;
+            return;
+        }
+
         bool aCanGoUp = true;
         bool aCanGoDown = true;
         bool aIsPool = mBoard->mPlantRow[mRow] == PlantRowType::PLANTROW_POOL;

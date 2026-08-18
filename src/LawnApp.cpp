@@ -21,6 +21,7 @@
 
 //#include <corecrt.h>
 #include <time.h>
+#include <fstream>
 #include "LawnApp.h"
 #include "Lawn/Board.h"
 #include "Lawn/Plant.h"
@@ -1355,6 +1356,8 @@ void LawnApp::Init()
 	TodTrace("loading: 'loaderbar' %d ms", aDuration);
 #endif
 	mTimer.Start();
+
+	LoadCricketStats();
 }
 
 bool LawnApp::ChangeDirHook(const char* /*theIntendedPath*/)
@@ -2252,6 +2255,60 @@ bool LawnApp::IsLittleTroubleLevel()
 bool LawnApp::IsCricketFightLevel()
 {
 	return mGameMode == GameMode::GAMEMODE_CHALLENGE_CRICKET;
+}
+
+void LawnApp::LoadCricketStats()
+{
+	memset(mCricketPlantWins, 0, sizeof(mCricketPlantWins));
+	memset(mCricketPlantLosses, 0, sizeof(mCricketPlantLosses));
+	memset(mCricketZombieWins, 0, sizeof(mCricketZombieWins));
+	memset(mCricketZombieLosses, 0, sizeof(mCricketZombieLosses));
+
+	std::ifstream aFile(GetAppDataPath("userdata/cricket_stats.txt"));
+	if (!aFile.is_open())
+		return;
+
+	std::string aName;
+	int aWins = 0, aLosses = 0;
+	while (aFile >> aName >> aWins >> aLosses)
+	{
+		for (int i = 0; i < SeedType::NUM_SEED_TYPES; i++)
+		{
+			if (aName == GetPlantDefinition((SeedType)i).mPlantName)
+			{
+				mCricketPlantWins[i] = aWins;
+				mCricketPlantLosses[i] = aLosses;
+				break;
+			}
+		}
+		for (int i = 0; i < ZombieType::NUM_ZOMBIE_TYPES; i++)
+		{
+			if (aName == GetZombieDefinition((ZombieType)i).mZombieName)
+			{
+				mCricketZombieWins[i] = aWins;
+				mCricketZombieLosses[i] = aLosses;
+				break;
+			}
+		}
+	}
+}
+
+void LawnApp::SaveCricketStats()
+{
+	std::ofstream aFile(GetAppDataPath("userdata/cricket_stats.txt"));
+	if (!aFile.is_open())
+		return;
+
+	for (int i = 0; i < SeedType::NUM_SEED_TYPES; i++)
+	{
+		aFile << GetPlantDefinition((SeedType)i).mPlantName << " "
+			<< mCricketPlantWins[i] << " " << mCricketPlantLosses[i] << "\n";
+	}
+	for (int i = 0; i < ZombieType::NUM_ZOMBIE_TYPES; i++)
+	{
+		aFile << GetZombieDefinition((ZombieType)i).mZombieName << " "
+			<< mCricketZombieWins[i] << " " << mCricketZombieLosses[i] << "\n";
+	}
 }
 
 bool LawnApp::IsScaryPotterLevel()

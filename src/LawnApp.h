@@ -120,6 +120,10 @@ public:
 	int								mPlayTimeActiveSession;
 	int								mPlayTimeInactiveSession;
 	BoardResult						mBoardResult;
+	int								mCricketPlantWins[SeedType::NUM_SEED_TYPES];
+	int								mCricketPlantLosses[SeedType::NUM_SEED_TYPES];
+	int								mCricketZombieWins[ZombieType::NUM_ZOMBIE_TYPES];
+	int								mCricketZombieLosses[ZombieType::NUM_ZOMBIE_TYPES];
 	bool							mSawYeti;
 	TypingCheck*					mKonamiCheck;
 	TypingCheck*					mMustacheCheck;
@@ -269,6 +273,8 @@ public:
 	/*inline*/ bool					IsSlotMachineLevel();
 	/*inline*/ bool					IsLittleTroubleLevel();
 	/*inline*/ bool					IsCricketFightLevel();
+	void							LoadCricketStats();
+	void							SaveCricketStats();
 	/*inline*/ bool					IsStormyNightLevel();
 	/*inline*/ bool					IsFinalBossLevel();
 	/*inline*/ bool					IsBungeeBlitzLevel();

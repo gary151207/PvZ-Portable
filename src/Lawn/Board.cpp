@@ -118,6 +118,8 @@ Board::Board(LawnApp* theApp)
 	mBoardFadeOutCounter = -1;
 	mNextSurvivalStageCounter = 0;
 	mScoreNextMowerCounter = 0;
+	mCricketStatsPanel = 0;
+	mCricketStatsScroll = 0;
 	mProgressMeterWidth = 0;
 	mPoolSparklyParticleID = ParticleSystemID::PARTICLESYSTEMID_NULL;
 	mFogBlownCountDown = 0;

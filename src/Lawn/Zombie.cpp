@@ -2922,6 +2922,13 @@ void Zombie::SummonBackupDancers()
             case 3:     aRow = mRow;        aPosX = mPosX + 100;    break;
             default:    TOD_ASSERT(false);                               break;
             }
+            if (mApp->IsCricketFightLevel())
+            {
+                // 斗蛐蛐：所有伴舞集中在舞者所在行（第 3 行），水平分散避免重叠
+                static const int kCricketBackupDancerX[] = { -150, 150, -100, 100 };
+                aRow = mRow;
+                aPosX = mPosX + kCricketBackupDancerX[i];
+            }
 
             mFollowerZombieID[i] = SummonBackupDancer(aRow, aPosX);
         }

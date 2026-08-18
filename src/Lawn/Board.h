@@ -370,6 +370,7 @@ public:
 	/*inline*/ bool					IsPoolSquare(int theGridX, int theGridY);
 	void							PickZombieWaves();
 	void							SetupCricketFight();
+	void							RestartCricketMatch();
 	void							StopAllZombieSounds();
 	/*inline*/ bool					HasLevelAwardDropped();
 	void							UpdateProgressMeter();

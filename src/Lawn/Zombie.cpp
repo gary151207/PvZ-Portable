@@ -7238,6 +7238,14 @@ bool Zombie::TrySpawnLevelAward()
         mBoard->RemoveAllZombies();
     }
 
+    if (mApp->IsCricketFightLevel())
+    {
+        // 斗蛐蛐：胜利后不落奖杯币，直接进入结算（约 2 秒停留）→ 下一场
+        mBoard->FadeOutLevel();
+        mDroppedLoot = true;
+        return true;
+    }
+
     CoinType aCoinType;
     if (mApp->IsScaryPotterLevel() && !mBoard->IsFinalScaryPotterStage())
     {

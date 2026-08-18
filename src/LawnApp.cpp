@@ -1593,6 +1593,11 @@ void LawnApp::CheckForGameEnd()
 			ShowChallengeScreen(ChallengePage::CHALLENGE_PAGE_PUZZLE);
 		}
 	}
+	else if (mGameMode == GameMode::GAMEMODE_CHALLENGE_CRICKET)
+	{
+		// 斗蛐蛐：胜利后直接进入下一场（就地重开，不返回菜单）
+		mBoard->RestartCricketMatch();
+	}
 	else
 	{
 		KillBoard();

@@ -1768,6 +1768,61 @@ void Board::SetupCricketFight()
 	}
 }
 
+void Board::RestartCricketMatch()
+{
+	// 清场：僵尸、植物、子弹、金币、粒子
+	RemoveAllZombies();
+	Plant* aPlant = nullptr;
+	while (IteratePlants(aPlant))
+	{
+		aPlant->Die();
+	}
+	Projectile* aProjectile = nullptr;
+	while (IterateProjectiles(aProjectile))
+	{
+		aProjectile->Die();
+	}
+	Coin* aCoin = nullptr;
+	while (IterateCoins(aCoin))
+	{
+		aCoin->Die();
+	}
+	TodParticleSystem* aParticle = nullptr;
+	while (IterateParticles(aParticle))
+	{
+		aParticle->ParticleSystemDie();
+	}
+
+	// 清除铲冰车留下的冰面
+	for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+	{
+		mIceTimer[aRow] = 0;
+		mIceMinX[aRow] = BOARD_ICE_START;
+	}
+
+	// 重置状态标志
+	mLevelAwardSpawned = false;
+	mLevelComplete = false;
+	mBoardFadeOutCounter = -1;
+	mNextSurvivalStageCounter = 0;
+	mScoreNextMowerCounter = 0;
+	mMainCounter = 0;
+	mApp->mBoardResult = BoardResult::BOARDRESULT_NONE;
+
+	// 重置小推车（斗蛐蛐中小推车不会被触发，保险复位到边界位置）
+	LawnMower* aLawnMower = FindLawnMowerInRow(2);
+	if (aLawnMower)
+	{
+		aLawnMower->mMowerState = LawnMowerState::MOWER_READY;
+		aLawnMower->mPosX = -21.0f;
+		aLawnMower->mVisible = true;
+	}
+
+	// 重新掷全部随机量：出怪列表（6 只随机僵尸，mZombieCountDown=1）+ 5 个随机植物
+	InitZombieWaves();
+	SetupCricketFight();
+}
+
 void Board::StartLevel()
 {
 	mCoinBankFadeCount = 0;
@@ -1846,6 +1901,11 @@ void Board::UpdateLevelEndSequence()
 
 		if (!mNextSurvivalStageCounter)
 		{
+			if (mApp->IsCricketFightLevel())
+			{
+				RestartCricketMatch();   // 斗蛐蛐：失败停留结束 → 直接进入下一场
+				return;
+			}
 			if (mApp->IsScaryPotterLevel())
 			{
 				if (mApp->IsAdventureMode())
@@ -2039,6 +2099,10 @@ void Board::FadeOutLevel()
 		if (mLevel == 9 || mLevel == 19 || mLevel == 29 || mLevel == 39 || mLevel == 49)
 		{
 			mBoardFadeOutCounter = 500;
+		}
+		if (mApp->IsCricketFightLevel())
+		{
+			mBoardFadeOutCounter = 120;   // 斗蛐蛐：胜利后约 2 秒停留，直接进入下一场
 		}
 
 		if (CanDropLoot())
@@ -5347,6 +5411,17 @@ void Board::ZombiesWon(Zombie* theZombie)
 {
 	if (mApp->mGameScene == GameScenes::SCENE_ZOMBIES_WON)
 		return;
+
+	// 斗蛐蛐：失败后短暂停留，直接进入下一场（停留期间防止重复触发）
+	if (mApp->IsCricketFightLevel())
+	{
+		mApp->mBoardResult = BoardResult::BOARDRESULT_LOST;
+		if (mNextSurvivalStageCounter == 0)
+		{
+			mNextSurvivalStageCounter = 150;
+		}
+		return;
+	}
 
 	ClearAdvice(AdviceType::ADVICE_NONE);
 	mApp->mBoardResult = BoardResult::BOARDRESULT_LOST;

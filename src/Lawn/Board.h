@@ -376,6 +376,7 @@ public:
 	void							DrawCricketStatsPanel(Graphics* g);
 	SeedType					mCricketBattlePlants[5];
 	ZombieType					mCricketBattleZombies[6];
+	bool						mCricketMatchRecorded;   // 每场战斗只记录一次结果
 	int							mCricketStatsPanel;   // 0=关, 1=植物, 2=僵尸
 	int							mCricketStatsScroll;
 	void							StopAllZombieSounds();

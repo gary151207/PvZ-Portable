@@ -120,6 +120,7 @@ Board::Board(LawnApp* theApp)
 	mScoreNextMowerCounter = 0;
 	mCricketStatsPanel = 0;
 	mCricketStatsScroll = 0;
+	mCricketMatchRecorded = false;
 	mProgressMeterWidth = 0;
 	mPoolSparklyParticleID = ParticleSystemID::PARTICLESYSTEMID_NULL;
 	mFogBlownCountDown = 0;
@@ -1750,6 +1751,7 @@ bool Board::ChooseSeedsOnCurrentLevel()
 // GOTY @Patoke: 0x40E6A0
 void Board::SetupCricketFight()
 {
+	mCricketMatchRecorded = false;   // 新一场战斗：允许记录结果
 	static const SeedType gCricketPlantPool[] = {
 		SeedType::SEED_PEASHOOTER, SeedType::SEED_SUNFLOWER, SeedType::SEED_CHERRYBOMB,
 		SeedType::SEED_WALLNUT, SeedType::SEED_POTATOMINE, SeedType::SEED_SNOWPEA,
@@ -1832,6 +1834,9 @@ void Board::RestartCricketMatch()
 
 void Board::RecordCricketMatchResult(bool thePlantsWon)
 {
+	if (mCricketMatchRecorded)
+		return;   // 每场战斗只记录一次（防多触发路径重复统计）
+	mCricketMatchRecorded = true;
 	mApp->mCricketMatchCount++;   // 每场只记 1 次总场数
 	for (int i = 0; i < 5; i++)
 	{

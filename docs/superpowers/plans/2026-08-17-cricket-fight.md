@@ -554,6 +554,6 @@ Expected: 编译链接通过，产物 `build/pvz-portable.exe` 更新。
 
 ## Self-Review 记录
 
-- **规格覆盖**：黑夜背景（T4）、中间行布阵（T4）、单波 6 随机僵尸（T3）、全走第 3 行（T3）、纯自动无 UI（T1 IsChallengeWithoutSeedBank + T4 无阳光）、完全随机（T3/T4 随机池）、胜利 = 僵尸全灭（标准结算）、失败 = 僵尸碰小推车（T5，不刈草；进家兑底不变）、单场制（标准结算流程）、小游戏入口（T2）、过场简化（T6）。
+- **规格覆盖**：黑夜背景（T4）、中间行布阵（T4）、单波 6 随机僵尸（T3）、全走第 3 行（T3）、纯自动无 UI（T1 IsChallengeWithoutSeedBank + T4 无阳光）、完全随机（T3/T4 随机池）、胜利 = 僵尸全灭（标准结算）、失败 = 僵尸碰小推车（T5，不刈草；进家兑底不变）、无尽制（commit `040c55f` 追加：胜/负后就地重开下一场）、小游戏入口（T2）、过场简化（T6）。
 - **占位符扫描**：无 TBD/TODO；所有插入点给出精确锚点与完整代码。
 - **类型一致性**：`IsCricketFightLevel()`、`SetupCricketFight()`、`AddZombieInRow(type, 2, wave)`、`ZombiesWon(aZombie)`、`MowZombie`（不调用）在定义与调用处签名一致；Task 5 已删除 `HasAlivePlant`/植物全灭判定（用户选择 B）。

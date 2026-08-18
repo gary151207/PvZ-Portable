@@ -524,9 +524,9 @@ git commit -m "feat(cricket): skip Ready-Set-Plant and lawnmower intro animation
 Run: `cmake --build build`
 Expected: 编译链接通过，产物 `build/pvz-portable.exe` 更新。
 
-- [x] **Step 2: 解锁快速测试入口（临时）**
+- [x] **Step 2: 快速测试入口**
 
-斗蛐蛐按钮位于小游戏页 row 4 col 0，标准解锁公式要求约 18 个奖杯。若测试存档奖杯不足，临时将 `ChallengeScreen::MoreTrophiesNeeded` 中 `CHALLENGE_PAGE_CHALLENGE` 分支改为对 `GAMEMODE_CHALLENGE_CRICKET` 返回 0（测试后还原）；或在 Debug 构建用 `-tod` 参数。
+斗蛐蛐按钮已通过 `MoreTrophiesNeeded` 特判永久可用（commit `b8b1d2c`），无需奖杯或调试参数。
 
 - [x] **Step 3: 手动验证清单（每项记录结果）**
 

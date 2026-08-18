@@ -846,7 +846,9 @@ void Board::PickZombieWaves()
 		const int aPoolSize = static_cast<int>(sizeof(gCricketZombiePool) / sizeof(gCricketZombiePool[0]));
 		for (int i = 0; i < 6; i++)
 		{
-			mZombiesInWave[0][i] = gCricketZombiePool[Rand(aPoolSize)];
+			ZombieType aZombieType = gCricketZombiePool[Rand(aPoolSize)];
+			mCricketBattleZombies[i] = aZombieType;   // 记录本场僵尸阵容
+			mZombiesInWave[0][i] = aZombieType;
 		}
 		mZombiesInWave[0][6] = ZombieType::ZOMBIE_INVALID;
 	}
@@ -1764,7 +1766,9 @@ void Board::SetupCricketFight()
 	const int aPoolSize = static_cast<int>(sizeof(gCricketPlantPool) / sizeof(gCricketPlantPool[0]));
 	for (int aCol = 0; aCol < 5; aCol++)
 	{
-		AddPlant(aCol, 2, gCricketPlantPool[Rand(aPoolSize)]);
+		SeedType aSeedType = gCricketPlantPool[Rand(aPoolSize)];
+		mCricketBattlePlants[aCol] = aSeedType;   // 记录本场植物阵容
+		AddPlant(aCol, 2, aSeedType);
 	}
 }
 
@@ -1821,6 +1825,27 @@ void Board::RestartCricketMatch()
 	// 重新掷全部随机量：出怪列表（6 只随机僵尸，mZombieCountDown=1）+ 5 个随机植物
 	InitZombieWaves();
 	SetupCricketFight();
+}
+
+void Board::RecordCricketMatchResult(bool thePlantsWon)
+{
+	for (int i = 0; i < 5; i++)
+	{
+		SeedType aSeedType = mCricketBattlePlants[i];
+		if (thePlantsWon)
+			mApp->mCricketPlantWins[aSeedType]++;
+		else
+			mApp->mCricketPlantLosses[aSeedType]++;
+	}
+	for (int i = 0; i < 6; i++)
+	{
+		ZombieType aZombieType = mCricketBattleZombies[i];
+		if (thePlantsWon)
+			mApp->mCricketZombieLosses[aZombieType]++;
+		else
+			mApp->mCricketZombieWins[aZombieType]++;
+	}
+	mApp->SaveCricketStats();
 }
 
 void Board::StartLevel()
@@ -5416,6 +5441,7 @@ void Board::ZombiesWon(Zombie* theZombie)
 	if (mApp->IsCricketFightLevel())
 	{
 		mApp->mBoardResult = BoardResult::BOARDRESULT_LOST;
+		RecordCricketMatchResult(false);
 		if (mNextSurvivalStageCounter == 0)
 		{
 			mNextSurvivalStageCounter = 150;

@@ -371,6 +371,9 @@ public:
 	void							PickZombieWaves();
 	void							SetupCricketFight();
 	void							RestartCricketMatch();
+	void							RecordCricketMatchResult(bool thePlantsWon);
+	SeedType					mCricketBattlePlants[5];
+	ZombieType					mCricketBattleZombies[6];
 	void							StopAllZombieSounds();
 	/*inline*/ bool					HasLevelAwardDropped();
 	void							UpdateProgressMeter();

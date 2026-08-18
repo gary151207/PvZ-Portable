@@ -9041,6 +9041,7 @@ bool Board::StageHasGraveStones()
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND ||
+		mApp->IsCricketFightLevel() ||
 		mApp->IsIZombieLevel() ||
 		mApp->IsScaryPotterLevel())
 		return false;

@@ -1832,6 +1832,7 @@ void Board::RestartCricketMatch()
 
 void Board::RecordCricketMatchResult(bool thePlantsWon)
 {
+	mApp->mCricketMatchCount++;   // 每场只记 1 次总场数
 	for (int i = 0; i < 5; i++)
 	{
 		SeedType aSeedType = mCricketBattlePlants[i];
@@ -7938,14 +7939,12 @@ void Board::DrawCricketStatsPanel(Graphics* g)
 
 	const int aListCount = (mCricketStatsPanel == 1) ? static_cast<int>(SeedType::NUM_SEED_TYPES) : static_cast<int>(ZombieType::NUM_ZOMBIE_TYPES);
 	std::vector<StatsEntry> aEntries;
-	int aTotal = 0;
 	for (int i = 0; i < aListCount; i++)
 	{
 		int aWins = (mCricketStatsPanel == 1) ? mApp->mCricketPlantWins[i] : mApp->mCricketZombieWins[i];
 		int aLosses = (mCricketStatsPanel == 1) ? mApp->mCricketPlantLosses[i] : mApp->mCricketZombieLosses[i];
 		if (aWins + aLosses <= 0)
 			continue;
-		aTotal += aWins + aLosses;
 		std::string aName = (mCricketStatsPanel == 1)
 			? Plant::GetNameString((SeedType)i)
 			: GetZombieDefinition((ZombieType)i).mZombieName;
@@ -7966,8 +7965,8 @@ void Board::DrawCricketStatsPanel(Graphics* g)
 	g->FillRect(aPanelX, aPanelY, aPanelW, aPanelH);
 
 	std::string aTitle = (mCricketStatsPanel == 1)
-		? StrFormat("PLANT WIN RATES (%d games)", aTotal)
-		: StrFormat("ZOMBIE WIN RATES (%d games)", aTotal);
+		? StrFormat("PLANT WIN RATES (%d games)", mApp->mCricketMatchCount)
+		: StrFormat("ZOMBIE WIN RATES (%d games)", mApp->mCricketMatchCount);
 	TodDrawString(g, aTitle, aPanelX + aPanelW / 2, aPanelY + 22, Sexy::FONT_BRIANNETOD12, Color::White, DS_ALIGN_CENTER);
 	TodDrawString(g, "[Tab] switch list    [Up/Down/Wheel] scroll", aPanelX + 8, aPanelY + 38, Sexy::FONT_BRIANNETOD12, Color(200, 200, 200), DS_ALIGN_LEFT);
 

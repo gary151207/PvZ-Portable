@@ -2263,6 +2263,7 @@ void LawnApp::LoadCricketStats()
 	memset(mCricketPlantLosses, 0, sizeof(mCricketPlantLosses));
 	memset(mCricketZombieWins, 0, sizeof(mCricketZombieWins));
 	memset(mCricketZombieLosses, 0, sizeof(mCricketZombieLosses));
+	mCricketMatchCount = 0;
 
 	std::ifstream aFile(GetAppDataPath("userdata/cricket_stats.txt"));
 	if (!aFile.is_open())
@@ -2272,6 +2273,11 @@ void LawnApp::LoadCricketStats()
 	int aWins = 0, aLosses = 0;
 	while (aFile >> aName >> aWins >> aLosses)
 	{
+		if (aName == "__MATCH_COUNT__")
+		{
+			mCricketMatchCount = aWins;
+			continue;
+		}
 		for (int i = 0; i < SeedType::NUM_SEED_TYPES; i++)
 		{
 			if (aName == GetPlantDefinition((SeedType)i).mPlantName)
@@ -2291,6 +2297,17 @@ void LawnApp::LoadCricketStats()
 			}
 		}
 	}
+
+	// 兼容旧文件（无 __MATCH_COUNT__ 行）：由植物出场记录反推总场数（每场固定 5 植物）
+	if (mCricketMatchCount == 0)
+	{
+		int aPlantGames = 0;
+		for (int i = 0; i < SeedType::NUM_SEED_TYPES; i++)
+		{
+			aPlantGames += mCricketPlantWins[i] + mCricketPlantLosses[i];
+		}
+		mCricketMatchCount = aPlantGames / 5;
+	}
 }
 
 void LawnApp::SaveCricketStats()
@@ -2299,6 +2316,7 @@ void LawnApp::SaveCricketStats()
 	if (!aFile.is_open())
 		return;
 
+	aFile << "__MATCH_COUNT__ " << mCricketMatchCount << " 0\n";
 	for (int i = 0; i < SeedType::NUM_SEED_TYPES; i++)
 	{
 		aFile << GetPlantDefinition((SeedType)i).mPlantName << " "

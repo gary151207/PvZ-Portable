@@ -124,6 +124,7 @@ public:
 	int								mCricketPlantLosses[SeedType::NUM_SEED_TYPES];
 	int								mCricketZombieWins[ZombieType::NUM_ZOMBIE_TYPES];
 	int								mCricketZombieLosses[ZombieType::NUM_ZOMBIE_TYPES];
+	int								mCricketMatchCount;   // 真实总场数（每场 1 次）
 	bool							mSawYeti;
 	TypingCheck*					mKonamiCheck;
 	TypingCheck*					mMustacheCheck;

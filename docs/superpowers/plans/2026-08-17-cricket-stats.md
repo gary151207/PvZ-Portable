@@ -26,7 +26,7 @@
 **Interfaces:**
 - Produces: `int mCricketPlantWins[SeedType::NUM_SEED_TYPES]`、`mCricketPlantLosses[...]`、`mCricketZombieWins[ZombieType::NUM_ZOMBIE_TYPES]`、`mCricketZombieLosses[...]`（LawnApp 公有成员）；`void LawnApp::LoadCricketStats()`、`void LawnApp::SaveCricketStats()`。Task 2/3 依赖这些符号。
 
-- [ ] **Step 1: include `<fstream>`**
+- [x] **Step 1: include `<fstream>`**
 
 在 `src/LawnApp.cpp` 的 include 区（`#include <time.h>` 之后）插入：
 
@@ -34,7 +34,7 @@
 #include <fstream>
 ```
 
-- [ ] **Step 2: LawnApp.h 声明统计成员与方法**
+- [x] **Step 2: LawnApp.h 声明统计成员与方法**
 
 在 `src/LawnApp.h` 中 `BoardResult mBoardResult;`（约 122 行）之后插入：
 
@@ -52,7 +52,7 @@
 	void							SaveCricketStats();
 ```
 
-- [ ] **Step 3: LawnApp.cpp 实现加载与保存**
+- [x] **Step 3: LawnApp.cpp 实现加载与保存**
 
 在 `IsCricketFightLevel()` 实现（`return mGameMode == GameMode::GAMEMODE_CHALLENGE_CRICKET;`）之后插入：
 
@@ -114,7 +114,7 @@ void LawnApp::SaveCricketStats()
 
 （`GetAppDataPath` 经 `LawnApp.h → SexyAppBase.h → Common.h` 可用；`GetPlantDefinition`/`GetZombieDefinition` 由 Plant.h/Zombie.h 提供，LawnApp.cpp 已包含。）
 
-- [ ] **Step 4: Init 中加载**
+- [x] **Step 4: Init 中加载**
 
 在 `LawnApp::Init()` 函数末尾（`ReanimatorLoadDefinitions(gLawnReanimationArray, ReanimationType::NUM_REANIMS);` 附近，或函数结束前）插入：
 
@@ -122,12 +122,12 @@ void LawnApp::SaveCricketStats()
 	LoadCricketStats();
 ```
 
-- [ ] **Step 5: 构建验证**
+- [x] **Step 5: 构建验证**
 
 Run: `export PATH="/c/msys64/ucrt64/bin:$PATH" && cmake --build build`
 Expected: 编译链接通过。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add src/LawnApp.h src/LawnApp.cpp
@@ -147,7 +147,7 @@ git commit -m "feat(cricket): win-rate stats arrays with file persistence"
 - Consumes: Task 1 的 LawnApp 统计数组与 `SaveCricketStats()`
 - Produces: `Board::mCricketBattlePlants[5]`、`Board::mCricketBattleZombies[6]`（本场阵容快照）；`void Board::RecordCricketMatchResult(bool thePlantsWon)`。
 
-- [ ] **Step 1: Board.h 声明阵容与记录方法**
+- [x] **Step 1: Board.h 声明阵容与记录方法**
 
 在 `void SetupCricketFight();` 声明（约 372 行）附近插入：
 
@@ -157,7 +157,7 @@ git commit -m "feat(cricket): win-rate stats arrays with file persistence"
 	ZombieType						mCricketBattleZombies[6];
 ```
 
-- [ ] **Step 2: SetupCricketFight 记录植物阵容**
+- [x] **Step 2: SetupCricketFight 记录植物阵容**
 
 将 `Board::SetupCricketFight()` 末尾的布阵循环：
 
@@ -181,7 +181,7 @@ git commit -m "feat(cricket): win-rate stats arrays with file persistence"
 	}
 ```
 
-- [ ] **Step 3: PickZombieWaves 记录僵尸阵容**
+- [x] **Step 3: PickZombieWaves 记录僵尸阵容**
 
 将 `PickZombieWaves()` 斗蛐蛐覆盖块的循环：
 
@@ -205,7 +205,7 @@ git commit -m "feat(cricket): win-rate stats arrays with file persistence"
 		mZombiesInWave[0][6] = ZombieType::ZOMBIE_INVALID;
 ```
 
-- [ ] **Step 4: 实现 RecordCricketMatchResult**
+- [x] **Step 4: 实现 RecordCricketMatchResult**
 
 在 `Board::RestartCricketMatch()` 定义之后插入：
 
@@ -232,7 +232,7 @@ void Board::RecordCricketMatchResult(bool thePlantsWon)
 }
 ```
 
-- [ ] **Step 5: 胜利分支记录**
+- [x] **Step 5: 胜利分支记录**
 
 在 `src/Lawn/Zombie.cpp` 的 `TrySpawnLevelAward` 斗蛐蛐分支（含 `// 斗蛐蛐：胜利后不落奖杯币，直接进入结算（约 2 秒停留）→ 下一场` 注释处）中，在 `mBoard->FadeOutLevel();` 之前插入：
 
@@ -240,7 +240,7 @@ void Board::RecordCricketMatchResult(bool thePlantsWon)
 		mBoard->RecordCricketMatchResult(true);
 ```
 
-- [ ] **Step 6: 失败分支记录**
+- [x] **Step 6: 失败分支记录**
 
 在 `Board::ZombiesWon()` 的斗蛐蛐分支（`if (mNextSurvivalStageCounter == 0) { mNextSurvivalStageCounter = 150; }` 之前）插入：
 
@@ -248,12 +248,12 @@ void Board::RecordCricketMatchResult(bool thePlantsWon)
 		RecordCricketMatchResult(false);
 ```
 
-- [ ] **Step 7: 构建验证**
+- [x] **Step 7: 构建验证**
 
 Run: `export PATH="/c/msys64/ucrt64/bin:$PATH" && cmake --build build`
 Expected: 编译链接通过。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add src/Lawn/Board.h src/Lawn/Board.cpp src/Lawn/Zombie.cpp
@@ -272,7 +272,7 @@ git commit -m "feat(cricket): record battle roster and aggregate win-rate on set
 - Consumes: Task 1 统计数组、Task 2 无（面板只读统计）
 - Produces: `Board::mCricketStatsPanel`（0=关, 1=植物, 2=僵尸）、`Board::mCricketStatsScroll`；`void Board::MouseWheel(int)` 重载；`void Board::DrawCricketStatsPanel(Graphics*)`。
 
-- [ ] **Step 1: include `<vector>`**
+- [x] **Step 1: include `<vector>`**
 
 在 `src/Lawn/Board.cpp` 的 include 区（`#include <algorithm>` 之后）插入：
 
@@ -280,7 +280,7 @@ git commit -m "feat(cricket): record battle roster and aggregate win-rate on set
 #include <vector>
 ```
 
-- [ ] **Step 2: Board.h 声明面板成员与重载**
+- [x] **Step 2: Board.h 声明面板成员与重载**
 
 在 `virtual void KeyDown(KeyCode theKey);` 声明（约 287 行）附近插入：
 
@@ -296,7 +296,7 @@ git commit -m "feat(cricket): record battle roster and aggregate win-rate on set
 	int								mCricketStatsScroll;
 ```
 
-- [ ] **Step 3: KeyDown 加入 Tab 与方向键**
+- [x] **Step 3: KeyDown 加入 Tab 与方向键**
 
 在 `Board::KeyDown()` 的 else-if 分支链中，`else if (theKey == KeyCode::KEYCODE_ESCAPE)` 分支**之前**插入：
 
@@ -318,7 +318,7 @@ git commit -m "feat(cricket): record battle roster and aggregate win-rate on set
 	}
 ```
 
-- [ ] **Step 4: 实现 MouseWheel**
+- [x] **Step 4: 实现 MouseWheel**
 
 在 `Board::KeyDown` 实现附近（或任意 Board 方法之后）新增：
 
@@ -334,7 +334,7 @@ void Board::MouseWheel(int theDelta)
 }
 ```
 
-- [ ] **Step 5: 实现 DrawCricketStatsPanel**
+- [x] **Step 5: 实现 DrawCricketStatsPanel**
 
 在 `DrawCricketStatsPanel` 声明对应的实现位置（建议放在 `Board::Draw` 定义之前）新增：
 
@@ -400,7 +400,7 @@ void Board::DrawCricketStatsPanel(Graphics* g)
 
 （`Color(0,0,0,200)` 半透明黑底；`FONT_BRIANNETOD12` 已在 ChallengeScreen 使用；`StrFormat`/`TodDrawString`/`DS_ALIGN_*` 均为项目现有工具。**面板标题/提示用 ASCII 英文** — 英文原版字体（Briannetod）无 CJK 字形，中文会渲染为空白；行内植物名走 `GetNameString`（按用户语言属性本地化，EN 版为英文），僵尸名走内部名（ASCII）。）
 
-- [ ] **Step 6: Board::Draw 末尾调用面板**
+- [x] **Step 6: Board::Draw 末尾调用面板**
 
 将 `Board::Draw` 末尾：
 
@@ -419,12 +419,12 @@ void Board::DrawCricketStatsPanel(Graphics* g)
 }
 ```
 
-- [ ] **Step 7: 构建验证**
+- [x] **Step 7: 构建验证**
 
 Run: `export PATH="/c/msys64/ucrt64/bin:$PATH" && cmake --build build`
 Expected: 编译链接通过。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add src/Lawn/Board.h src/Lawn/Board.cpp
@@ -437,12 +437,12 @@ git commit -m "feat(cricket): Tab stats panel (plant/zombie win rates, scrollabl
 
 **Files:** 无代码改动。
 
-- [ ] **Step 1: 完整构建**
+- [x] **Step 1: 完整构建**
 
 Run: `export PATH="/c/msys64/ucrt64/bin:$PATH" && cmake --build build`
 Expected: 编译链接通过，产物 `build/pvz-portable.exe` 更新。
 
-- [ ] **Step 2: 手动验证清单（每项记录结果）**
+- [x] **Step 2: 手动验证清单（每项记录结果）**
 
 1. 进入斗蛐蛐打若干场（含胜利与失败），退出游戏后检查 `C:/Users/<用户>/AppData/Roaming/io.github.wszqkzqk/PvZPortable/userdata/cricket_stats.txt`：每行 `类型名 胜 负`，数值与场次一致（如某场植物胜 → 该场 5 植物各 +1 胜、6 僵尸各 +1 负）。
 2. 重启游戏再打几场 → 文件数值在旧数据上累计（跨会话持久化）。

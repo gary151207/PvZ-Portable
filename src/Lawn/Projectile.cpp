@@ -408,9 +408,6 @@ void Projectile::CheckForCollision()
 				// EffectedByDamage() rejects every ground zombie and the pea passes through.
 				mDamageRangeFlags = 1U << static_cast<int>(DamageRangeFlags::DAMAGES_GROUND);
 				AttachmentDie(mAttachmentID);
-
-				int aRenderPosition = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_TOP, 0, 1);
-				mApp->AddTodParticle(mPosX + 20.0f, mPosY + 20.0f, aRenderPosition, ParticleEffect::PARTICLE_UMBRELLA_REFLECT);
 				return;
 			}
 

@@ -401,7 +401,9 @@ void Projectile::CheckForCollision()
 				mProjectileType = ProjectileType::PROJECTILE_PEA;
 				mMotionType = ProjectileMotion::MOTION_STRAIGHT;
 				mHitTorchwoodGridX = -1;
-				mDamageRangeFlags = 0;
+				// Friendly peas need the GROUND damage-range bit (bit 0, value 1) or
+				// EffectedByDamage() rejects every ground zombie and the pea passes through.
+				mDamageRangeFlags = 1U << static_cast<int>(DamageRangeFlags::DAMAGES_GROUND);
 				AttachmentDie(mAttachmentID);
 
 				int aRenderPosition = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_TOP, 0, 1);

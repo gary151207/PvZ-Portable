@@ -2571,6 +2571,12 @@ void Challenge::InitZombieWaves()
 		aList[ZOMBIE_GARGANTUAR] = true;
 		aList[ZOMBIE_IMP] = true;
 		aList[ZOMBIE_REDEYE_GARGANTUAR] = true;
+		aList[ZOMBIE_PEA_HEAD] = true;
+		aList[ZOMBIE_WALLNUT_HEAD] = true;
+		aList[ZOMBIE_JALAPENO_HEAD] = true;
+		aList[ZOMBIE_GATLING_HEAD] = true;
+		aList[ZOMBIE_SQUASH_HEAD] = true;
+		aList[ZOMBIE_TALLNUT_HEAD] = true;
 	}
 	else if (aGameMode == GAMEMODE_CHALLENGE_SPEED)
 	{

@@ -845,7 +845,9 @@ void Board::PickZombieWaves()
 			ZombieType::ZOMBIE_ZAMBONI, ZombieType::ZOMBIE_JACK_IN_THE_BOX,
 			ZombieType::ZOMBIE_DIGGER, ZombieType::ZOMBIE_POGO, ZombieType::ZOMBIE_BUNGEE,
 			ZombieType::ZOMBIE_LADDER, ZombieType::ZOMBIE_CATAPULT, ZombieType::ZOMBIE_GARGANTUAR,
-			ZombieType::ZOMBIE_IMP, ZombieType::ZOMBIE_REDEYE_GARGANTUAR
+			ZombieType::ZOMBIE_IMP, ZombieType::ZOMBIE_REDEYE_GARGANTUAR,
+			ZombieType::ZOMBIE_PEA_HEAD, ZombieType::ZOMBIE_WALLNUT_HEAD, ZombieType::ZOMBIE_JALAPENO_HEAD,
+			ZombieType::ZOMBIE_GATLING_HEAD, ZombieType::ZOMBIE_SQUASH_HEAD, ZombieType::ZOMBIE_TALLNUT_HEAD
 		};
 		const int aPoolSize = static_cast<int>(sizeof(gCricketZombiePool) / sizeof(gCricketZombiePool[0]));
 		for (int i = 0; i < 6; i++)

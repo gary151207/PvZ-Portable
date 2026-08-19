@@ -394,6 +394,9 @@ void Projectile::CheckForCollision()
 				if (aUmbrellaPlant->mState != PlantState::STATE_UMBRELLA_TRIGGERED &&
 					aUmbrellaPlant->mState != PlantState::STATE_UMBRELLA_REFLECTING)
 				{
+					// Same presentation as deflecting a Bungee zombie (Zombie::BungeeLanding):
+					// boing + umbrella foley + DoSpecial() opens the umbrella (anim_block).
+					mApp->PlaySample(SOUND_BOING);
 					mApp->PlayFoley(FoleyType::FOLEY_UMBRELLA);
 					aUmbrellaPlant->DoSpecial();
 				}

@@ -990,11 +990,13 @@ void Plant::UpdateShooter()
         {
             FindTargetAndFire(mRow, PlantWeapon::WEAPON_SECONDARY);
         }
-        // Sea Shroom: 75% chance per attack to fire a second shot, like the Repeater
-        else if (mSeedType == SeedType::SEED_SEASHROOM && Sexy::Rand(100) < 75)
-        {
-            FindTargetAndFire(mRow, PlantWeapon::WEAPON_PRIMARY);
-        }
+    }
+    // Sea Shroom: 75% chance per attack to fire a second shot, like the Repeater.
+    // Triggered at counter == 29 (matching its shooting animation length) so the extra
+    // pea fires before the main attack at counter == 0 resets mShootingCounter.
+    if (mLaunchCounter == 29 && mSeedType == SeedType::SEED_SEASHROOM && Sexy::Rand(100) < 75)
+    {
+        FindTargetAndFire(mRow, PlantWeapon::WEAPON_PRIMARY);
     }
 }
 

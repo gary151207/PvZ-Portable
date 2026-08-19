@@ -990,6 +990,11 @@ void Plant::UpdateShooter()
         {
             FindTargetAndFire(mRow, PlantWeapon::WEAPON_SECONDARY);
         }
+        // Sea Shroom: 75% chance per attack to fire a second shot, like the Repeater
+        else if (mSeedType == SeedType::SEED_SEASHROOM && Sexy::Rand(100) < 75)
+        {
+            FindTargetAndFire(mRow, PlantWeapon::WEAPON_PRIMARY);
+        }
     }
 }
 
@@ -5214,7 +5219,7 @@ Zombie* Plant::FindTargetZombie(int theRow, PlantWeapon thePlantWeapon)
             }
 
             if ((mSeedType == SeedType::SEED_EXPLODE_O_NUT && aZombie->mZombiePhase == ZombiePhase::PHASE_POLEVAULTER_IN_VAULT) ||
-                (mSeedType == SeedType::SEED_TANGLEKELP && !aZombie->mInPool))
+                (mSeedType == SeedType::SEED_TANGLEKELP && !aZombie->mInPool && !mApp->IsCricketFightLevel()))
             {
                 continue;
             }

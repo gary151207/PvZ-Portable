@@ -385,6 +385,30 @@ void Projectile::CheckForCollision()
 		Plant* aPlant = FindCollisionTargetPlant();
 		if (aPlant)
 		{
+			Plant* aUmbrellaPlant = mBoard->FindUmbrellaPlant(aPlant->mPlantCol, aPlant->mRow);
+			if (aUmbrellaPlant)
+			{
+				// Umbrella Leaf reflects the pea: open the umbrella (anim_block) if it
+				// isn't already animating, then convert the pea into a friendly pea
+				// flying right, which damages zombies (and can pass through a Torchwood).
+				if (aUmbrellaPlant->mState != PlantState::STATE_UMBRELLA_TRIGGERED &&
+					aUmbrellaPlant->mState != PlantState::STATE_UMBRELLA_REFLECTING)
+				{
+					mApp->PlayFoley(FoleyType::FOLEY_UMBRELLA);
+					aUmbrellaPlant->DoSpecial();
+				}
+
+				mProjectileType = ProjectileType::PROJECTILE_PEA;
+				mMotionType = ProjectileMotion::MOTION_STRAIGHT;
+				mHitTorchwoodGridX = -1;
+				mDamageRangeFlags = 0;
+				AttachmentDie(mAttachmentID);
+
+				int aRenderPosition = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_TOP, 0, 1);
+				mApp->AddTodParticle(mPosX + 20.0f, mPosY + 20.0f, aRenderPosition, ParticleEffect::PARTICLE_UMBRELLA_REFLECT);
+				return;
+			}
+
 			const ProjectileDefinition& aProjectileDef = GetProjectileDef();
 			aPlant->mPlantHealth -= aProjectileDef.mDamage;
 			aPlant->mEatenFlashCountdown = std::max(aPlant->mEatenFlashCountdown, 25);

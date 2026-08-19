@@ -2469,6 +2469,9 @@ void Zombie::UpdateZombieJalapenoHead()
             }
         }
 #endif
+
+        // 火爆辣椒头僵尸爆炸后自身消失，否则 mPhaseCounter 停留在 0 会每帧重复触发火焰
+        DieNoLoot();
     }
 }
 

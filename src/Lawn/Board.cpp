@@ -61,6 +61,37 @@
 
 bool gShownMoreSunTutorial = false;
 
+namespace
+{
+std::string GetZombieStatusLabel(const Zombie* theZombie)
+{
+	std::string aStatusLabel;
+	const auto aAppendTimedStatus = [&aStatusLabel](const char* theName, int theCountdown)
+	{
+		if (theCountdown > 0)
+		{
+			if (!aStatusLabel.empty())
+				aStatusLabel += "  ";
+			aStatusLabel += StrFormat("%s: %.2fs left", theName, theCountdown / 100.0f);
+		}
+	};
+
+	aAppendTimedStatus("Chilled", theZombie->mChilledCounter);
+	aAppendTimedStatus("Ice trap", theZombie->mIceTrapCounter);
+	aAppendTimedStatus("Buttered", theZombie->mButteredCounter);
+	aAppendTimedStatus("Scatter", theZombie->mGatlingScatterCountdown);
+
+	if (theZombie->mMindControlled)
+	{
+		if (!aStatusLabel.empty())
+			aStatusLabel += "  ";
+		aStatusLabel += "Mind-controlled";
+	}
+
+	return aStatusLabel;
+}
+}
+
 // GOTY @Patoke: 0x40A3C0
 Board::Board(LawnApp* theApp)
 {
@@ -1832,6 +1863,7 @@ void Board::RestartCricketMatch()
 	// 重新掷全部随机量：出怪列表（6 只随机僵尸，mZombieCountDown=1）+ 5 个随机植物
 	InitZombieWaves();
 	SetupCricketFight();
+	mApp->mMusic->StartGameMusic();
 }
 
 void Board::RecordCricketMatchResult(bool thePlantsWon)
@@ -3580,6 +3612,13 @@ void Board::UpdateToolTip()
 		int aTotalHP = aZombie->mBodyHealth + aZombie->mHelmHealth + aZombie->mShieldHealth + aZombie->mFlyingHealth;
 		int aMaxHP = aZombie->mBodyMaxHealth + aZombie->mHelmMaxHealth + aZombie->mShieldMaxHealth + aZombie->mFlyingMaxHealth;
 		std::string aHPLabel = StrFormat("HP: %d/%d", aTotalHP, aMaxHP);
+		std::string aStatusLabel = GetZombieStatusLabel(aZombie);
+		if (!aStatusLabel.empty())
+			aHPLabel += "  " + aStatusLabel;
+		if (aZombie->mZombieType == ZombieType::ZOMBIE_GATLING_HEAD)
+		{
+			aHPLabel += StrFormat("  Scatter: %d%%/shot", aZombie->mGatlingScatterChance);
+		}
 		if (mApp->CanShowAlmanac() && aZombie->mZombieType != ZombieType::ZOMBIE_REDEYE_GARGANTUAR)
 		{
 			mToolTip->SetLabel(aHPLabel + "  [CLICK_TO_VIEW]");
@@ -3641,7 +3680,15 @@ void Board::UpdateToolTip()
 		int aTotalHP = aZombie->mBodyHealth + aZombie->mHelmHealth + aZombie->mShieldHealth + aZombie->mFlyingHealth;
 		int aMaxHP = aZombie->mBodyMaxHealth + aZombie->mHelmMaxHealth + aZombie->mShieldMaxHealth + aZombie->mFlyingMaxHealth;
 		mToolTip->SetTitle(GetZombieDefinition(aZombie->mZombieType).mZombieName);
-		mToolTip->SetLabel(StrFormat("HP: %d/%d", aTotalHP, aMaxHP));
+		std::string aHPLabel = StrFormat("HP: %d/%d", aTotalHP, aMaxHP);
+		std::string aStatusLabel = GetZombieStatusLabel(aZombie);
+		if (!aStatusLabel.empty())
+			aHPLabel += "  " + aStatusLabel;
+		if (aZombie->mZombieType == ZombieType::ZOMBIE_GATLING_HEAD)
+		{
+			aHPLabel += StrFormat("  Scatter: %d%%/shot", aZombie->mGatlingScatterChance);
+		}
+		mToolTip->SetLabel(aHPLabel);
 		mToolTip->SetWarningText("");
 
 		Rect aRect = aZombie->GetZombieRect();
@@ -3660,7 +3707,19 @@ void Board::UpdateToolTip()
 	if (aPlant)
 	{
 		mToolTip->SetTitle(Plant::GetNameString(aPlant->mSeedType, aPlant->mImitaterType));
-		mToolTip->SetLabel(StrFormat("HP: %d/%d", aPlant->mPlantHealth, aPlant->mPlantMaxHealth));
+		std::string aHPLabel = StrFormat("HP: %d/%d", aPlant->mPlantHealth, aPlant->mPlantMaxHealth);
+		if (aPlant->mSeedType == SeedType::SEED_GATLINGPEA)
+		{
+			if (aPlant->mGatlingScatterCountdown > 0)
+			{
+				aHPLabel += StrFormat("  Scatter: %d%%/shot  (%.2fs left)", aPlant->mGatlingScatterChance, aPlant->mGatlingScatterCountdown / 100.0f);
+			}
+			else
+			{
+				aHPLabel += StrFormat("  Scatter: %d%%/shot", aPlant->mGatlingScatterChance);
+			}
+		}
+		mToolTip->SetLabel(aHPLabel);
 		mToolTip->SetWarningText("");
 
 		Rect aRect = aPlant->GetPlantRect();

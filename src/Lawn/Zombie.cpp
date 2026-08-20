@@ -149,6 +149,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mZombieHeight = ZombieHeight::HEIGHT_ZOMBIE_NORMAL;
     mPhaseCounter = 0;
     mGatlingScatterCountdown = 0;
+    mGatlingScatterChance = 3;
     mHitUmbrella = false;
     mDroppedLoot = false;
     mDroppedSun = false;
@@ -2514,8 +2515,12 @@ void Zombie::UpdateZombieGatlingHead()
         aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
 #endif
 
-        // 散射状态：20% 概率进入，持续 3 秒；期间每发额外散射 4 颗
-        if (mGatlingScatterCountdown == 0 && Rand(100) < 20)
+        // 每发射一颗主子弹，50% 概率将散射概率提高 1%；进入散射状态后持续 3 秒
+        if (Rand(100) < 50 && mGatlingScatterChance < 100)
+        {
+            mGatlingScatterChance++;
+        }
+        if (mGatlingScatterCountdown == 0 && Rand(100) < mGatlingScatterChance)
         {
             mGatlingScatterCountdown = 300;  // 3 s (100 ticks = 1 s)
         }
@@ -4339,6 +4344,10 @@ void Zombie::Update()
             if (mGatlingScatterCountdown > 0 && !IsImmobilizied())
             {
                 mGatlingScatterCountdown--;
+                if (mGatlingScatterCountdown == 0)
+                {
+                    mGatlingScatterChance = 3;  // 散射结束，重置概率
+                }
             }
 
             if (mApp->mGameScene == GameScenes::SCENE_ZOMBIES_WON)
@@ -7218,6 +7227,24 @@ bool Zombie::TrySpawnLevelAward()
         return false;
     }
 
+    bool aOnlyRightFacingMiners = false;
+    if (mApp->IsCricketFightLevel())
+    {
+        aOnlyRightFacingMiners = true;
+        Zombie* aZombie = nullptr;
+        while (mBoard->IterateZombies(aZombie))
+        {
+            if (aZombie->mHasHead && !aZombie->IsDeadOrDying() && !aZombie->mMindControlled)
+            {
+                if (aZombie->mZombieType != ZombieType::ZOMBIE_DIGGER || !aZombie->IsWalkingBackwards())
+                {
+                    aOnlyRightFacingMiners = false;
+                    break;
+                }
+            }
+        }
+    }
+
     if (mApp->IsFinalBossLevel())
     {
         if (mZombieType != ZombieType::ZOMBIE_BOSS)
@@ -7232,7 +7259,8 @@ bool Zombie::TrySpawnLevelAward()
             return false;
         }
     }
-    else if (mApp->IsContinuousChallenge() || mBoard->mCurrentWave < mBoard->mNumWaves || mBoard->AreEnemyZombiesOnScreen())
+    else if (mApp->IsContinuousChallenge() || mBoard->mCurrentWave < mBoard->mNumWaves ||
+        (mBoard->AreEnemyZombiesOnScreen() && !aOnlyRightFacingMiners))
     {
         return false;
     }

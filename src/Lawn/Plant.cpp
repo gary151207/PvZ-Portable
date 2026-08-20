@@ -145,6 +145,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mBlinkCountdown = 0;
     mRecentlyEatenCountdown = 0;
     mGatlingScatterCountdown = 0;
+    mGatlingScatterChance = 3;
     mTallnutCounterCooldown = 0;
     mUmbrellaRegenCountdown = UMBRELLA_REGEN_COOLDOWN;
     mEatenFlashCountdown = 0;
@@ -2768,7 +2769,13 @@ void Plant::UpdateAbilities()
     if (mStateCountdown > 0)
         mStateCountdown--;
     if (mGatlingScatterCountdown > 0)
+    {
         mGatlingScatterCountdown--;
+        if (mGatlingScatterCountdown == 0)
+        {
+            mGatlingScatterChance = 3;  // 散射结束，重置概率
+        }
+    }
 
     if (mApp->IsWallnutBowlingLevel())
     {
@@ -4993,10 +5000,14 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         mHasFiredFirstPea = true;
     }
 
-    // Gatling Pea: 20% chance per shot to enter scatter mode; every shot scatters while active (3 s)
+    // Gatling Pea: each shot has a 50% chance to raise scatter chance by 1%; scatter mode lasts 3 s
     if (mSeedType == SeedType::SEED_GATLINGPEA)
     {
-        if (mGatlingScatterCountdown == 0 && Rand(100) < 20)
+        if (Rand(100) < 50 && mGatlingScatterChance < 100)
+        {
+            mGatlingScatterChance++;
+        }
+        if (mGatlingScatterCountdown == 0 && Rand(100) < mGatlingScatterChance)
         {
             mGatlingScatterCountdown = 300;  // 3 s (100 ticks = 1 s)
         }

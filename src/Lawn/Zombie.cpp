@@ -692,7 +692,10 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
         mZombieRect = Rect(700, 80, 90, 430);
         mZombieAttackRect = Rect(0, 0, 0, 0);
         aRenderLayer = RenderLayer::RENDER_LAYER_TOP;
-        mBodyHealth = mApp->IsAdventureMode() ? 40000 : 60000;
+		if (mApp->IsAdventureMode() && mBoard->mLevel == FINAL_LEVEL)
+			mBodyHealth = 1200000;
+		else
+			mBodyHealth = mApp->IsAdventureMode() ? 40000 : 60000;
         if (IsOnBoard())
         {
             PlayZombieReanim("anim_enter", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 12.0f);
@@ -7297,17 +7300,21 @@ bool Zombie::TrySpawnLevelAward()
         aCoinType = CoinType::COIN_NONE;
         mBoard->mChallenge->PuzzlePhaseComplete(mBoard->PixelToGridXKeepOnBoard(mPosX + 75, mPosY), mRow);
     }
-    else if (mApp->IsAdventureMode() && mBoard->mLevel <= 50)
+    else if (mApp->IsAdventureMode() && mBoard->mLevel <= FINAL_LEVEL)
     {
-        if (mBoard->mLevel == 9 || mBoard->mLevel == 19 || mBoard->mLevel == 29 || mBoard->mLevel == 39 || mBoard->mLevel == 49)
+        if (mBoard->mLevel == 9 || mBoard->mLevel == 19 || mBoard->mLevel == 29 || mBoard->mLevel == 39 || mBoard->mLevel == 49 || mBoard->mLevel == 59)
         {
             aCoinType = CoinType::COIN_NOTE;
         }
-        else if (mBoard->mLevel == 50)
+        else if (mBoard->mLevel == 50 || mBoard->mLevel == FINAL_LEVEL)
         {
             aCoinType = mApp->HasFinishedAdventure() ? CoinType::COIN_AWARD_MONEY_BAG : CoinType::COIN_AWARD_SILVER_SUNFLOWER;
         }
-        else if (mApp->HasFinishedAdventure())
+		else if (mBoard->mLevel >= 51 && mBoard->mLevel < FINAL_LEVEL)
+		{
+			aCoinType = CoinType::COIN_AWARD_MONEY_BAG;
+		}
+		else if (mApp->HasFinishedAdventure())
         {
             aCoinType = CoinType::COIN_AWARD_MONEY_BAG;
         }

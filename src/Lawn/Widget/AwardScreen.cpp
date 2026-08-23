@@ -125,7 +125,7 @@ AwardScreen::AwardScreen(LawnApp* theApp, AwardType theAwardType, bool theShowin
 			mLoadedResourceNames.push_back("DelayLoad_ZombieNote");
 			mLoadedResourceNames.push_back("DelayLoad_ZombieNote4");
 		}
-		else if (aLevel == 50)
+		else if (aLevel == 50 || aLevel == FINAL_LEVEL)
 		{
 			mLoadedResourceNames.push_back("DelayLoad_Background1");
 			mLoadedResourceNames.push_back("DelayLoad_ZombieNote");
@@ -270,7 +270,7 @@ bool AwardScreen::IsPaperNote()
 		return true;
 
 	int aLevel = mApp->mPlayerInfo->GetLevel();
-	return mApp->IsAdventureMode() && (aLevel == 10 || aLevel == 20 || aLevel == 30 || aLevel == 40 || aLevel == 50);
+	return mApp->IsAdventureMode() && (aLevel == 10 || aLevel == 20 || aLevel == 30 || aLevel == 40 || aLevel == 50 || aLevel == FINAL_LEVEL);
 }
 
 void AwardScreen::DrawBottom(Graphics* g, const std::string& theTitle, const std::string& theAward, const std::string& theMessage)
@@ -406,7 +406,7 @@ void AwardScreen::Draw(Graphics* g)
 			DrawBottom(g, "[FOUND_WATERING_CAN]", "[WATERING_CAN]", "[WATERING_CAN_DESCRIPTION]");
 			g->DrawImage(Sexy::IMAGE_WATERINGCAN, BOARD_WIDTH / 2 - Sexy::IMAGE_WATERINGCAN->mWidth / 2, 160);
 		}
-		else if (aLevel == 50)
+		else if (aLevel == 50 || aLevel == FINAL_LEVEL)
 		{
 			g->DrawImage(Sexy::IMAGE_BACKGROUND1, -700, -300, 2800, 1200);
 			g->DrawImage(Sexy::IMAGE_ZOMBIE_NOTE, 80, 80);

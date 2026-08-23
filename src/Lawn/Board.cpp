@@ -645,13 +645,17 @@ void Board::PickZombieWaves()
 	// ====================================================================================================
 	if (mApp->IsAdventureMode())
 	{
-		if (mApp->IsWhackAZombieLevel())
+		if (mApp->IsLoneWolfLevel())
+		{
+			mNumWaves = 40;
+		}
+		else if (mApp->IsWhackAZombieLevel())
 		{
 			mNumWaves = 8;
 		}
 		else
 		{
-			mNumWaves = gZombieWaves[ClampInt(mLevel - 1, 0, 49)];
+			mNumWaves = gZombieWaves[ClampInt(mLevel - 1, 0, NUM_LEVELS - 1)];
 			if (!mApp->IsFirstTimeAdventureMode() && !mApp->IsMiniBossLevel())
 			{
 				mNumWaves = mNumWaves < 10 ? 20 : mNumWaves + 10;
@@ -804,7 +808,7 @@ void Board::PickZombieWaves()
 		}
 
 		// 5-10 关卡的最后一波加入一只伽刚特尔
-		if (mLevel == 50 && aIsFinalWave)
+		if ((mLevel == 50 || mLevel == FINAL_LEVEL) && aIsFinalWave)
 		{
 			PutZombieInWave(ZombieType::ZOMBIE_GARGANTUAR, aWave, &aZombiePicker);
 		}
@@ -990,11 +994,15 @@ void Board::PickBackground()
 		{
 			mBackground = BackgroundType::BACKGROUND_4_FOG;
 		}
-		else if (mLevel < FINAL_LEVEL)
+		else if (mLevel == 55)
+		{
+			mBackground = BackgroundType::BACKGROUND_2_NIGHT;
+		}
+		else if (mLevel < 5 * LEVELS_PER_AREA)
 		{
 			mBackground = BackgroundType::BACKGROUND_5_ROOF;
 		}
-		else if (mLevel == FINAL_LEVEL)
+		else if (mLevel <= FINAL_LEVEL)
 		{
 			mBackground = BackgroundType::BACKGROUND_6_BOSS;
 		}
@@ -1678,6 +1686,53 @@ void Board::InitLevel()
 	}
 	// 关卡玩法相关的初始化
 	mChallenge->InitLevel();
+	if (mApp->IsLoneWolfLevel())
+	{
+		InitLoneWolf();
+	}
+}
+
+void Board::InitLoneWolf()
+{
+	NewPlant(4, 2, SeedType::SEED_GATLINGPEA, SeedType::SEED_NONE);
+}
+
+void Board::MoveLoneWolf(KeyCode theKey)
+{
+	Plant* aLoneWolf = nullptr;
+	Plant* aPlant = nullptr;
+	while (IteratePlants(aPlant))
+	{
+		if (aPlant->mSeedType == SeedType::SEED_GATLINGPEA)
+		{
+			aLoneWolf = aPlant;
+			break;
+		}
+	}
+	if (aLoneWolf == nullptr)
+		return;
+
+	int aGridX = aLoneWolf->mPlantCol;
+	int aGridY = aLoneWolf->mRow;
+	if (theKey == KeyCode('W') || theKey == KeyCode('w'))
+		aGridY--;
+	else if (theKey == KeyCode('A') || theKey == KeyCode('a'))
+		aGridX--;
+	else if (theKey == KeyCode('S') || theKey == KeyCode('s'))
+		aGridY++;
+	else if (theKey == KeyCode('D') || theKey == KeyCode('d'))
+		aGridX++;
+	else
+		return;
+
+	if (aGridX < 0 || aGridX >= MAX_GRID_SIZE_X || aGridY < 0 || aGridY >= MAX_GRID_SIZE_Y || mPlantRow[aGridY] != PlantRowType::PLANTROW_NORMAL)
+		return;
+
+	aLoneWolf->mPlantCol = aGridX;
+	aLoneWolf->mRow = aGridY;
+	aLoneWolf->mX = GridToPixelX(aGridX, aGridY);
+	aLoneWolf->mY = GridToPixelY(aGridX, aGridY);
+	aLoneWolf->mRenderOrder = aLoneWolf->CalcRenderOrder();
 }
 
 Reanimation* Board::CreateRakeReanim(float theRakeX, float theRakeY, int theRenderOrder)
@@ -2101,7 +2156,7 @@ void Board::FadeOutLevel()
 	if (aNeedSoundEffect)
 	{
 		mApp->mMusic->StopAllMusic();
-		if (mApp->IsAdventureMode() && mLevel == 50)
+		if (mApp->IsAdventureMode() && (mLevel == 50 || mLevel == FINAL_LEVEL))
 		{
 			mApp->PlayFoley(FoleyType::FOLEY_FINAL_FANFARE);
 		}
@@ -2623,6 +2678,30 @@ bool Board::CanZombieSpawnOnLevel(ZombieType theZombieType, int theLevel)
 	if (theZombieType == ZombieType::ZOMBIE_YETI)
 	{
 		return gLawnApp->CanSpawnYetis();
+	}
+	if (theLevel == 51 || theLevel == 52)
+	{
+		return theZombieType == ZombieType::ZOMBIE_NORMAL ||
+			theZombieType == ZombieType::ZOMBIE_TRAFFIC_CONE ||
+			theZombieType == ZombieType::ZOMBIE_BUNGEE ||
+			theZombieType == ZombieType::ZOMBIE_PEA_HEAD;
+	}
+	if (theLevel == 53 || theLevel == 54)
+	{
+		return theZombieType == ZombieType::ZOMBIE_NORMAL ||
+			theZombieType == ZombieType::ZOMBIE_TRAFFIC_CONE ||
+			theZombieType == ZombieType::ZOMBIE_BUNGEE ||
+			theZombieType == ZombieType::ZOMBIE_PEA_HEAD ||
+			 theZombieType == ZombieType::ZOMBIE_NEWSPAPER;
+	}
+	if (theLevel >= 55 && theLevel <= 59 &&
+		(theZombieType == ZombieType::ZOMBIE_CATAPULT ||
+		 theZombieType == ZombieType::ZOMBIE_ZAMBONI ||
+		 theZombieType == ZombieType::ZOMBIE_GARGANTUAR ||
+		 theZombieType == ZombieType::ZOMBIE_FOOTBALL ||
+		 theZombieType == ZombieType::ZOMBIE_DANCER))
+	{
+		return true;
 	}
 
 	if (theLevel < aZombieDef.mStartingLevel || aZombieDef.mPickWeight == 0)
@@ -5427,6 +5506,18 @@ void Board::UpdateGameObjects()
 	while (IteratePlants(aPlant))
 	{
 		aPlant->Update();
+	}
+	if (mApp->IsLoneWolfLevel())
+	{
+		aPlant = nullptr;
+		while (IteratePlants(aPlant))
+		{
+			if (aPlant->mSeedType == SeedType::SEED_GATLINGPEA && aPlant->mDead)
+			{
+				ZombiesWon();
+				break;
+			}
+		}
 	}
 
 	Zombie* aZombie = nullptr;
@@ -8240,6 +8331,13 @@ void Board::DoTypingCheck(KeyCode theKey)
 void Board::KeyDown(KeyCode theKey)
 {
 	DoTypingCheck(theKey);
+	if (mApp->IsLoneWolfLevel() && mApp->mGameScene == GameScenes::SCENE_PLAYING &&
+		(theKey == KeyCode('W') || theKey == KeyCode('w') || theKey == KeyCode('A') || theKey == KeyCode('a') ||
+		 theKey == KeyCode('S') || theKey == KeyCode('s') || theKey == KeyCode('D') || theKey == KeyCode('d')))
+	{
+		MoveLoneWolf(theKey);
+		return;
+	}
 
 	if (mApp->mGameScene == GameScenes::SCENE_LEVEL_INTRO && 
 		mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN && 
@@ -9288,6 +9386,9 @@ bool Board::StageIsNight()
 
 bool Board::StageHasGraveStones()
 {
+	if (mApp->IsLoneWolfLevel())
+		return false;
+
 	if (mApp->IsWallnutBowlingLevel() ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_POGO_PARTY ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED ||

@@ -1431,6 +1431,12 @@ bool LawnApp::UpdatePlayerProfileForFinishingLevel()
 			mPlayerInfo->SetLevel(mBoard->mLevel + 1);  // 存档进入下一关
 		}
 
+		if (mBoard->mLevel == 50)
+		{
+			mPlayerInfo->mHasUnlockedMinigames = 1;
+			mPlayerInfo->mHasUnlockedSurvivalMode = 1;
+		}
+
 		if (!HasFinishedAdventure() && mBoard->mLevel == 34)
 		{
 			mPlayerInfo->mNeedsMagicTacoReward = 1;
@@ -1525,7 +1531,7 @@ void LawnApp::CheckForGameEnd()
 		int aLevel = mBoard->mLevel;
 		KillBoard();
 
-		if (IsFirstTimeAdventureMode() && aLevel < 50)
+		if (IsFirstTimeAdventureMode() && aLevel < 51)
 		{
 			ShowAwardScreen(AwardType::AWARD_FORLEVEL, true);
 		}
@@ -2359,6 +2365,11 @@ bool LawnApp::IsBungeeBlitzLevel()
 	return IsAdventureMode() && mBoard->mLevel == 45;
 }
 
+bool LawnApp::IsLoneWolfLevel()
+{
+	return IsAdventureMode() && mBoard && mBoard->mLevel == 55;
+}
+
 bool LawnApp::IsMiniBossLevel()
 {
 	if (mBoard == nullptr)
@@ -2375,13 +2386,14 @@ bool LawnApp::IsFinalBossLevel()
 	if (mGameMode == GameMode::GAMEMODE_CHALLENGE_FINAL_BOSS)
 		return true;
 
-	return IsAdventureMode() && mBoard->mLevel == 50;
+	return IsAdventureMode() && (mBoard->mLevel == 50 || mBoard->mLevel == FINAL_LEVEL);
 }
 
 bool LawnApp::IsChallengeWithoutSeedBank()
 {
 	return 
 		IsCricketFightLevel() || 
+		IsLoneWolfLevel() ||
 		mGameMode == GameMode::GAMEMODE_CHALLENGE_RAINING_SEEDS || 
 		mGameMode == GameMode::GAMEMODE_UPSELL || 
 		mGameMode == GameMode::GAMEMODE_INTRO || 
@@ -2397,7 +2409,9 @@ bool LawnApp::IsNight()
 	if (IsIceDemo() || mPlayerInfo == nullptr)
 		return false;
 
-	return (mPlayerInfo->mLevel >= 11 && mPlayerInfo->mLevel <= 20) || (mPlayerInfo->mLevel >= 31 && mPlayerInfo->mLevel <= 40) || mPlayerInfo->mLevel == 50;
+	return (mPlayerInfo->mLevel >= 11 && mPlayerInfo->mLevel <= 20) ||
+		(mPlayerInfo->mLevel >= 31 && mPlayerInfo->mLevel <= 40) ||
+		(mPlayerInfo->mLevel >= 51 && mPlayerInfo->mLevel <= FINAL_LEVEL);
 }
 
 int LawnApp::GetCurrentChallengeIndex()
@@ -2480,7 +2494,7 @@ SeedType LawnApp::GetAwardSeedForLevel(int theLevel)
 int LawnApp::GetSeedsAvailable()
 {
 	int aLevel = mPlayerInfo->GetLevel();
-	if (HasFinishedAdventure() || aLevel > 50)
+	if (HasFinishedAdventure())
 	{
 		return 49;
 	}

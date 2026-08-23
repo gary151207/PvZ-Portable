@@ -332,6 +332,8 @@ public:
 	void							GetPlantsOnLawn(int theGridX, int theGridY, PlantsOnLawn* thePlantOnLawn);
 	/*inline*/ int					CountSunFlowers();
 	int								GetSeedPacketPositionX(int theIndex);
+	void							InitLoneWolf();
+	void							MoveLoneWolf(KeyCode theKey);
 	void							AddGraveStones(int theGridX, int theCount, MTRand& theLevelRNG);
 	int								GetGraveStoneCount();
 	void							ZombiesWon(Zombie* theZombie = nullptr);

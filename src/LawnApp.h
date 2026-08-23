@@ -279,6 +279,7 @@ public:
 	/*inline*/ bool					IsStormyNightLevel();
 	/*inline*/ bool					IsFinalBossLevel();
 	/*inline*/ bool					IsBungeeBlitzLevel();
+	/*inline*/ bool					IsLoneWolfLevel();
 	static /*inline*/ SeedType		GetAwardSeedForLevel(int theLevel);
 	std::string						GetCrazyDaveText(int theMessageIndex);
 	/*inline*/ bool					CanShowAlmanac();

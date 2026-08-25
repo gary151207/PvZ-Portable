@@ -385,17 +385,16 @@ void Projectile::CheckForCollision()
 		Plant* aPlant = FindCollisionTargetPlant();
 		if (aPlant)
 		{
-			// Find an umbrella in the pea's OWN row protecting the target cell (±1 column).
-			// Board::FindUmbrellaPlant() also matches adjacent-row umbrellas (1x1 range),
-			// which must NOT reflect this pea, so search rows explicitly here.
+			// Find an umbrella in the pea's OWN row — wherever it stands in that row, it
+			// reflects peas flying along it. Board::FindUmbrellaPlant() also matches
+			// adjacent-row umbrellas (1x1 range), which must NOT reflect this pea.
 			Plant* aUmbrellaPlant = nullptr;
 			{
 				Plant* aSearchPlant = nullptr;
 				while (mBoard->IteratePlants(aSearchPlant))
 				{
 					if (aSearchPlant->mSeedType == SeedType::SEED_UMBRELLA && !aSearchPlant->NotOnGround() &&
-						aSearchPlant->mRow == aPlant->mRow &&
-						GridInRange(aPlant->mPlantCol, aPlant->mRow, aSearchPlant->mPlantCol, aSearchPlant->mRow, 1, 0))
+						aSearchPlant->mRow == aPlant->mRow)
 					{
 						aUmbrellaPlant = aSearchPlant;
 						break;

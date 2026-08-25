@@ -385,10 +385,24 @@ void Projectile::CheckForCollision()
 		Plant* aPlant = FindCollisionTargetPlant();
 		if (aPlant)
 		{
-			Plant* aUmbrellaPlant = mBoard->FindUmbrellaPlant(aPlant->mPlantCol, aPlant->mRow);
-			// The umbrella only reflects peas flying in its own row (adjacent-row
-			// umbrellas found by FindUmbrellaPlant's 1x1 range are ignored).
-			if (aUmbrellaPlant && aUmbrellaPlant->mRow == mRow)
+			// Find an umbrella in the pea's OWN row protecting the target cell (±1 column).
+			// Board::FindUmbrellaPlant() also matches adjacent-row umbrellas (1x1 range),
+			// which must NOT reflect this pea, so search rows explicitly here.
+			Plant* aUmbrellaPlant = nullptr;
+			{
+				Plant* aSearchPlant = nullptr;
+				while (mBoard->IteratePlants(aSearchPlant))
+				{
+					if (aSearchPlant->mSeedType == SeedType::SEED_UMBRELLA && !aSearchPlant->NotOnGround() &&
+						aSearchPlant->mRow == aPlant->mRow &&
+						GridInRange(aPlant->mPlantCol, aPlant->mRow, aSearchPlant->mPlantCol, aSearchPlant->mRow, 1, 0))
+					{
+						aUmbrellaPlant = aSearchPlant;
+						break;
+					}
+				}
+			}
+			if (aUmbrellaPlant)
 			{
 				// Umbrella Leaf reflects the pea: open the umbrella (anim_block) if it
 				// isn't already animating, then convert the pea into a friendly pea

@@ -385,35 +385,19 @@ void Projectile::CheckForCollision()
 		Plant* aPlant = FindCollisionTargetPlant();
 		if (aPlant)
 		{
-			// Find an umbrella in the pea's OWN row — wherever it stands in that row, it
-			// reflects peas flying along it. Board::FindUmbrellaPlant() also matches
-			// adjacent-row umbrellas (1x1 range), which must NOT reflect this pea.
-			Plant* aUmbrellaPlant = nullptr;
+			// Reflect only when the pea actually hits the umbrella itself: the umbrella
+			// opens (anim_block) and the pea is converted into a friendly pea flying
+			// right, which damages zombies (and can pass through a Torchwood).
+			if (aPlant->mSeedType == SeedType::SEED_UMBRELLA && !aPlant->NotOnGround())
 			{
-				Plant* aSearchPlant = nullptr;
-				while (mBoard->IteratePlants(aSearchPlant))
-				{
-					if (aSearchPlant->mSeedType == SeedType::SEED_UMBRELLA && !aSearchPlant->NotOnGround() &&
-						aSearchPlant->mRow == aPlant->mRow)
-					{
-						aUmbrellaPlant = aSearchPlant;
-						break;
-					}
-				}
-			}
-			if (aUmbrellaPlant)
-			{
-				// Umbrella Leaf reflects the pea: open the umbrella (anim_block) if it
-				// isn't already animating, then convert the pea into a friendly pea
-				// flying right, which damages zombies (and can pass through a Torchwood).
-				if (aUmbrellaPlant->mState != PlantState::STATE_UMBRELLA_TRIGGERED &&
-					aUmbrellaPlant->mState != PlantState::STATE_UMBRELLA_REFLECTING)
+				if (aPlant->mState != PlantState::STATE_UMBRELLA_TRIGGERED &&
+					aPlant->mState != PlantState::STATE_UMBRELLA_REFLECTING)
 				{
 					// Same presentation as deflecting a Bungee zombie (Zombie::BungeeLanding):
 					// boing + umbrella foley + DoSpecial() opens the umbrella (anim_block).
 					mApp->PlaySample(SOUND_BOING);
 					mApp->PlayFoley(FoleyType::FOLEY_UMBRELLA);
-					aUmbrellaPlant->DoSpecial();
+					aPlant->DoSpecial();
 				}
 
 				mProjectileType = ProjectileType::PROJECTILE_PEA;

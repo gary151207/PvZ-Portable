@@ -2489,11 +2489,9 @@ void Zombie::UpdateZombieGatlingHead()
         Reanimation* aHeadReanim = mApp->ReanimationGet(mSpecialHeadReanimID);
         aHeadReanim->PlayReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 38.0f);
     }
-    else if ((mGatlingScatterCountdown > 0 && mPhaseCounter % 10 == 1) ||
+    else if ((mGatlingScatterCountdown > 0 && mPhaseCounter % 2 == 1) ||
              (mGatlingScatterCountdown == 0 && (mPhaseCounter == 18 || mPhaseCounter == 35 || mPhaseCounter == 51 || mPhaseCounter == 68)))
     {
-        mApp->PlayFoley(FoleyType::FOLEY_THROW);
-
         Reanimation* aBodyReanim = mApp->ReanimationGet(mBodyReanimID);
         int aTrackIndex = aBodyReanim->FindTrackIndex("anim_head1");
         ReanimatorTransform aTransform;
@@ -2501,42 +2499,16 @@ void Zombie::UpdateZombieGatlingHead()
 
         float aOriginX = mPosX + aTransform.mTransX - 9.0f;
         float aOriginY = mPosY + aTransform.mTransY + 6.0f;
-#ifdef DO_FIX_BUGS
-        if (mMindControlled)  // 魅惑修复
-        {
-            aOriginX += 90.0f * mScaleZombie;
-            Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_PEA);
-            aProjectile->mDamageRangeFlags = 1;
-        }
-        else
-        {
-            Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
-            aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
-        }
-#else
-        Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
-        aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
-#endif
-
-        // 每发射一颗主子弹，50% 概率将散射概率提高 1%；进入散射状态后持续 3 秒
-        if (Rand(100) < 50 && mGatlingScatterChance < 100)
-        {
-            mGatlingScatterChance++;
-        }
-        if (mGatlingScatterCountdown == 0 && Rand(100) < mGatlingScatterChance)
-        {
-            mGatlingScatterCountdown = 300;  // 3 s (100 ticks = 1 s)
-        }
         if (mGatlingScatterCountdown > 0)
         {
-            constexpr int SCATTER_COUNT = 4;
-            constexpr float SCATTER_ANGLE = 3.0f;
+            // 大招：每 2 帧（0.02 s）发射 6 颗 ±15° 扇形僵尸豌豆，取代主子弹
+            constexpr int SCATTER_COUNT = 2;
+            constexpr float SCATTER_ANGLE = 10.0f;
             constexpr float PEA_SPEED = 3.33f;
-            constexpr float ANGLE_STEP = 2.0f * SCATTER_ANGLE / SCATTER_COUNT;
 
             for (int i = 0; i < SCATTER_COUNT; i++)
             {
-                float aAngle = (i < SCATTER_COUNT / 2) ? -(SCATTER_ANGLE - i * ANGLE_STEP) : ((i - SCATTER_COUNT / 2 + 1) * ANGLE_STEP);
+                float aAngle = RandRangeFloat(-SCATTER_ANGLE, SCATTER_ANGLE);
                 float aAngleRad = aAngle * 0.017453292f;
 
                 Projectile* aScatterPea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
@@ -2545,12 +2517,43 @@ void Zombie::UpdateZombieGatlingHead()
                 aScatterPea->mVelY = PEA_SPEED * sin(aAngleRad);
             }
         }
+        else
+        {
+            mApp->PlayFoley(FoleyType::FOLEY_THROW);
+
+#ifdef DO_FIX_BUGS
+            if (mMindControlled)  // 魅惑修复
+            {
+                aOriginX += 90.0f * mScaleZombie;
+                Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_PEA);
+                aProjectile->mDamageRangeFlags = 1;
+            }
+            else
+            {
+                Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
+                aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
+            }
+#else
+            Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
+            aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
+#endif
+
+            // 每发射一颗主子弹，50% 概率将散射概率提高 1%；每轮开始判定开大
+            if (Rand(100) < 50 && mGatlingScatterChance < 100)
+            {
+                mGatlingScatterChance++;
+            }
+        }
     }
     else if (mPhaseCounter == 0)
     {
         Reanimation* aHeadReanim = mApp->ReanimationGet(mSpecialHeadReanimID);
         aHeadReanim->PlayReanim("anim_head_idle", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 15.0f);
         mPhaseCounter = 150;
+        if (mGatlingScatterCountdown == 0 && Rand(100) < mGatlingScatterChance)
+        {
+            mGatlingScatterCountdown = 300;  // 每轮开始判定开大（3 s）
+        }
     }
 }
 

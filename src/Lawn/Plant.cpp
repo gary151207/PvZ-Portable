@@ -788,6 +788,10 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
         {
             aHeadReanim->mAnimRate = 38.0f;
             mShootingCounter = 100;
+            if (mGatlingScatterCountdown == 0 && Rand(100) < mGatlingScatterChance)
+            {
+                mGatlingScatterCountdown = 300;  // 每轮开始判定开大（3 s）
+            }
         }
     }
     else if (mState == PlantState::STATE_CACTUS_HIGH)
@@ -3513,8 +3517,8 @@ void Plant::UpdateShooting()
     {
         if (mGatlingScatterCountdown > 0)
         {
-            // 散射状态：持续连发（每 10 帧一发），每发都带散射
-            if (mShootingCounter % 10 == 1)
+            // 散射状态（大招）：每 2 帧（0.02 s）一发，每发发射 6 颗扇形子弹
+            if (mShootingCounter % 2 == 1)
             {
                 Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
             }
@@ -4854,7 +4858,10 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectileType = ProjectileType::PROJECTILE_BUTTER;
     }
 
-    mApp->PlayFoley(FoleyType::FOLEY_THROW);
+    if (mSeedType != SeedType::SEED_GATLINGPEA || mGatlingScatterCountdown == 0)
+    {
+        mApp->PlayFoley(FoleyType::FOLEY_THROW);
+    }
     if (mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_WINTERMELON)
     {
         mApp->PlayFoley(FoleyType::FOLEY_SNOW_PEA_SPARKLES);
@@ -4990,45 +4997,49 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         mApp->AddTodParticle(aOriginX + 27, aOriginY + 13, aRenderPosition, ParticleEffect::PARTICLE_PUFFSHROOM_MUZZLE);
     }
 
-    Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
-    aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
-
-    if (mSeedType == SeedType::SEED_PEASHOOTER && !mHasFiredFirstPea)
+    Projectile* aProjectile = nullptr;
+    if (mSeedType == SeedType::SEED_GATLINGPEA && mGatlingScatterCountdown > 0)
     {
-        aProjectile->mDamageOverride = 300;
-        aProjectile->mRenderScale = 2.0f;
-        mHasFiredFirstPea = true;
+        // 大招：每 2 帧（0.02 s）发射 6 颗 ±15° 扇形子弹，取代主子弹
+        constexpr int SCATTER_COUNT = 2;
+        constexpr float SCATTER_ANGLE = 10.0f;
+        constexpr float PEA_SPEED = 3.33f;
+
+        for (int i = 0; i < SCATTER_COUNT; i++)
+        {
+            float aAngle = RandRangeFloat(-SCATTER_ANGLE, SCATTER_ANGLE);
+            float aAngleRad = DEG_TO_RAD(aAngle);
+
+            Projectile* aScatterPea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
+            aScatterPea->mMotionType = ProjectileMotion::MOTION_STAR;
+            aScatterPea->mVelX = PEA_SPEED * cos(aAngleRad);
+            aScatterPea->mVelY = PEA_SPEED * sin(aAngleRad);
+            aScatterPea->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+            aScatterPea->mDamageOverride = 200;
+        }
+    }
+    else
+    {
+        aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
+        aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+
+        if (mApp->IsLoneWolfLevel() && mSeedType == SeedType::SEED_GATLINGPEA)
+            aProjectile->mDamageOverride = 200;
+
+        if (mSeedType == SeedType::SEED_PEASHOOTER && !mHasFiredFirstPea)
+        {
+            aProjectile->mDamageOverride = 300;
+            aProjectile->mRenderScale = 2.0f;
+            mHasFiredFirstPea = true;
+        }
     }
 
-    // Gatling Pea: each shot has a 50% chance to raise scatter chance by 1%; scatter mode lasts 3 s
-    if (mSeedType == SeedType::SEED_GATLINGPEA)
+    // Gatling Pea: 正常模式下每发主子弹 50% 概率 +1% 散射概率；每轮开始判定开大
+    if (mSeedType == SeedType::SEED_GATLINGPEA && mGatlingScatterCountdown == 0)
     {
         if (Rand(100) < 50 && mGatlingScatterChance < 100)
         {
             mGatlingScatterChance++;
-        }
-        if (mGatlingScatterCountdown == 0 && Rand(100) < mGatlingScatterChance)
-        {
-            mGatlingScatterCountdown = 300;  // 3 s (100 ticks = 1 s)
-        }
-        if (mGatlingScatterCountdown > 0)
-        {
-            constexpr int SCATTER_COUNT = 4;
-            constexpr float SCATTER_ANGLE = 3.0f;
-            constexpr float PEA_SPEED = 3.33f;
-            constexpr float ANGLE_STEP = 2.0f * SCATTER_ANGLE / SCATTER_COUNT;
-
-            for (int i = 0; i < SCATTER_COUNT; i++)
-            {
-                float aAngle = (i < SCATTER_COUNT / 2) ? -(SCATTER_ANGLE - i * ANGLE_STEP) : ((i - SCATTER_COUNT / 2 + 1) * ANGLE_STEP);
-                float aAngleRad = DEG_TO_RAD(aAngle);
-
-                Projectile* aScatterPea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
-                aScatterPea->mMotionType = ProjectileMotion::MOTION_STAR;
-                aScatterPea->mVelX = PEA_SPEED * cos(aAngleRad);
-                aScatterPea->mVelY = PEA_SPEED * sin(aAngleRad);
-                aScatterPea->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
-            }
         }
     }
 

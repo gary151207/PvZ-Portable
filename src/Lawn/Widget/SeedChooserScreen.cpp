@@ -1117,6 +1117,14 @@ void SeedChooserScreen::CloseSeedChooser()
 
 void SeedChooserScreen::KeyDown(KeyCode theKey)
 {
+	if (mApp->IsLoneWolfLevel() &&
+		(theKey == KeyCode('W') || theKey == KeyCode('w') || theKey == KeyCode('A') || theKey == KeyCode('a') ||
+		 theKey == KeyCode('S') || theKey == KeyCode('s') || theKey == KeyCode('D') || theKey == KeyCode('d')))
+	{
+		mBoard->MoveLoneWolf(theKey);
+		return;
+	}
+
 	mBoard->DoTypingCheck(theKey);
 }
 

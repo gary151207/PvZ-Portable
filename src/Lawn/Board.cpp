@@ -101,7 +101,7 @@ Board::Board(LawnApp* theApp)
 
 	mZombies.DataArrayInitialize(1024U, "zombies");
 	mPlants.DataArrayInitialize(1024U, "plants");
-	mProjectiles.DataArrayInitialize(2048U, "projectiles");
+	mProjectiles.DataArrayInitialize(4096U, "projectiles");
 	mCoins.DataArrayInitialize(1024U, "coins");
 	mLawnMowers.DataArrayInitialize(32U, "lawnmowers");
 	mGridItems.DataArrayInitialize(128U, "griditems");
@@ -2693,6 +2693,10 @@ bool Board::CanZombieSpawnOnLevel(ZombieType theZombieType, int theLevel)
 			theZombieType == ZombieType::ZOMBIE_BUNGEE ||
 			theZombieType == ZombieType::ZOMBIE_PEA_HEAD ||
 			 theZombieType == ZombieType::ZOMBIE_NEWSPAPER;
+	}
+	if ((theLevel == 58 || theLevel == 59) && theZombieType == ZombieType::ZOMBIE_LADDER)
+	{
+		return true;
 	}
 	if (theLevel >= 55 && theLevel <= 59 &&
 		(theZombieType == ZombieType::ZOMBIE_CATAPULT ||
@@ -5790,6 +5794,16 @@ void Board::UpdateSunSpawning()
 
 void Board::NextWaveComing()
 {
+	if (mApp->IsLoneWolfLevel())
+	{
+		Plant* aPlant = nullptr;
+		while (IteratePlants(aPlant))
+		{
+			if (aPlant->mSeedType == SeedType::SEED_GATLINGPEA && !aPlant->mDead)
+				aPlant->mPlantHealth = aPlant->mPlantMaxHealth;
+		}
+	}
+
 	if (mCurrentWave + 1 == mNumWaves)
 	{
 		if (!IsSurvivalStageWithRepick() && !IsSnowyDayStageWithRepick() && mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_LAST_STAND && !mApp->IsContinuousChallenge())
@@ -8330,8 +8344,14 @@ void Board::DoTypingCheck(KeyCode theKey)
 
 void Board::KeyDown(KeyCode theKey)
 {
+	if (mApp->mDebugKeysEnabled && (theKey == KeyCode('L') || theKey == KeyCode('l')))
+	{
+		mApp->DoCheatDialog();
+		return;
+	}
+
 	DoTypingCheck(theKey);
-	if (mApp->IsLoneWolfLevel() && mApp->mGameScene == GameScenes::SCENE_PLAYING &&
+	if (mApp->IsLoneWolfLevel() &&
 		(theKey == KeyCode('W') || theKey == KeyCode('w') || theKey == KeyCode('A') || theKey == KeyCode('a') ||
 		 theKey == KeyCode('S') || theKey == KeyCode('s') || theKey == KeyCode('D') || theKey == KeyCode('d')))
 	{
@@ -8634,7 +8654,7 @@ void Board::KeyChar(char theChar)
 	{
 		mApp->DoNewOptions(false);
 	}
-	else if (theChar == 'l')
+	else if (theChar == 'l' || theChar == 'L')
 	{
 		mApp->DoCheatDialog();
 	}

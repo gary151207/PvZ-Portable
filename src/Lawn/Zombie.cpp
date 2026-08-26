@@ -7964,6 +7964,10 @@ void Zombie::DropHelm(unsigned int theDamageFlags)
     {
         BobsledCrash();
     }
+    else if (mHelmType == HelmType::HELMTYPE_DOOMSHROOM)
+    {
+        // 毁灭菇头：不生成掉落粒子；头动画与盒子恢复由调用方 RevertToJackInTheBox() 处理
+    }
 
     if (!TestBit(theDamageFlags, static_cast<int>(DamageFlags::DAMAGE_DOESNT_LEAVE_BODY)) && aEffect != ParticleEffect::PARTICLE_NONE)
     {
@@ -7992,6 +7996,11 @@ int Zombie::TakeHelmDamage(int theDamage, unsigned int theDamageFlags)
     if (mHelmHealth == 0)
     {
         DropHelm(theDamageFlags);
+        if (mZombieType == ZombieType::ZOMBIE_DOOMSHROOM_HEAD)
+        {
+            // 毁灭菇头被击毁：无爆炸，直接变回普通小丑僵尸
+            RevertToJackInTheBox();
+        }
         return aDamageRemaining;
     }
 

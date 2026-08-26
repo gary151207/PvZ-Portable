@@ -9088,6 +9088,11 @@ void Board::KeyChar(char theChar)
 		AddZombie(ZombieType::ZOMBIE_JACK_IN_THE_BOX, Zombie::ZOMBIE_WAVE_DEBUG);
 		return;
 	}
+	if (theChar == 'J')
+	{
+		AddZombie(ZombieType::ZOMBIE_DOOMSHROOM_HEAD, Zombie::ZOMBIE_WAVE_DEBUG);
+		return;
+	}
 	if (theChar == 'g')
 	{
 		AddZombie(ZombieType::ZOMBIE_GARGANTUAR, Zombie::ZOMBIE_WAVE_DEBUG);

@@ -119,6 +119,7 @@ ChallengeScreen::ChallengeScreen(LawnApp* theApp, ChallengePage thePage)
 	mApp = theApp;
 	mClip = false;
 	mCheatEnableChallenges = false;
+	mCheatUnlockSurvival = false;
 	mScrollY = 0;
 	mUnlockState = UNLOCK_OFF;
 	mUnlockChallengeIndex = -1;
@@ -135,6 +136,14 @@ ChallengeScreen::ChallengeScreen(LawnApp* theApp, ChallengePage thePage)
 	mBackButton->mColors[ButtonWidget::COLOR_LABEL] = Color(42, 42, 90);
 	mBackButton->mColors[ButtonWidget::COLOR_LABEL_HILITE] = Color(42, 42, 90);
 	mBackButton->Resize(18, 568, 111, 26);
+
+	mUnlockSurvivalButton = MakeNewButton(ChallengeScreen::ChallengeScreen_UnlockSurvival, this, "解锁生存关卡", nullptr, Sexy::IMAGE_SEEDCHOOSER_BUTTON2, 
+		Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW, Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW);
+	mUnlockSurvivalButton->mTextDownOffsetX = 1;
+	mUnlockSurvivalButton->mTextDownOffsetY = 1;
+	mUnlockSurvivalButton->mColors[ButtonWidget::COLOR_LABEL] = Color(42, 42, 90);
+	mUnlockSurvivalButton->mColors[ButtonWidget::COLOR_LABEL_HILITE] = Color(42, 42, 90);
+	mUnlockSurvivalButton->Resize(140, 568, 111, 26);
 
 	for (int aPageIdx = CHALLENGE_PAGE_SURVIVAL; aPageIdx < MAX_CHALLANGE_PAGES; aPageIdx++)
 	{

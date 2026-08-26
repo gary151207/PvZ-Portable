@@ -389,7 +389,13 @@ void ChallengeScreen::UpdateButtons()
 	mUnlockSurvivalButton->mDisabled = mCheatUnlockSurvival;
 
 	for (int aChallengeMode = 0; aChallengeMode < NUM_CHALLENGE_MODES; aChallengeMode++)
-		mChallengeButtons[aChallengeMode]->mVisible = GetChallengeDefinition(aChallengeMode).mPage == mPageIndex;
+	{
+		ButtonWidget* aChallengeButton = mChallengeButtons[aChallengeMode];
+		aChallengeButton->mVisible = GetChallengeDefinition(aChallengeMode).mPage == mPageIndex;
+		bool aLocked = AccomplishmentsNeeded(aChallengeMode) > 0;
+		aChallengeButton->mDisabled = aLocked;
+		aChallengeButton->mDoFinger = !aLocked;
+	}
 	for (int aPage = 0; aPage < MAX_CHALLANGE_PAGES; aPage++)
 	{
 		ButtonWidget* aPageButton = mPageButton[aPage];

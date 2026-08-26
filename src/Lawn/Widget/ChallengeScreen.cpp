@@ -220,6 +220,7 @@ ChallengeScreen::ChallengeScreen(LawnApp* theApp, ChallengePage thePage)
 ChallengeScreen::~ChallengeScreen()
 {
 	delete mBackButton;
+	delete mUnlockSurvivalButton;
 	for (ButtonWidget* aPageButton : mPageButton) delete aPageButton;
 	for (ButtonWidget* aChallengeButton : mChallengeButtons) delete aChallengeButton;
 	delete mToolTip;
@@ -655,6 +656,7 @@ void ChallengeScreen::AddedToManager(WidgetManager* theWidgetManager)
 {
 	Widget::AddedToManager(theWidgetManager);
 	AddWidget(mBackButton);
+	AddWidget(mUnlockSurvivalButton);
 	for (ButtonWidget* aButton : mPageButton) AddWidget(aButton);
 	for (ButtonWidget* aButton : mChallengeButtons) AddWidget(aButton);
 }
@@ -663,6 +665,7 @@ void ChallengeScreen::RemovedFromManager(WidgetManager* theWidgetManager)
 {
 	Widget::RemovedFromManager(theWidgetManager);
 	RemoveWidget(mBackButton);
+	RemoveWidget(mUnlockSurvivalButton);
 	for (ButtonWidget* aButton : mPageButton) RemoveWidget(aButton);
 	for (ButtonWidget* aButton : mChallengeButtons) RemoveWidget(aButton);
 }

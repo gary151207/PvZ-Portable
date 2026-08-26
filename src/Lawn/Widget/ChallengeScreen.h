@@ -38,17 +38,20 @@ private:
     {
         ChallengeScreen_Back = 100,
         ChallengeScreen_Mode = 200,
-        ChallengeScreen_Page = 300
+        ChallengeScreen_Page = 300,
+        ChallengeScreen_UnlockSurvival = 500
     };
 
 public:
     NewLawnButton*              mBackButton;
+    NewLawnButton*              mUnlockSurvivalButton;
     ButtonWidget*               mPageButton[MAX_CHALLANGE_PAGES];
     ButtonWidget*               mChallengeButtons[NUM_CHALLENGE_MODES];
     LawnApp*                    mApp;
     ToolTipWidget*              mToolTip;
     ChallengePage               mPageIndex;
     bool                        mCheatEnableChallenges;
+    bool                        mCheatUnlockSurvival;
     UnlockingState              mUnlockState;
     int                         mUnlockStateCounter;
     int                         mUnlockChallengeIndex;

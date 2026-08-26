@@ -75,6 +75,7 @@ ZombieDefinition gZombieDefs[NUM_ZOMBIE_TYPES] = {
     { ZOMBIE_SQUASH_HEAD,       REANIM_ZOMBIE,              3,      99,     10,     2000,   "SQUASH_HEAD_ZOMBIE" },
     { ZOMBIE_TALLNUT_HEAD,      REANIM_ZOMBIE,              4,      99,     10,     2000,   "TALLNUT_HEAD_ZOMBIE" },
     { ZOMBIE_REDEYE_GARGANTUAR, REANIM_GARGANTUAR,          10,     48,     15,     6000,   "REDEYED_GARGANTUAR" },
+    { ZOMBIE_DOOMSHROOM_HEAD,   REANIM_JACKINTHEBOX,        3,      31,     10,     1000,   "DOOMSHROOM_HEAD_ZOMBIE" },
 };
 
 static ZombieType gBossZombieList[] = {

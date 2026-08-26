@@ -279,6 +279,7 @@ ZombieAllowedLevels gZombieAllowedLevels[NUM_ZOMBIE_TYPES] = {
 	{ ZOMBIE_SQUASH_HEAD, {0} },
 	{ ZOMBIE_TALLNUT_HEAD, {0} },
 	{ ZOMBIE_REDEYE_GARGANTUAR, {0} },
+	{ ZOMBIE_DOOMSHROOM_HEAD, {0} },
 };
 
 SeedType gArtChallengeWallnut[MAX_GRID_SIZE_Y][MAX_GRID_SIZE_X] = {

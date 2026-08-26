@@ -564,7 +564,8 @@ enum HelmType : int32_t
     HELMTYPE_HEADBAND = 6,
     HELMTYPE_BOBSLED = 7,
     HELMTYPE_WALLNUT = 8,
-    HELMTYPE_TALLNUT = 9
+    HELMTYPE_TALLNUT = 9,
+    HELMTYPE_DOOMSHROOM = 10            // 毁灭菇头（一类防具，370 血）
 };
 enum LawnMowerState : int32_t
 {
@@ -1374,6 +1375,7 @@ enum ZombieType : int32_t
     ZOMBIE_SQUASH_HEAD,
     ZOMBIE_TALLNUT_HEAD,
     ZOMBIE_REDEYE_GARGANTUAR,
+    ZOMBIE_DOOMSHROOM_HEAD,              // 毁灭菇头小丑僵尸（小丑僵尸 10% 概率转化）
     NUM_ZOMBIE_TYPES,
     ZOMBIE_CACHED_POLEVAULTER_WITH_POLE, 
     NUM_CACHED_ZOMBIE_TYPES

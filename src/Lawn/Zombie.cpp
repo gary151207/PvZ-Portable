@@ -3622,7 +3622,7 @@ void Zombie::DropHead(unsigned int theDamageFlags)
         return;
     }
 
-    if (Zombie::IsZombotany(mZombieType))
+    if (Zombie::IsZombotany(mZombieType) || mZombieType == ZombieType::ZOMBIE_DOOMSHROOM_HEAD)
     {
         mApp->ReanimationGet(mSpecialHeadReanimID)->ReanimationDie();
         mSpecialHeadReanimID = ReanimationID::REANIMATIONID_NULL;
@@ -8779,7 +8779,7 @@ void Zombie::RemoveButter()
         BalloonPropellerHatSpin(true);
     }
 
-    if (Zombie::IsZombotany(mZombieType))
+    if (Zombie::IsZombotany(mZombieType) || mZombieType == ZombieType::ZOMBIE_DOOMSHROOM_HEAD)
     {
         Reanimation* aHeadReanim = mApp->ReanimationTryToGet(mSpecialHeadReanimID);
         if (aHeadReanim)
@@ -8831,7 +8831,7 @@ void Zombie::ApplyButter()
     {
         BalloonPropellerHatSpin(false);
     }
-    else if (Zombie::IsZombotany(mZombieType))
+    else if (Zombie::IsZombotany(mZombieType) || mZombieType == ZombieType::ZOMBIE_DOOMSHROOM_HEAD)
     {
         Reanimation* aHeadReanim = mApp->ReanimationTryToGet(mSpecialHeadReanimID);
         if (aHeadReanim)

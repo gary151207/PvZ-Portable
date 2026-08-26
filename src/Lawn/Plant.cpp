@@ -2101,7 +2101,7 @@ void Plant::MagnetShroomAttactItem(Zombie* theZombie)
         aMagnetItem->mDestOffsetY = RandRangeFloat(-10.0f, 10.0f);
         aMagnetItem->mItemType = theZombie->mHasArm ? MagnetItemType::MAGNET_ITEM_POGO_1 : MagnetItemType::MAGNET_ITEM_POGO_3;
     }
-    else if (theZombie->mZombiePhase == ZombiePhase::PHASE_JACK_IN_THE_BOX_RUNNING)
+    else if (theZombie->mZombiePhase == ZombiePhase::PHASE_JACK_IN_THE_BOX_RUNNING && theZombie->mZombieType != ZombieType::ZOMBIE_DOOMSHROOM_HEAD)
     {
         theZombie->StopZombieSound();
         theZombie->PickRandomSpeed();

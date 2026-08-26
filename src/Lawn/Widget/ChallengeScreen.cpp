@@ -384,6 +384,9 @@ bool ChallengeScreen::ShowPageButtons()
 
 void ChallengeScreen::UpdateButtons()
 {
+	mUnlockSurvivalButton->mVisible = mPageIndex == CHALLENGE_PAGE_SURVIVAL;
+	mUnlockSurvivalButton->mDisabled = mCheatUnlockSurvival;
+
 	for (int aChallengeMode = 0; aChallengeMode < NUM_CHALLENGE_MODES; aChallengeMode++)
 		mChallengeButtons[aChallengeMode]->mVisible = GetChallengeDefinition(aChallengeMode).mPage == mPageIndex;
 	for (int aPage = 0; aPage < MAX_CHALLANGE_PAGES; aPage++)
@@ -672,6 +675,17 @@ void ChallengeScreen::ButtonPress(int theId)
 
 void ChallengeScreen::ButtonDepress(int theId)
 {
+	if (theId == ChallengeScreen::ChallengeScreen_UnlockSurvival)
+	{
+		if (!mCheatUnlockSurvival)
+		{
+			mCheatUnlockSurvival = true;
+			UpdateButtons();
+			mApp->PlayFoley(FOLEY_PAPER);
+		}
+		return;
+	}
+
 	if (theId == ChallengeScreen::ChallengeScreen_Back)
 	{
 		mApp->KillChallengeScreen();

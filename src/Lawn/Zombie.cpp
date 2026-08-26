@@ -487,6 +487,51 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
         break;
     }
 
+    case ZombieType::ZOMBIE_DOOMSHROOM_HEAD:
+    {
+        mBodyHealth = 500;
+        mAnimTicksPerFrame = 6;
+        mZombieAttackRect = Rect(20, 0, 50, 115);
+
+        Reanimation* aBodyReanim = mApp->ReanimationGet(mBodyReanimID);
+
+        // 盒子本体与摇柄用空白图覆盖（轨道保持可见，用于挂载毁灭菇头）
+        aBodyReanim->GetTrackInstanceByName("Zombie_jackbox_box")->mImageOverride = IMAGE_BLANK;
+        aBodyReanim->GetTrackInstanceByName("Zombie_jackbox_handle")->mImageOverride = IMAGE_BLANK;
+        // 外臂换成空手图
+        aBodyReanim->SetImageOverride("Zombie_jackbox_outerarm_lower", IMAGE_REANIM_ZOMBIE_JACKBOX_OUTERARM_LOWER2);
+
+        // 在盒子位置挂载毁灭菇头
+        ReanimatorTrackInstance* aTrackInstance = aBodyReanim->GetTrackInstanceByName("Zombie_jackbox_box");
+        Reanimation* aHeadReanim = mApp->AddReanimation(0.0f, 0.0f, 0, ReanimationType::REANIM_DOOMSHROOM);
+        aHeadReanim->PlayReanim("anim_idle", ReanimLoopType::REANIM_LOOP, 0, 15.0f);
+        mSpecialHeadReanimID = mApp->ReanimationGetID(aHeadReanim);
+        AttachEffect* aAttachEffect = AttachReanim(aTrackInstance->mAttachmentID, aHeadReanim, 0.0f, 0.0f);
+        aBodyReanim->mFrameBasePose = 0;
+        TodScaleRotateTransformMatrix(aAttachEffect->mOffset, 0.0f, -5.0f, 0.2f, -0.8f, 0.8f);
+
+        // 一类防具：毁灭菇头 370 血（先于本体承伤；mHelmMaxHealth 与 HP 倍率由后续通用代码处理）
+        mHelmType = HelmType::HELMTYPE_DOOMSHROOM;
+        mHelmHealth = 370;
+
+        // 头部自爆计时（与开盒计时公式一致，含 1/20 早爆）
+        int aDistance = 450 + Rand(300);
+        if (Rand(20) == 0)
+        {
+            aDistance /= 3;
+        }
+        mPhaseCounter = static_cast<int>(aDistance / mVelX) * ZOMBIE_LIMP_SPEED_FACTOR;
+        if (mApp->IsScaryPotterLevel())
+        {
+            mPhaseCounter = 10;
+        }
+        if (IsOnBoard())
+        {
+            mZombiePhase = ZombiePhase::PHASE_JACK_IN_THE_BOX_RUNNING;
+        }
+        break;
+    }
+
     case ZombieType::ZOMBIE_BOBSLED:
     {
         aRenderOffset = 3;

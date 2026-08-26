@@ -235,6 +235,7 @@ public:
     /*inline*/ void                 StartZombieSound();
     void                            StopZombieSound();
     void                            UpdateZombieJackInTheBox();
+    void                            RevertToJackInTheBox();
     void                            DrawZombieHead(Graphics* g, const ZombieDrawPosition& theDrawPos, int theFrame);
     void                            UpdateZombiePosition();
     Rect                            GetZombieRect();

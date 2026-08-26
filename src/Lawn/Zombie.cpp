@@ -2113,6 +2113,20 @@ void Zombie::UpdateZombieJackInTheBox()
             StopZombieSound();
             mApp->PlaySample(SOUND_BOING);
             PlayZombieReanim("anim_pop", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 28.0f);
+
+            if (mZombieType == ZombieType::ZOMBIE_DOOMSHROOM_HEAD)
+            {
+                // 毁灭菇头引信：播放爆炸前摇动画 + 嘶嘶声
+                Reanimation* aHeadReanim = mApp->ReanimationTryToGet(mSpecialHeadReanimID);
+                if (aHeadReanim)
+                {
+                    aHeadReanim->PlayReanim("anim_explode", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 23.0f);
+                    aHeadReanim->SetShakeOverride("DoomShroom_head1", 1.0f);
+                    aHeadReanim->SetShakeOverride("DoomShroom_head2", 2.0f);
+                    aHeadReanim->SetShakeOverride("DoomShroom_head3", 2.0f);
+                }
+                mApp->PlayFoley(FoleyType::FOLEY_REVERSE_EXPLOSION);
+            }
         }
     }
     else if (mZombiePhase == ZombiePhase::PHASE_JACK_IN_THE_BOX_POPPING)
@@ -2140,14 +2154,53 @@ void Zombie::UpdateZombieJackInTheBox()
 
             mApp->AddTodParticle(aPosX, aPosY, Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_TOP, 0, 0), ParticleEffect::PARTICLE_JACKEXPLODE);
             mBoard->ShakeBoard(4, -6);
-            DieNoLoot();
 
-            if (mApp->IsScaryPotterLevel())
+            if (mZombieType == ZombieType::ZOMBIE_DOOMSHROOM_HEAD)
             {
-                mBoard->mChallenge->ScaryPotterJackExplode(aPosX, aPosY);
+                // 毁灭菇头爆炸：本体存活，变回普通小丑僵尸（盒子回来再爆一次）
+                RevertToJackInTheBox();
+            }
+            else
+            {
+                DieNoLoot();
+
+                if (mApp->IsScaryPotterLevel())
+                {
+                    mBoard->mChallenge->ScaryPotterJackExplode(aPosX, aPosY);
+                }
             }
         }
     }
+}
+
+void Zombie::RevertToJackInTheBox()
+{
+    // 移除毁灭菇头
+    if (mSpecialHeadReanimID != ReanimationID::REANIMATIONID_NULL)
+    {
+        mApp->RemoveReanimation(mSpecialHeadReanimID);
+        mSpecialHeadReanimID = ReanimationID::REANIMATIONID_NULL;
+    }
+
+    // 恢复盒子（清除空白图覆盖）
+    Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
+    if (aBodyReanim)
+    {
+        aBodyReanim->GetTrackInstanceByName("Zombie_jackbox_box")->mImageOverride = nullptr;
+        aBodyReanim->GetTrackInstanceByName("Zombie_jackbox_handle")->mImageOverride = nullptr;
+        aBodyReanim->SetImageOverride("Zombie_jackbox_outerarm_lower", nullptr);
+    }
+
+    // 变回普通小丑僵尸
+    mZombieType = ZombieType::ZOMBIE_JACK_IN_THE_BOX;
+    mZombiePhase = ZombiePhase::PHASE_JACK_IN_THE_BOX_RUNNING;
+    int aDistance = 450 + Rand(300);
+    if (Rand(20) == 0)
+    {
+        aDistance /= 3;
+    }
+    mPhaseCounter = static_cast<int>(aDistance / mVelX) * ZOMBIE_LIMP_SPEED_FACTOR;
+    StartZombieSound();
 }
 
 void Zombie::UpdateZombieGargantuar()
@@ -4541,7 +4594,7 @@ void Zombie::UpdateActions()
     {
         UpdateZombieDigger();
     }
-    if (mZombieType == ZombieType::ZOMBIE_JACK_IN_THE_BOX)
+    if (mZombieType == ZombieType::ZOMBIE_JACK_IN_THE_BOX || mZombieType == ZombieType::ZOMBIE_DOOMSHROOM_HEAD)
     {
         UpdateZombieJackInTheBox();
     }

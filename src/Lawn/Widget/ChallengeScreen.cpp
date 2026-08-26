@@ -409,8 +409,12 @@ void ChallengeScreen::UpdateButtons()
 
 int ChallengeScreen::AccomplishmentsNeeded(int theChallengeIndex)
 {
+	ChallengeDefinition& aDef = GetChallengeDefinition(theChallengeIndex);
+	if (mCheatUnlockSurvival && aDef.mPage == ChallengePage::CHALLENGE_PAGE_SURVIVAL)
+		return 0;
+
 	int aTrophiesNeeded = MoreTrophiesNeeded(theChallengeIndex);
-	GameMode aGameMode = GetChallengeDefinition(theChallengeIndex).mChallengeMode;
+	GameMode aGameMode = aDef.mChallengeMode;
 	if (mApp->IsSurvivalEndless(aGameMode) && aTrophiesNeeded <= 3 && mApp->GetNumTrophies(CHALLENGE_PAGE_SURVIVAL) < 10 &&
 		mApp->HasFinishedAdventure() && !mApp->IsTrialStageLocked()) aTrophiesNeeded = 1;
 	return mCheatEnableChallenges ? 0 : aTrophiesNeeded;

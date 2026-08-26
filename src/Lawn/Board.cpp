@@ -3029,6 +3029,15 @@ Zombie* Board::AddZombieInRow(ZombieType theZombieType, int theRow, int theFromW
 		theZombieType = ZombieType::ZOMBIE_WALLNUT_HEAD;
 	}
 
+	// 小丑僵尸有 10% 概率变为毁灭菇头小丑僵尸（调试召唤与我是僵尸玩法除外）
+	if (theZombieType == ZombieType::ZOMBIE_JACK_IN_THE_BOX &&
+		theFromWave != Zombie::ZOMBIE_WAVE_DEBUG &&
+		!mApp->IsIZombieLevel() &&
+		!Rand(10))
+	{
+		theZombieType = ZombieType::ZOMBIE_DOOMSHROOM_HEAD;
+	}
+
 	// @Patoke: implemented
 	if (theZombieType == ZombieType::ZOMBIE_YETI) {
 		if (mApp->IsAdventureMode() && mLevel == 40 && theFromWave >= 0)

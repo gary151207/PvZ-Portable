@@ -57,6 +57,7 @@
 #include "Lawn/Widget/AlmanacDialog.h"
 #include "Lawn/Widget/NewUserDialog.h"
 #include "Lawn/Widget/ContinueDialog.h"
+#include "Lawn/System/EndlessSlot.h"
 #include "Lawn/System/ReanimationLawn.h"
 #include "Lawn/Widget/ChallengeScreen.h"
 #include "Lawn/Widget/NewOptionsDialog.h"
@@ -161,6 +162,7 @@ LawnApp::LawnApp()
 	mLastLevelStats = new LevelStats();
 	mFirstTimeGameSelector = true;
 	mGameMode = GameMode::GAMEMODE_ADVENTURE;
+	mEndlessSlotId = -1;   // 无尽模式当前运行的槽位，-1 = 非无尽/未选
 	mEasyPlantingCheat = false;
 	mAutoEnable3D = true;
 	Tod_SWTri_AddAllDrawTriFuncs();
@@ -341,10 +343,27 @@ void LawnApp::KillBoard()
 			mBoardResult == BoardResult::BOARDRESULT_RESTART ||
 			mBoardResult == BoardResult::BOARDRESULT_CHEAT))
 		{
-			std::string aFileName = GetSavedGameName(mGameMode, mPlayerInfo->mId);
-			EraseFile(aFileName);
 			std::string aLegacyFileName = GetLegacySavedGameName(mGameMode, mPlayerInfo->mId);
 			EraseFile(aLegacyFileName);
+			if (IsEndlessGameMode(mGameMode) && mEndlessSlotId >= 0)
+			{
+				if (mBoardResult == BoardResult::BOARDRESULT_RESTART || mBoardResult == BoardResult::BOARDRESULT_CHEAT)
+				{
+					// 同槽重开：只删 .v4，保留 .meta 名字
+					EraseFile(GetEndlessSaveName(mGameMode, mPlayerInfo->mId, mEndlessSlotId));
+				}
+				else
+				{
+					// 失败/通关：整槽清空
+					EraseEndlessSlot(mGameMode, mPlayerInfo->mId, mEndlessSlotId);
+					mEndlessSlotId = -1;
+				}
+			}
+			else
+			{
+				std::string aFileName = GetSavedGameName(mGameMode, mPlayerInfo->mId);
+				EraseFile(aFileName);
+			}
 		}
 
 /*
@@ -430,10 +449,14 @@ void LawnApp::PreNewGame(GameMode theGameMode, bool theLookForSavedGame)
 	//}
 
 	mGameMode = theGameMode;
+	if (!IsEndlessGameMode(mGameMode))
+		mEndlessSlotId = -1;   // 非无尽模式：清掉残留槽位
 	if (theLookForSavedGame && TryLoadGame())
 		return;
 
 	std::string aFileName = GetSavedGameName(mGameMode, mPlayerInfo->mId);
+	if (IsEndlessGameMode(mGameMode) && mEndlessSlotId >= 0)
+		aFileName = GetEndlessSaveName(mGameMode, mPlayerInfo->mId, mEndlessSlotId);
 	EraseFile(aFileName);
 	std::string aLegacyFileName = GetLegacySavedGameName(mGameMode, mPlayerInfo->mId);
 	EraseFile(aLegacyFileName);

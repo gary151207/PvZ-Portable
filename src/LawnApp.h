@@ -120,6 +120,7 @@ public:
 	int								mPlayTimeActiveSession;
 	int								mPlayTimeInactiveSession;
 	BoardResult						mBoardResult;
+	int								mEndlessSlotId;   // 无尽模式当前运行的槽位，-1 = 非无尽/未选
 	int								mCricketPlantWins[SeedType::NUM_SEED_TYPES];
 	int								mCricketPlantLosses[SeedType::NUM_SEED_TYPES];
 	int								mCricketZombieWins[ZombieType::NUM_ZOMBIE_TYPES];

@@ -27,6 +27,7 @@
 #include "BoardInclude.h"
 #include "System/Music.h"
 #include "System/SaveGame.h"
+#include "System/EndlessSlot.h"
 #include "Widget/LawnDialog.h"
 #include "System/PlayerInfo.h"
 #include "System/PoolEffect.h"
@@ -376,7 +377,10 @@ int Board::CountUntriggerLawnMowers()
 
 void Board::TryToSaveGame()
 {
+	bool aIsEndless = IsEndlessGameMode(mApp->mGameMode) && mApp->mEndlessSlotId >= 0;
 	std::string aFileName = GetSavedGameName(mApp->mGameMode, mApp->mPlayerInfo->mId);
+	if (aIsEndless)
+		aFileName = GetEndlessSaveName(mApp->mGameMode, mApp->mPlayerInfo->mId, mApp->mEndlessSlotId);
 
 	if (NeedSaveGame())
 	{
@@ -388,7 +392,15 @@ void Board::TryToSaveGame()
 
 		MkDir(GetAppDataPath("userdata"));
 		mApp->mMusic->GameMusicPause(true);
-		LawnSaveGame(this, aFileName);
+		if (LawnSaveGame(this, aFileName))
+		{
+			if (aIsEndless)
+			{
+				int aFlags = mApp->IsSurvivalEndless(mApp->mGameMode) ? GetSurvivalFlagsCompleted() : 0;
+				int aStage = mChallenge ? mChallenge->mSurvivalStage : 0;
+				RefreshEndlessSlotMeta(mApp->mGameMode, mApp->mPlayerInfo->mId, mApp->mEndlessSlotId, aFlags, mCurrentWave, aStage);
+			}
+		}
 		mApp->ClearUpdateBacklog();
 		SurvivalSaveScore();
 	}

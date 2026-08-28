@@ -57,6 +57,8 @@
 #include "Lawn/Widget/AlmanacDialog.h"
 #include "Lawn/Widget/NewUserDialog.h"
 #include "Lawn/Widget/ContinueDialog.h"
+#include "Lawn/Widget/EndlessNameDialog.h"
+#include "Lawn/Widget/EndlessSlotDialog.h"
 #include "Lawn/System/EndlessSlot.h"
 #include "Lawn/System/ReanimationLawn.h"
 #include "Lawn/Widget/ChallengeScreen.h"
@@ -777,6 +779,109 @@ void LawnApp::DoContinueDialog()
 	ContinueDialog* aDialog = new ContinueDialog(this);
 	CenterDialog(aDialog, aDialog->mWidth, aDialog->mHeight);
 	AddDialog(Dialogs::DIALOG_CONTINUE, aDialog);
+}
+
+void LawnApp::DoEndlessNameDialog(const std::string& thePrefill, bool isRename)
+{
+	KillDialog(Dialogs::DIALOG_ENDLESSNAME);
+
+	EndlessNameDialog* aDialog = new EndlessNameDialog(this, thePrefill, isRename);
+	CenterDialog(aDialog, aDialog->mWidth, aDialog->mHeight);
+	AddDialog(Dialogs::DIALOG_ENDLESSNAME, aDialog);
+}
+
+void LawnApp::FinishEndlessNameDialog(bool isYes)
+{
+	EndlessNameDialog* aNameDialog = (EndlessNameDialog*)GetDialog(Dialogs::DIALOG_ENDLESSNAME);
+	if (aNameDialog == nullptr)
+		return;
+
+	if (!isYes)
+	{
+		KillDialog(Dialogs::DIALOG_ENDLESSNAME);
+		return;
+	}
+
+	std::string aName = aNameDialog->GetName();
+	if (aName.empty())
+		return;   // 名字为空：留在命名框里
+
+	KillDialog(Dialogs::DIALOG_ENDLESSNAME);
+
+	// 把名字交回给槽位对话框
+	EndlessSlotDialog* aSlotDialog = (EndlessSlotDialog*)GetDialog(Dialogs::DIALOG_ENDLESSSLOT);
+	if (aSlotDialog)
+		aSlotDialog->CommitName(aName);
+}
+
+void LawnApp::DoEndlessSlotDialog(GameMode theGameMode)
+{
+	KillDialog(Dialogs::DIALOG_ENDLESSSLOT);
+	MigrateLegacyEndlessSave(theGameMode, mPlayerInfo->mId);
+
+	EndlessSlotDialog* aDialog = new EndlessSlotDialog(this, theGameMode);
+	CenterDialog(aDialog, aDialog->mWidth, aDialog->mHeight);
+	AddDialog(Dialogs::DIALOG_ENDLESSSLOT, aDialog);
+}
+
+bool LawnApp::LoadEndlessSlot(GameMode theGameMode, int theSlot)
+{
+	mEndlessSlotId = theSlot;
+	mBoardResult = BoardResult::BOARDRESULT_NONE;   // 防 MakeNewBoard→KillBoard 误删刚选中的槽位
+	std::string aSaveName = GetEndlessSaveName(theGameMode, mPlayerInfo->mId, theSlot);
+	mMusic->StopAllMusic();
+	if (!FileExists(aSaveName))
+		return false;
+
+	KillChallengeScreen();
+	MakeNewBoard();
+	if (mBoard->LoadGame(aSaveName))
+	{
+		mFirstTimeGameSelector = false;
+		if (mBoard->mLevelAwardSpawned)
+			mBoardResult = BoardResult::BOARDRESULT_WON;
+		KillDialog(Dialogs::DIALOG_ENDLESSSLOT);
+		return true;
+	}
+
+	KillBoard();
+	mEndlessSlotId = -1;
+	return false;
+}
+
+void LawnApp::StartEndlessNewGame(GameMode theGameMode, int theSlot, const std::string& theName)
+{
+	mEndlessSlotId = theSlot;
+	mBoardResult = BoardResult::BOARDRESULT_NONE;   // 防 PreNewGame→NewGame→KillBoard 误删刚写的 .meta
+	KillDialog(Dialogs::DIALOG_ENDLESSSLOT);
+	KillChallengeScreen();
+
+	InitEndlessSlotMeta(theGameMode, mPlayerInfo->mId, theSlot, theName);
+	PreNewGame(theGameMode, false);
+}
+
+void LawnApp::DoConfirmDeleteEndlessSlot(int theSlot)
+{
+	(void)theSlot;
+	LawnDialog* aDialog = (LawnDialog*)DoDialog(
+		Dialogs::DIALOG_ENDLESSDELETE,
+		true,
+		"删除存档",
+		"确定要删除这个存档吗？此操作不可恢复。",
+		"[DIALOG_BUTTON_OK]",
+		Dialog::BUTTONS_OK_CANCEL);
+	aDialog->mLawnYesButton->mLabel = TodStringTranslate("[DIALOG_BUTTON_OK]");
+}
+
+void LawnApp::FinishConfirmDeleteEndlessSlot(bool isYes)
+{
+	KillDialog(Dialogs::DIALOG_ENDLESSDELETE);
+	if (!isYes)
+		return;
+
+	EndlessSlotDialog* aSlotDialog = (EndlessSlotDialog*)GetDialog(Dialogs::DIALOG_ENDLESSSLOT);
+	if (aSlotDialog)
+		aSlotDialog->DeleteSelectedSlot();
 }
 
 void LawnApp::DoPauseDialog()
@@ -2057,6 +2162,18 @@ void LawnApp::ButtonDepress(int theId)
 			FinishTimesUpDialog();
 			return;
 
+		case Dialogs::DIALOG_ENDLESSNAME:
+			FinishEndlessNameDialog(true);
+			return;
+
+		case Dialogs::DIALOG_ENDLESSSLOT:
+			KillDialog(Dialogs::DIALOG_ENDLESSSLOT);
+			return;
+
+		case Dialogs::DIALOG_ENDLESSDELETE:
+			FinishConfirmDeleteEndlessSlot(true);
+			return;
+
 		case 20008:
 			KillDialog(20008);
 			KillDialog(Dialogs::DIALOG_CHECKING_UPDATES);
@@ -2103,6 +2220,14 @@ void LawnApp::ButtonDepress(int theId)
 
 		case Dialogs::DIALOG_TIMESUP:
 			FinishTimesUpDialog();
+			return;
+
+		case Dialogs::DIALOG_ENDLESSNAME:
+			FinishEndlessNameDialog(false);
+			return;
+
+		case Dialogs::DIALOG_ENDLESSDELETE:
+			FinishConfirmDeleteEndlessSlot(false);
 			return;
 
 		case 10008:

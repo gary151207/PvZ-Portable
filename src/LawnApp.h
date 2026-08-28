@@ -208,6 +208,13 @@ public:
 	/*inline*/ bool					WriteCurrentUserConfig();
 	void							DoNeedRegisterDialog();
 	void							DoContinueDialog();
+	void							DoEndlessSlotDialog(GameMode theGameMode);
+	bool							LoadEndlessSlot(GameMode theGameMode, int theSlot);
+	void							StartEndlessNewGame(GameMode theGameMode, int theSlot, const std::string& theName);
+	void							DoEndlessNameDialog(const std::string& thePrefill, bool isRename);
+	void							FinishEndlessNameDialog(bool isYes);
+	void							DoConfirmDeleteEndlessSlot(int theSlot);
+	void							FinishConfirmDeleteEndlessSlot(bool isYes);
 	void							DoPauseDialog();
 	void							FinishModelessDialogs();
 	virtual Dialog*					DoDialog(int theDialogId, bool isModal, const std::string& theDialogHeader, const std::string& theDialogLines, const std::string& theDialogFooter, int theButtonMode);

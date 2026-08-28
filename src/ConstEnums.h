@@ -318,6 +318,9 @@ enum Dialogs : int32_t
     DIALOG_MESSAGE,                             // 48：通用消息对话，包括：①加载中（切换用户时触发）；②小游戏等模式未解锁；……
     DIALOG_IMITATER,                            // 49：模仿者对话
     DIALOG_PURCHASE_PACKET_SLOT,                // 50：升级卡槽的格子数量
+    DIALOG_ENDLESSSLOT,                         // 51：无尽模式存档槽选择
+    DIALOG_ENDLESSNAME,                         // 52：无尽模式存档命名
+    DIALOG_ENDLESSDELETE,                       // 53：无尽模式存档删除确认
     NUM_DIALOGS
 };
 enum DebugTextMode : int32_t

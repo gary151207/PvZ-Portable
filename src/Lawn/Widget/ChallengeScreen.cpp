@@ -704,8 +704,16 @@ void ChallengeScreen::ButtonDepress(int theId)
 	int aChallengeMode = theId - ChallengeScreen::ChallengeScreen_Mode;
 	if (aChallengeMode >= 0 && aChallengeMode < NUM_CHALLENGE_MODES)
 	{
-		mApp->KillChallengeScreen();
-		mApp->PreNewGame((GameMode)(aChallengeMode + 1), true);
+		GameMode aGameMode = (GameMode)(aChallengeMode + 1);
+		if (mApp->IsSurvivalEndless(aGameMode) || mApp->IsEndlessIZombie(aGameMode) || mApp->IsEndlessScaryPotter(aGameMode))
+		{
+			mApp->DoEndlessSlotDialog(aGameMode);
+		}
+		else
+		{
+			mApp->KillChallengeScreen();
+			mApp->PreNewGame(aGameMode, true);
+		}
 	}
 
 	int aPageIndex = theId - ChallengeScreen::ChallengeScreen_Page;

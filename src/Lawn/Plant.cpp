@@ -4705,10 +4705,22 @@ void Plant::DoSpecial()
     }
     case SeedType::SEED_INSTANT_COFFEE:
     {
-        Plant* aPlant = mBoard->GetTopPlantAt(mPlantCol, mRow, PlantPriority::TOPPLANT_ONLY_NORMAL_POSITION);
-        if (aPlant && aPlant->mIsAsleep)
+        // 唤醒目标格子里（除自身外）第一个睡眠中的植物。
+        // 不能用 GetTopPlantAt：同格子蘑菇+豆子都是普通植物，谁被遍历到取决于池索引顺序，
+        // 豆子常把自己当成目标导致蘑菇永不苏醒（豆子白费、蘑菇被吃）。
+        Plant* aSleepingPlant = nullptr;
+        Plant* aPlant = nullptr;
+        while (mBoard->IteratePlants(aPlant))
         {
-            aPlant->mWakeUpCounter = 100;
+            if (aPlant->mPlantCol == mPlantCol && aPlant->mRow == mRow && aPlant != this && aPlant->mIsAsleep)
+            {
+                aSleepingPlant = aPlant;
+                break;
+            }
+        }
+        if (aSleepingPlant)
+        {
+            aSleepingPlant->mWakeUpCounter = 100;
         }
 
         mState = PlantState::STATE_DOINGSPECIAL;

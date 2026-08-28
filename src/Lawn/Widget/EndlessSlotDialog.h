@@ -27,6 +27,7 @@
 
 class LawnApp;
 class NewLawnButton;
+class LawnStoneButton;
 
 namespace Sexy
 {
@@ -49,7 +50,7 @@ public:
 	ListWidget*			mSlotList;
 	NewLawnButton*		mStartButton;
 	NewLawnButton*		mRenameButton;
-	NewLawnButton*		mDeleteButton;
+	LawnStoneButton*	mDeleteButton;
 	int					mNamePendingSlot;      // 正在命名的槽位
 	bool				mNamePendingStartNew;  // true = 命名后开新局；false = 命名后仅改名
 	int					mPendingDeleteSlot;    // 等待确认删除的槽位

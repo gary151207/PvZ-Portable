@@ -200,6 +200,7 @@ public:
 	bool							mLevelComplete;
 	int32_t							mBoardFadeOutCounter;
 	int32_t							mNextSurvivalStageCounter;
+	int32_t							mAutoSaveCounter;   // 周期自动存档帧计数（约 30 秒一次）
 	int32_t							mScoreNextMowerCounter;
 	bool							mLevelAwardSpawned;
 	int32_t							mProgressMeterWidth;
@@ -302,6 +303,7 @@ public:
 	/*inline*/ void					Pause(bool thePause);
 	inline bool						MakeEasyZombieType() { /* 未发现 */return false; }
 	void							TryToSaveGame();
+	void							AutoSaveGame();
 	/*inline*/ bool					NeedSaveGame();
 	/*inline*/ bool					RowCanHaveZombies(int theRow);
 	void							ProcessDeleteQueue();

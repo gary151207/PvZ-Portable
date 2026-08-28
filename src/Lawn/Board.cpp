@@ -406,6 +406,33 @@ void Board::TryToSaveGame()
 	}
 }
 
+void Board::AutoSaveGame()
+{
+	// 周期自动存档：仅在正常对局中执行，避免结尾动画/暂停/选卡等时机误存
+	if (!NeedSaveGame() || mBoardFadeOutCounter > 0)
+		return;
+
+	bool aIsEndless = IsEndlessGameMode(mApp->mGameMode) && mApp->mEndlessSlotId >= 0;
+	std::string aFileName = GetSavedGameName(mApp->mGameMode, mApp->mPlayerInfo->mId);
+	if (aIsEndless)
+		aFileName = GetEndlessSaveName(mApp->mGameMode, mApp->mPlayerInfo->mId, mApp->mEndlessSlotId);
+
+	MkDir(GetAppDataPath("userdata"));
+	mApp->mMusic->GameMusicPause(true);
+	if (LawnSaveGame(this, aFileName))
+	{
+		if (aIsEndless)
+		{
+			int aFlags = mApp->IsSurvivalEndless(mApp->mGameMode) ? GetSurvivalFlagsCompleted() : 0;
+			int aStage = mChallenge ? mChallenge->mSurvivalStage : 0;
+			RefreshEndlessSlotMeta(mApp->mGameMode, mApp->mPlayerInfo->mId, mApp->mEndlessSlotId, aFlags, mCurrentWave, aStage);
+		}
+	}
+	mApp->mMusic->GameMusicPause(false);
+	mApp->ClearUpdateBacklog();
+	SurvivalSaveScore();
+}
+
 bool Board::NeedSaveGame()
 {
 	return 
@@ -1914,6 +1941,7 @@ void Board::RestartCricketMatch()
 	mLevelComplete = false;
 	mBoardFadeOutCounter = -1;
 	mNextSurvivalStageCounter = 0;
+	mAutoSaveCounter = 0;
 	mScoreNextMowerCounter = 0;
 	mMainCounter = 0;
 	mApp->mBoardResult = BoardResult::BOARDRESULT_NONE;
@@ -6334,6 +6362,14 @@ void Board::Update()
 		mCursorPreview->mVisible = false;
 		mCursorObject->mVisible = false;
 		return;
+	}
+
+	// 周期自动存档（约 30 秒一次），防止闪退丢失进度
+	mAutoSaveCounter++;
+	if (mAutoSaveCounter >= 1800)
+	{
+		mAutoSaveCounter = 0;
+		AutoSaveGame();
 	}
 
 	bool aDisabled = !CanInteractWithBoardButtons() || mIgnoreMouseUp;

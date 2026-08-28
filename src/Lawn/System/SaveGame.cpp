@@ -1362,7 +1362,7 @@ static void SyncDataArrayPortable(PortableSaveContext& theContext, DataArray<T>&
 	theContext.SyncUInt32(theDataArray.mNextKey);
 	uint32_t aMaxSize = theDataArray.mMaxSize;
 	theContext.SyncUInt32(aMaxSize);
-	if (theContext.mReading && aMaxSize != theDataArray.mMaxSize)
+	if (theContext.mReading && aMaxSize > theDataArray.mMaxSize)
 	{
 		theContext.mFailed = true;
 	}
@@ -1383,7 +1383,7 @@ static void SyncDataArrayIdsOnlyPortable(PortableSaveContext& theContext, DataAr
 	theContext.SyncUInt32(theDataArray.mNextKey);
 	uint32_t aMaxSize = theDataArray.mMaxSize;
 	theContext.SyncUInt32(aMaxSize);
-	if (theContext.mReading && aMaxSize != theDataArray.mMaxSize)
+	if (theContext.mReading && aMaxSize > theDataArray.mMaxSize)
 	{
 		theContext.mFailed = true;
 	}
@@ -1403,7 +1403,7 @@ static void SyncDataArrayPortableTLV(PortableSaveContext& theContext, DataArray<
 	theContext.SyncUInt32(theDataArray.mNextKey);
 	uint32_t aMaxSize = theDataArray.mMaxSize;
 	theContext.SyncUInt32(aMaxSize);
-	if (theContext.mReading && aMaxSize != theDataArray.mMaxSize)
+	if (theContext.mReading && aMaxSize > theDataArray.mMaxSize)
 	{
 		theContext.mFailed = true;
 	}

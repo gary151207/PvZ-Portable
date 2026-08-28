@@ -831,6 +831,7 @@ void LawnApp::DoEndlessSlotDialog(GameMode theGameMode)
 bool LawnApp::LoadEndlessSlot(GameMode theGameMode, int theSlot)
 {
 	mEndlessSlotId = theSlot;
+	mGameMode = theGameMode;   // 存档不保存 mGameMode，必须在这里设置，否则后续逻辑按上一个模式运行
 	mBoardResult = BoardResult::BOARDRESULT_NONE;   // 防 MakeNewBoard→KillBoard 误删刚选中的槽位
 	std::string aSaveName = GetEndlessSaveName(theGameMode, mPlayerInfo->mId, theSlot);
 	mMusic->StopAllMusic();

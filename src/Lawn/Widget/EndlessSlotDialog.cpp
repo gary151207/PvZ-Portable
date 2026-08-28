@@ -82,12 +82,13 @@ void EndlessSlotDialog::Resize(int theX, int theY, int theWidth, int theHeight)
 {
 	LawnDialog::Resize(theX, theY, theWidth, theHeight);
 	mSlotList->Resize(GetLeft() + 30, GetTop() + 4, GetWidth() - 60, 190);
-	// 三个石质按钮堆叠在 footer（mLawnYesButton）上方，居中
-	int aBtnX = mLawnYesButton->mX + (mLawnYesButton->mWidth - 160) / 2;
+	// 三个石质按钮与 footer（mLawnYesButton）同宽同 X，堆叠在其上方
+	int aBtnX = mLawnYesButton->mX;
+	int aBtnWidth = mLawnYesButton->mWidth;
 	int aStartY = mLawnYesButton->mY - 33 * 3 - 8;
-	mStartButton->Resize(aBtnX, aStartY, 160, 33);
-	mRenameButton->Resize(aBtnX, aStartY + 33 + 4, 160, 33);
-	mDeleteButton->Resize(aBtnX, aStartY + (33 + 4) * 2, 160, 33);
+	mStartButton->Resize(aBtnX, aStartY, aBtnWidth, 33);
+	mRenameButton->Resize(aBtnX, aStartY + 33 + 4, aBtnWidth, 33);
+	mDeleteButton->Resize(aBtnX, aStartY + (33 + 4) * 2, aBtnWidth, 33);
 }
 
 int EndlessSlotDialog::GetPreferredHeight(int theWidth)

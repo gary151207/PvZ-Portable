@@ -387,16 +387,25 @@ git commit -m "feat(endless-save): add EndlessSlot storage module (meta read/wri
 	EraseFile(aLegacyFileName);
 ```
 
-改为：
+改为（注意：非无尽模式进新局时清掉残留的 `mEndlessSlotId`，防止上一个无尽局的槽位号泄漏到后续流程）：
 
 ```cpp
+	mGameMode = theGameMode;
+	if (!IsEndlessGameMode(mGameMode))
+		mEndlessSlotId = -1;   // 非无尽模式：清掉残留槽位
+	if (theLookForSavedGame && TryLoadGame())
+		return;
+
 	std::string aFileName = GetSavedGameName(mGameMode, mPlayerInfo->mId);
 	if (IsEndlessGameMode(mGameMode) && mEndlessSlotId >= 0)
 		aFileName = GetEndlessSaveName(mGameMode, mPlayerInfo->mId, mEndlessSlotId);
 	EraseFile(aFileName);
 	std::string aLegacyFileName = GetLegacySavedGameName(mGameMode, mPlayerInfo->mId);
 	EraseFile(aLegacyFileName);
+	NewGame();
 ```
+
+> 说明：`PreNewGame` 的原文开头是 `mGameMode = theGameMode;` 一行，上面整段替换的是它的完整函数体（`//if (NeedRegister())` 注释块保留不动）。
 
 - [ ] **Step 6: `Board::TryToSaveGame` 路由 + 写元数据**
 
@@ -858,7 +867,7 @@ EndlessSlotDialog::EndlessSlotDialog(LawnApp* theApp, GameMode theGameMode) : La
 	mDeleteButton = MakeButton(EndlessSlotDialog_Delete, this, "删除");
 
 	mTallBottom = true;
-	CalcSize(210, 190);
+	CalcSize(210, 260);
 	RefreshList();
 	UpdateButtons();
 }
@@ -875,9 +884,10 @@ void EndlessSlotDialog::Resize(int theX, int theY, int theWidth, int theHeight)
 {
 	LawnDialog::Resize(theX, theY, theWidth, theHeight);
 	mSlotList->Resize(GetLeft() + 30, GetTop() + 4, GetWidth() - 60, 190);
+	// BUTTONS_FOOTER 下 mLawnNoButton 为 nullptr，三个自定义按钮全部堆叠在 mLawnYesButton 上方
 	mStartButton->Layout(LayoutFlags::LAY_SameLeft | LayoutFlags::LAY_Above | LayoutFlags::LAY_SameHeight | LayoutFlags::LAY_SameWidth, mLawnYesButton, 0, 0, 0, 0);
-	mRenameButton->Layout(LayoutFlags::LAY_SameLeft | LayoutFlags::LAY_Above | LayoutFlags::LAY_SameHeight | LayoutFlags::LAY_SameWidth, mLawnNoButton, 0, 0, 0, 0);
-	mDeleteButton->Layout(LayoutFlags::LAY_SameLeft | LayoutFlags::LAY_Above | LayoutFlags::LAY_SameHeight | LayoutFlags::LAY_SameWidth, mLawnNoButton, 0, -30, 0, 0);
+	mRenameButton->Layout(LayoutFlags::LAY_SameLeft | LayoutFlags::LAY_Above | LayoutFlags::LAY_SameHeight | LayoutFlags::LAY_SameWidth, mStartButton, 0, -4, 0, 0);
+	mDeleteButton->Layout(LayoutFlags::LAY_SameLeft | LayoutFlags::LAY_Above | LayoutFlags::LAY_SameHeight | LayoutFlags::LAY_SameWidth, mRenameButton, 0, -4, 0, 0);
 }
 
 int EndlessSlotDialog::GetPreferredHeight(int theWidth)
@@ -1090,6 +1100,7 @@ void LawnApp::DoEndlessSlotDialog(GameMode theGameMode)
 bool LawnApp::LoadEndlessSlot(GameMode theGameMode, int theSlot)
 {
 	mEndlessSlotId = theSlot;
+	mBoardResult = BoardResult::BOARDRESULT_NONE;   // 防 MakeNewBoard→KillBoard 误删刚选中的槽位
 	std::string aSaveName = GetEndlessSaveName(theGameMode, mPlayerInfo->mId, theSlot);
 	mMusic->StopAllMusic();
 	if (!FileExists(aSaveName))
@@ -1114,6 +1125,7 @@ bool LawnApp::LoadEndlessSlot(GameMode theGameMode, int theSlot)
 void LawnApp::StartEndlessNewGame(GameMode theGameMode, int theSlot, const std::string& theName)
 {
 	mEndlessSlotId = theSlot;
+	mBoardResult = BoardResult::BOARDRESULT_NONE;   // 防 PreNewGame→NewGame→KillBoard 误删刚写的 .meta
 	KillDialog(Dialogs::DIALOG_ENDLESSSLOT);
 	KillChallengeScreen();
 

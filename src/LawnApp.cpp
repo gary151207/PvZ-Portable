@@ -458,7 +458,11 @@ void LawnApp::PreNewGame(GameMode theGameMode, bool theLookForSavedGame)
 
 	std::string aFileName = GetSavedGameName(mGameMode, mPlayerInfo->mId);
 	if (IsEndlessGameMode(mGameMode) && mEndlessSlotId >= 0)
+	{
 		aFileName = GetEndlessSaveName(mGameMode, mPlayerInfo->mId, mEndlessSlotId);
+		// 同槽重开（RESTART/CHEAT/新局）：进度归零，保留名字
+		RefreshEndlessSlotMeta(mGameMode, mPlayerInfo->mId, mEndlessSlotId, 0, 0, 0);
+	}
 	EraseFile(aFileName);
 	std::string aLegacyFileName = GetLegacySavedGameName(mGameMode, mPlayerInfo->mId);
 	EraseFile(aLegacyFileName);

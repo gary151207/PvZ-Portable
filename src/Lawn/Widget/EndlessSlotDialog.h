@@ -26,7 +26,6 @@
 #include "widget/ListListener.h"
 
 class LawnApp;
-class NewLawnButton;
 class LawnStoneButton;
 
 namespace Sexy
@@ -48,8 +47,8 @@ public:
 	LawnApp*			mApp;
 	GameMode			mGameMode;
 	ListWidget*			mSlotList;
-	NewLawnButton*		mStartButton;
-	NewLawnButton*		mRenameButton;
+	LawnStoneButton*	mStartButton;
+	LawnStoneButton*	mRenameButton;
 	LawnStoneButton*	mDeleteButton;
 	int					mNamePendingSlot;      // 正在命名的槽位
 	bool				mNamePendingStartNew;  // true = 命名后开新局；false = 命名后仅改名

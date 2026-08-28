@@ -60,19 +60,9 @@ EndlessSlotDialog::EndlessSlotDialog(LawnApp* theApp, GameMode theGameMode) : La
 	mSlotList->mJustify = ListWidget::JUSTIFY_LEFT;
 	mSlotList->mItemHeight = 30;
 
-	mStartButton = MakeNewButton(EndlessSlotDialog_Start, this, "开始/继续", Sexy::FONT_BRIANNETOD16, Sexy::IMAGE_SEEDCHOOSER_BUTTON2,
-		Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW, Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW);
-	mRenameButton = MakeNewButton(EndlessSlotDialog_Rename, this, "改名", Sexy::FONT_BRIANNETOD16, Sexy::IMAGE_SEEDCHOOSER_BUTTON2,
-		Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW, Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW);
-	mDeleteButton = MakeButton(EndlessSlotDialog_Delete, this, "Delete");   // 石质按钮：英文文字
-	mStartButton->mTextDownOffsetX = 1;
-	mStartButton->mTextDownOffsetY = 1;
-	mRenameButton->mTextDownOffsetX = 1;
-	mRenameButton->mTextDownOffsetY = 1;
-	mStartButton->mColors[ButtonWidget::COLOR_LABEL] = Color(42, 42, 90);
-	mStartButton->mColors[ButtonWidget::COLOR_LABEL_HILITE] = Color(42, 42, 90);
-	mRenameButton->mColors[ButtonWidget::COLOR_LABEL] = Color(42, 42, 90);
-	mRenameButton->mColors[ButtonWidget::COLOR_LABEL_HILITE] = Color(42, 42, 90);
+	mStartButton = MakeButton(EndlessSlotDialog_Start, this, "Start");
+	mRenameButton = MakeButton(EndlessSlotDialog_Rename, this, "Rename");
+	mDeleteButton = MakeButton(EndlessSlotDialog_Delete, this, "Delete");
 
 	mTallBottom = true;
 	CalcSize(210, 260);
@@ -92,14 +82,12 @@ void EndlessSlotDialog::Resize(int theX, int theY, int theWidth, int theHeight)
 {
 	LawnDialog::Resize(theX, theY, theWidth, theHeight);
 	mSlotList->Resize(GetLeft() + 30, GetTop() + 4, GetWidth() - 60, 190);
-	// 三个自定义按钮堆叠在 footer（mLawnYesButton）上方，居中；删除用石质按钮（33 高）
+	// 三个石质按钮堆叠在 footer（mLawnYesButton）上方，居中
 	int aBtnX = mLawnYesButton->mX + (mLawnYesButton->mWidth - 160) / 2;
-	int aDeleteY = mLawnYesButton->mY - 33 - 4;
-	mDeleteButton->Resize(aBtnX, aDeleteY, 160, 33);
-	int aRenameY = aDeleteY - 26 - 4;
-	mRenameButton->Resize(aBtnX, aRenameY, 160, 26);
-	int aStartY = aRenameY - 26 - 4;
-	mStartButton->Resize(aBtnX, aStartY, 160, 26);
+	int aStartY = mLawnYesButton->mY - 33 * 3 - 8;
+	mStartButton->Resize(aBtnX, aStartY, 160, 33);
+	mRenameButton->Resize(aBtnX, aStartY + 33 + 4, 160, 33);
+	mDeleteButton->Resize(aBtnX, aStartY + (33 + 4) * 2, 160, 33);
 }
 
 int EndlessSlotDialog::GetPreferredHeight(int theWidth)

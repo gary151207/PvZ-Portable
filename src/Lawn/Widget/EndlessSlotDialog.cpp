@@ -60,9 +60,24 @@ EndlessSlotDialog::EndlessSlotDialog(LawnApp* theApp, GameMode theGameMode) : La
 	mSlotList->mJustify = ListWidget::JUSTIFY_LEFT;
 	mSlotList->mItemHeight = 30;
 
-	mStartButton = MakeButton(EndlessSlotDialog_Start, this, "开始/继续");
-	mRenameButton = MakeButton(EndlessSlotDialog_Rename, this, "改名");
-	mDeleteButton = MakeButton(EndlessSlotDialog_Delete, this, "删除");
+	mStartButton = MakeNewButton(EndlessSlotDialog_Start, this, "开始/继续", Sexy::FONT_BRIANNETOD16, Sexy::IMAGE_SEEDCHOOSER_BUTTON2,
+		Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW, Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW);
+	mRenameButton = MakeNewButton(EndlessSlotDialog_Rename, this, "改名", Sexy::FONT_BRIANNETOD16, Sexy::IMAGE_SEEDCHOOSER_BUTTON2,
+		Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW, Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW);
+	mDeleteButton = MakeNewButton(EndlessSlotDialog_Delete, this, "删除", Sexy::FONT_BRIANNETOD16, Sexy::IMAGE_SEEDCHOOSER_BUTTON2,
+		Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW, Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW);
+	mStartButton->mTextDownOffsetX = 1;
+	mStartButton->mTextDownOffsetY = 1;
+	mRenameButton->mTextDownOffsetX = 1;
+	mRenameButton->mTextDownOffsetY = 1;
+	mDeleteButton->mTextDownOffsetX = 1;
+	mDeleteButton->mTextDownOffsetY = 1;
+	mStartButton->mColors[ButtonWidget::COLOR_LABEL] = Color(42, 42, 90);
+	mStartButton->mColors[ButtonWidget::COLOR_LABEL_HILITE] = Color(42, 42, 90);
+	mRenameButton->mColors[ButtonWidget::COLOR_LABEL] = Color(42, 42, 90);
+	mRenameButton->mColors[ButtonWidget::COLOR_LABEL_HILITE] = Color(42, 42, 90);
+	mDeleteButton->mColors[ButtonWidget::COLOR_LABEL] = Color(42, 42, 90);
+	mDeleteButton->mColors[ButtonWidget::COLOR_LABEL_HILITE] = Color(42, 42, 90);
 
 	mTallBottom = true;
 	CalcSize(210, 260);
@@ -82,10 +97,14 @@ void EndlessSlotDialog::Resize(int theX, int theY, int theWidth, int theHeight)
 {
 	LawnDialog::Resize(theX, theY, theWidth, theHeight);
 	mSlotList->Resize(GetLeft() + 30, GetTop() + 4, GetWidth() - 60, 190);
-	// BUTTONS_FOOTER 下 mLawnNoButton 为 nullptr，三个自定义按钮全部堆叠在 mLawnYesButton 上方
-	mStartButton->Layout(LayoutFlags::LAY_SameLeft | LayoutFlags::LAY_Above | LayoutFlags::LAY_SameHeight | LayoutFlags::LAY_SameWidth, mLawnYesButton, 0, 0, 0, 0);
-	mRenameButton->Layout(LayoutFlags::LAY_SameLeft | LayoutFlags::LAY_Above | LayoutFlags::LAY_SameHeight | LayoutFlags::LAY_SameWidth, mStartButton, 0, -4, 0, 0);
-	mDeleteButton->Layout(LayoutFlags::LAY_SameLeft | LayoutFlags::LAY_Above | LayoutFlags::LAY_SameHeight | LayoutFlags::LAY_SameWidth, mRenameButton, 0, -4, 0, 0);
+	// 三个自定义按钮堆叠在 footer（mLawnYesButton）上方，居中
+	int aBtnWidth = 160;
+	int aBtnHeight = 26;
+	int aBtnX = mLawnYesButton->mX + (mLawnYesButton->mWidth - aBtnWidth) / 2;
+	int aBtnY = mLawnYesButton->mY - aBtnHeight * 3 - 8;
+	mStartButton->Resize(aBtnX, aBtnY, aBtnWidth, aBtnHeight);
+	mRenameButton->Resize(aBtnX, aBtnY + aBtnHeight + 4, aBtnWidth, aBtnHeight);
+	mDeleteButton->Resize(aBtnX, aBtnY + (aBtnHeight + 4) * 2, aBtnWidth, aBtnHeight);
 }
 
 int EndlessSlotDialog::GetPreferredHeight(int theWidth)

@@ -26,11 +26,11 @@
 #include "widget/ListListener.h"
 
 class LawnApp;
+class NewLawnButton;
 
 namespace Sexy
 {
 	class ListWidget;
-	class DialogButton;
 };
 
 class EndlessSlotDialog : public LawnDialog, public ListListener
@@ -47,9 +47,9 @@ public:
 	LawnApp*			mApp;
 	GameMode			mGameMode;
 	ListWidget*			mSlotList;
-	DialogButton*		mStartButton;
-	DialogButton*		mRenameButton;
-	DialogButton*		mDeleteButton;
+	NewLawnButton*		mStartButton;
+	NewLawnButton*		mRenameButton;
+	NewLawnButton*		mDeleteButton;
 	int					mNamePendingSlot;      // 正在命名的槽位
 	bool				mNamePendingStartNew;  // true = 命名后开新局；false = 命名后仅改名
 	int					mPendingDeleteSlot;    // 等待确认删除的槽位

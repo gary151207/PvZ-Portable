@@ -2610,17 +2610,28 @@ void Zombie::UpdateZombieGatlingHead()
                 float aAngle = RandRangeFloat(-SCATTER_ANGLE, SCATTER_ANGLE);
                 float aAngleRad = aAngle * 0.017453292f;
 
-                Projectile* aScatterPea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
-                aScatterPea->mMotionType = ProjectileMotion::MOTION_STAR;
-                aScatterPea->mVelX = -PEA_SPEED * cos(aAngleRad);  // 向后（朝植物方向）
-                aScatterPea->mVelY = PEA_SPEED * sin(aAngleRad);
+                if (mMindControlled)  // 魅惑修复：发射友方豌豆向右打僵尸
+                {
+                    aOriginX += 90.0f * mScaleZombie;
+                    Projectile* aScatterPea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_PEA);
+                    aScatterPea->mMotionType = ProjectileMotion::MOTION_STAR;
+                    aScatterPea->mVelX = PEA_SPEED * cos(aAngleRad);  // 向右（朝僵尸方向）
+                    aScatterPea->mVelY = PEA_SPEED * sin(aAngleRad);
+                    aScatterPea->mDamageRangeFlags = 1;
+                }
+                else
+                {
+                    Projectile* aScatterPea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
+                    aScatterPea->mMotionType = ProjectileMotion::MOTION_STAR;
+                    aScatterPea->mVelX = -PEA_SPEED * cos(aAngleRad);  // 向后（朝植物方向）
+                    aScatterPea->mVelY = PEA_SPEED * sin(aAngleRad);
+                }
             }
         }
         else
         {
             mApp->PlayFoley(FoleyType::FOLEY_THROW);
 
-#ifdef DO_FIX_BUGS
             if (mMindControlled)  // 魅惑修复
             {
                 aOriginX += 90.0f * mScaleZombie;
@@ -2632,10 +2643,6 @@ void Zombie::UpdateZombieGatlingHead()
                 Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
                 aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
             }
-#else
-            Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, ProjectileType::PROJECTILE_ZOMBIE_PEA);
-            aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
-#endif
 
             // 每发射一颗主子弹，50% 概率将散射概率提高 1%；每轮开始判定开大
             if (Rand(100) < 50 && mGatlingScatterChance < 100)

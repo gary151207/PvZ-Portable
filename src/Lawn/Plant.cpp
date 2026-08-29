@@ -117,6 +117,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mAnimPing = true;
     mFrame = 0;
     mShootingCounter = 0;
+    mTorchwoodPeaCount = 0;
     mShakeOffsetX = 0.0f;
     mShakeOffsetY = 0.0f;
     mFrameLength = RandRangeInt(12, 18);

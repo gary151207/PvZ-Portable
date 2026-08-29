@@ -184,6 +184,7 @@ public:
     int32_t                 mDoSpecialCountdown;
     int32_t                 mStateCountdown;
     int32_t                 mLaunchCounter;
+    int32_t                 mTorchwoodPeaCount;   // 火炬树桩已影响的子弹计数（仅火炬使用）
     int32_t                 mLaunchRate;
     Rect                    mPlantRect;
     Rect                    mPlantAttackRect;

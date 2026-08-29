@@ -919,6 +919,7 @@ static void SyncPlantTailPortable(PortableSaveContext& theContext, Plant& thePla
 	theContext.SyncBool(thePlant.mIsAsleep);
 	theContext.SyncBool(thePlant.mIsOnBoard);
 	theContext.SyncBool(thePlant.mHighlighted);
+	theContext.SyncInt32(thePlant.mTorchwoodPeaCount);
 }
 
 static void SyncProjectileTailPortable(PortableSaveContext& theContext, Projectile& theProjectile)

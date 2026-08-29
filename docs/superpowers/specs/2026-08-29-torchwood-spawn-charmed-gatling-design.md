@@ -5,7 +5,7 @@
 
 ## 目标
 
-给火炬树桩（Torchwood）添加一个被动技能：**每个火炬树桩每影响 100 颗子弹，就在它自己的格子上生成一只被魅惑的机枪头僵尸（ZOMBIE_GATLING_HEAD）**，该僵尸为友军，向左走并攻击敌方僵尸，效果与魅惑菇（Hypno-shroom）魅惑的僵尸完全一致。
+给火炬树桩（Torchwood）添加一个被动技能：**每个火炬树桩每影响 100 颗子弹，就在它自己的格子上生成一只被魅惑的机枪头僵尸（ZOMBIE_GATLING_HEAD）**，该僵尸为友军，向右走（回头迎战）并攻击敌方僵尸，效果与魅惑菇（Hypno-shroom）魅惑的僵尸完全一致。
 
 ## 术语
 
@@ -16,7 +16,7 @@
 
 - `Plant::UpdateTorchwood()`（`src/Lawn/Plant.cpp`）每帧遍历弹道，把与攻击判定框重叠 ≥10 像素的豌豆/冰豌豆转换为火球/豌豆，分别调用 `Projectile::ConvertToFireball(mPlantCol)` / `ConvertToPea(mPlantCol)`。
 - `ConvertToFireball`/`ConvertToPea` 内部有去重保护：`if (mHitTorchwoodGridX == theGridX) return;`，保证每颗子弹对每个火炬只转换一次。这天然可作为"已计数"标志。
-- 魅惑参考实现：`Zombie::StartMindControlled()`（`src/Lawn/Zombie.cpp:7170`）设置 `mMindControlled = true` 并播放 `SOUND_MINDCONTROLLED`；魅惑菇路径（`Zombie.cpp:4964`）额外添加 `PARTICLE_MIND_CONTROL` 粒子、`mVelX = 0.17f`、`mAnimTicksPerFrame = 18` + `UpdateAnimSpeed()`，僵尸向左行走并攻击僵尸。
+- 魅惑参考实现：`Zombie::StartMindControlled()`（`src/Lawn/Zombie.cpp:7170`）设置 `mMindControlled = true` 并播放 `SOUND_MINDCONTROLLED`；魅惑菇路径（`Zombie.cpp:4964`）额外添加 `PARTICLE_MIND_CONTROL` 粒子、`mVelX = 0.17f`、`mAnimTicksPerFrame = 18` + `UpdateAnimSpeed()`，僵尸向右行走（`IsWalkingBackwards()` 因 `mMindControlled` 返回 true → `mPosX += aSpeed`）并攻击僵尸。
 - 存档：植物序列化为 TLV 字段（`SyncPlantsPortable`），尾部字段 `SyncPlantTailPortable`（`src/Lawn/System/SaveGame.cpp`）为位置式同步。读旧存档时尾部字段若短于新格式，`SyncInt32` 抛 `DataReaderException` → 字段归零、`mFailed=true`，但调用方忽略返回值 → **旧存档可正常读取，计数器归零，不报错**（已验证 `SyncDataArrayPortableTLV` 的读取循环）。因此把新字段追加到尾部字段末尾即可向后兼容。
 
 ## 设计
@@ -99,7 +99,7 @@ void Plant::SpawnCharmedGatlingZombie()
 1. **基本功能**：冒险模式，种 1 个火炬树桩 + 1 个机枪射手，让豌豆穿过火炬。数到 100 发后：
    - 火炬格子上出现一只机枪头僵尸；
    - 播放魅惑音效、绿色旋涡粒子；
-   - 僵尸向左走并攻击敌方僵尸；
+   - 僵尸向右走并攻击敌方僵尸；
    - 计数器归零，继续攒下一个 100。
 2. **冰豌豆计数**：换冰豌豆射手（或冰冻生菜+火炬组合），确认冰豌豆穿过火炬也计数（设计 B）。
 3. **多火炬独立计数**：同行种 2 个火炬，确认各自独立计数、各自在自身格子生成。

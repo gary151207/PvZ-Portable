@@ -1445,6 +1445,7 @@ void Plant::UpdateTorchwood()
             Rect aProjectileRect = aProjectile->GetProjectileRect();
             if (GetRectOverlap(aAttackRect, aProjectileRect) >= 10)
             {
+                bool aAlreadyCounted = (aProjectile->mHitTorchwoodGridX == mPlantCol);
                 if (aProjectile->mProjectileType == ProjectileType::PROJECTILE_PEA)
                 {
                     aProjectile->ConvertToFireball(mPlantCol);
@@ -1453,9 +1454,34 @@ void Plant::UpdateTorchwood()
                 {
                     aProjectile->ConvertToPea(mPlantCol);
                 }
+                if (!aAlreadyCounted)  // 每颗子弹每个火炬只计一次（与 Convert 内部去重一致）
+                {
+                    mTorchwoodPeaCount++;
+                    if (mTorchwoodPeaCount >= 100)
+                    {
+                        SpawnCharmedGatlingZombie();
+                    }
+                }
             }
         }
     }
+}
+
+void Plant::SpawnCharmedGatlingZombie()
+{
+    Zombie* aZombie = mBoard->AddZombieInRow(ZombieType::ZOMBIE_GATLING_HEAD, mRow, Zombie::ZOMBIE_WAVE_DEBUG);
+    if (aZombie == nullptr)  // 僵尸数组已满：不归零，攒到下一个 100 再试
+        return;
+
+    mTorchwoodPeaCount = 0;
+    aZombie->mPosX = mBoard->GridToPixelX(mPlantCol, mRow);  // 摆到火炬所在格子
+
+    // 以下复刻魅惑菇路径（src/Lawn/Zombie.cpp:4964）
+    aZombie->StartMindControlled();  // 魅惑：mMindControlled = true + SOUND_MINDCONTROLLED
+    mApp->AddTodParticle(aZombie->mPosX + 60.0f, aZombie->mPosY + 40.0f, aZombie->mRenderOrder + 1, ParticleEffect::PARTICLE_MIND_CONTROL);
+    aZombie->mVelX = 0.17f;
+    aZombie->mAnimTicksPerFrame = 18;
+    aZombie->UpdateAnimSpeed();
 }
 
 void Plant::DoSquashDamage()

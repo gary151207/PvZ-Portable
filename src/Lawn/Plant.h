@@ -277,6 +277,7 @@ public:
     void                    KillAllPlantsNearDoom();
     bool                    IsOnHighGround();
     void                    UpdateTorchwood();
+    void                    SpawnCharmedGatlingZombie();
     void                    LaunchStarFruit();
     bool                    FindStarFruitTarget();
     void                    UpdateChomper();

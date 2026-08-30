@@ -145,6 +145,7 @@ public:
     int32_t                         mButteredCounter;
     int32_t                         mIceTrapCounter;
     bool                            mMindControlled;
+    bool                            mTorchwoodSummoned;   // 火炬树桩召唤的魅惑僵尸（死亡时不爆炸）
     bool                            mBlowingAway;
     bool                            mHasHead;
     bool                            mHasArm;

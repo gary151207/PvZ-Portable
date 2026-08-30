@@ -130,6 +130,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mIceTrapCounter = 0;
     mButteredCounter = 0;
     mMindControlled = false;
+    mTorchwoodSummoned = false;
     mBlowingAway = false;
     mHasHead = true;
     mHasArm = true;
@@ -7684,8 +7685,8 @@ void Zombie::DieNoLoot()
         BossDie();
     }
 
-    // 魅惑僵尸死亡时释放樱桃炸弹效果
-    if (mMindControlled && mBoard)
+    // 魅惑僵尸死亡时释放樱桃炸弹效果（火炬召唤的除外）
+    if (mMindControlled && !mTorchwoodSummoned && mBoard)
     {
         static bool sCherryInProgress = false;
         if (!sCherryInProgress)

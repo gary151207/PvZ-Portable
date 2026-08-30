@@ -1478,6 +1478,7 @@ void Plant::SpawnCharmedGatlingZombie()
 
     // 以下复刻魅惑菇路径（src/Lawn/Zombie.cpp:4964）
     aZombie->StartMindControlled();  // 魅惑：mMindControlled = true + SOUND_MINDCONTROLLED
+    aZombie->mTorchwoodSummoned = true;  // 火炬召唤的魅惑僵尸死亡时不爆炸
     mApp->AddTodParticle(aZombie->mPosX + 60.0f, aZombie->mPosY + 40.0f, aZombie->mRenderOrder + 1, ParticleEffect::PARTICLE_MIND_CONTROL);
     aZombie->mVelX = 0.17f;
     aZombie->mAnimTicksPerFrame = 18;

@@ -819,7 +819,7 @@ enum ProjectileType : int32_t
     PROJECTILE_COBBIG = 11,  // 玉米加农炮
     PROJECTILE_BUTTER = 12,  // 黄油
     PROJECTILE_ZOMBIE_PEA = 13,  // 僵尸豌豆
-    PROJECTILE_FIREPEA_RED = 14,  // 红色火豌豆（机枪射手 1% 概率，灼烧穿刺）
+    PROJECTILE_FIREPEA_RED = 14,  // 白色灼烧豌豆（机枪射手 3% 概率，灼烧穿刺）
     NUM_PROJECTILES = 15
 };
 enum ReanimationType : uint32_t {

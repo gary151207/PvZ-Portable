@@ -4898,10 +4898,10 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectileType = ProjectileType::PROJECTILE_BUTTER;
     }
 
-    // 红火豌豆掷骰：机枪射手每颗子弹独立 1% 判定（散射模式的每颗在循环内另行掷骰）
+    // 白色灼烧豌豆掷骰：机枪射手每颗子弹独立 3% 判定（散射模式的每颗在循环内另行掷骰）
     auto RollGatlingBulletType = [this](ProjectileType theBaseType) -> ProjectileType
     {
-        if (mSeedType == SeedType::SEED_GATLINGPEA && Rand(100) < 1)
+        if (mSeedType == SeedType::SEED_GATLINGPEA && Rand(100) < 3)
             return ProjectileType::PROJECTILE_FIREPEA_RED;
         return theBaseType;
     };
@@ -4910,7 +4910,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     if (mSeedType != SeedType::SEED_GATLINGPEA || mGatlingScatterCountdown == 0)
     {
         aMainBulletType = RollGatlingBulletType(aProjectileType);
-        mApp->PlayFoley(aMainBulletType == ProjectileType::PROJECTILE_FIREPEA_RED ? FoleyType::FOLEY_FIREPEA : FoleyType::FOLEY_THROW);
+        mApp->PlayFoley(FoleyType::FOLEY_THROW);
     }
     if (mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_WINTERMELON)
     {
@@ -5061,10 +5061,6 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
             float aAngleRad = DEG_TO_RAD(aAngle);
 
             ProjectileType aScatterType = RollGatlingBulletType(aProjectileType);
-            if (aScatterType == ProjectileType::PROJECTILE_FIREPEA_RED)
-            {
-                mApp->PlayFoley(FoleyType::FOLEY_FIREPEA);
-            }
             Projectile* aScatterPea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aScatterType);
             aScatterPea->mMotionType = ProjectileMotion::MOTION_STAR;
             aScatterPea->mVelX = PEA_SPEED * cos(aAngleRad);

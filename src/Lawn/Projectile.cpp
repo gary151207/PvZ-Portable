@@ -130,12 +130,6 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		AttachParticle(mAttachmentID, aParticle, 8.0f, 13.0f);
 		break;
 	}
-	case ProjectileType::PROJECTILE_FIREPEA_RED:
-	{
-		TodParticleSystem* aParticle = mApp->AddTodParticle(mPosX + 8.0f, mPosY + 13.0f, 400000, ParticleEffect::PARTICLE_FIREBALL_TRAIL);
-		AttachParticle(mAttachmentID, aParticle, 8.0f, 13.0f);
-		break;
-	}
 	case ProjectileType::PROJECTILE_FIREBALL:
 		TOD_ASSERT(false);
 		break;
@@ -1256,12 +1250,12 @@ void Projectile::Draw(Graphics* g)
 		Rect aSrcRect(aCelWidth * mFrame, aCelHeight * aProjectileDef.mImageRow, aCelWidth, aCelHeight);
 		if (mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 		{
-			// 红色火豌豆：红色乘色绘制，保留豌豆明暗轮廓
+			// 白色豌豆：白色乘色（无染色），外观与普通豌豆一致，仅行为不同（灼烧穿刺）
 			float aOffsetX = mPosX + aCelWidth * 0.5f;
 			float aOffsetY = mPosZ + mPosY + aCelHeight * 0.5f;
 			SexyTransform2D aTransform;
 			TodScaleRotateTransformMatrix(aTransform, aOffsetX + mBoard->mX, aOffsetY + mBoard->mY, mRotation, aScale, aScale);
-			TodBltMatrix(g, aImage, aTransform, g->mClipRect, Color(255, 96, 96), g->mDrawMode, aSrcRect);
+			TodBltMatrix(g, aImage, aTransform, g->mClipRect, Color::White, g->mDrawMode, aSrcRect);
 		}
 		else if (FloatApproxEqual(mRotation, 0.0f) && FloatApproxEqual(aScale, 1.0f))
 		{

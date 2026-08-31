@@ -428,6 +428,31 @@ void Projectile::CheckForCollision()
 		return;
 	}
 
+	if (mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
+	{
+		// 灼烧穿刺：每帧对矩形重叠的每个僵尸造成 1 点伤害；无限穿透，永不因击中僵尸而消亡（出屏判定在上方，正常 Die）
+		Rect aProjectileRect = GetProjectileRect();
+		Zombie* aZombie = nullptr;
+		while (mBoard->IterateZombies(aZombie))
+		{
+			if (aZombie->mZombieType != ZombieType::ZOMBIE_BOSS && aZombie->mRow != mRow)
+				continue;
+			if (!aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+				continue;
+			if (aZombie->mZombiePhase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL && mPosZ >= 45.0f)
+				continue;
+			if (aZombie->mOnHighGround && CantHitHighGround())
+				continue;
+
+			Rect aZombieRect = aZombie->GetZombieRect();
+			if (GetRectOverlap(aProjectileRect, aZombieRect) > 0)
+			{
+				aZombie->TakeDamage(1, GetDamageFlags(aZombie));
+			}
+		}
+		return;  // 无限穿透
+	}
+
 	Zombie* aZombie = FindCollisionTarget();
 	if (aZombie)
 	{

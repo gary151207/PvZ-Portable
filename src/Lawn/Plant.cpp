@@ -4898,9 +4898,19 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectileType = ProjectileType::PROJECTILE_BUTTER;
     }
 
+    // 红火豌豆掷骰：机枪射手每颗子弹独立 1% 判定（散射模式的每颗在循环内另行掷骰）
+    auto RollGatlingBulletType = [this](ProjectileType theBaseType) -> ProjectileType
+    {
+        if (mSeedType == SeedType::SEED_GATLINGPEA && Rand(100) < 1)
+            return ProjectileType::PROJECTILE_FIREPEA_RED;
+        return theBaseType;
+    };
+
+    ProjectileType aMainBulletType = aProjectileType;
     if (mSeedType != SeedType::SEED_GATLINGPEA || mGatlingScatterCountdown == 0)
     {
-        mApp->PlayFoley(FoleyType::FOLEY_THROW);
+        aMainBulletType = RollGatlingBulletType(aProjectileType);
+        mApp->PlayFoley(aMainBulletType == ProjectileType::PROJECTILE_FIREPEA_RED ? FoleyType::FOLEY_FIREPEA : FoleyType::FOLEY_THROW);
     }
     if (mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_WINTERMELON)
     {
@@ -5050,7 +5060,12 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
             float aAngle = RandRangeFloat(-SCATTER_ANGLE, SCATTER_ANGLE);
             float aAngleRad = DEG_TO_RAD(aAngle);
 
-            Projectile* aScatterPea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
+            ProjectileType aScatterType = RollGatlingBulletType(aProjectileType);
+            if (aScatterType == ProjectileType::PROJECTILE_FIREPEA_RED)
+            {
+                mApp->PlayFoley(FoleyType::FOLEY_FIREPEA);
+            }
+            Projectile* aScatterPea = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aScatterType);
             aScatterPea->mMotionType = ProjectileMotion::MOTION_STAR;
             aScatterPea->mVelX = PEA_SPEED * cos(aAngleRad);
             aScatterPea->mVelY = PEA_SPEED * sin(aAngleRad);
@@ -5060,7 +5075,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     }
     else
     {
-        aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
+        aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aMainBulletType);
         aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
 
         if (mApp->IsLoneWolfLevel() && mSeedType == SeedType::SEED_GATLINGPEA)

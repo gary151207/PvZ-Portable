@@ -1166,6 +1166,9 @@ void Projectile::Draw(Graphics* g)
 	case ProjectileType::PROJECTILE_ZOMBIE_PEA:
 		aImage = IMAGE_PROJECTILEPEA;
 		break;
+	case ProjectileType::PROJECTILE_FIREPEA_RED:
+		aImage = IMAGE_PROJECTILEPEA;
+		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
 		aImage = IMAGE_PROJECTILESNOWPEA;
 		break;
@@ -1226,7 +1229,16 @@ void Projectile::Draw(Graphics* g)
 		int aCelWidth = aImage->GetCelWidth();
 		int aCelHeight = aImage->GetCelHeight();
 		Rect aSrcRect(aCelWidth * mFrame, aCelHeight * aProjectileDef.mImageRow, aCelWidth, aCelHeight);
-		if (FloatApproxEqual(mRotation, 0.0f) && FloatApproxEqual(aScale, 1.0f))
+		if (mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
+		{
+			// 红色火豌豆：红色乘色绘制，保留豌豆明暗轮廓
+			float aOffsetX = mPosX + aCelWidth * 0.5f;
+			float aOffsetY = mPosZ + mPosY + aCelHeight * 0.5f;
+			SexyTransform2D aTransform;
+			TodScaleRotateTransformMatrix(aTransform, aOffsetX + mBoard->mX, aOffsetY + mBoard->mY, mRotation, aScale, aScale);
+			TodBltMatrix(g, aImage, aTransform, g->mClipRect, Color(255, 96, 96), g->mDrawMode, aSrcRect);
+		}
+		else if (FloatApproxEqual(mRotation, 0.0f) && FloatApproxEqual(aScale, 1.0f))
 		{
 			Rect aDestRect(0, 0, aCelWidth, aCelHeight);
 			g->DrawImageMirror(aImage, aDestRect, aSrcRect, aMirror);
@@ -1281,6 +1293,7 @@ void Projectile::DrawShadow(Graphics* g)
 	{
 	case ProjectileType::PROJECTILE_PEA:
 	case ProjectileType::PROJECTILE_ZOMBIE_PEA:
+	case ProjectileType::PROJECTILE_FIREPEA_RED:
 		aOffsetX += 3.0f;
 		break;
 
@@ -1347,7 +1360,8 @@ Rect Projectile::GetProjectileRect()
 {
 	if (mProjectileType == ProjectileType::PROJECTILE_PEA || 
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
-		mProjectileType == ProjectileType::PROJECTILE_ZOMBIE_PEA)
+		mProjectileType == ProjectileType::PROJECTILE_ZOMBIE_PEA ||
+		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 	{
 		return Rect(mX - 15, mY, mWidth + 15, mHeight);
 	}

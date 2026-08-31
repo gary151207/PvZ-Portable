@@ -1186,7 +1186,7 @@ void Projectile::Draw(Graphics* g)
 		aImage = IMAGE_PROJECTILEPEA;
 		break;
 	case ProjectileType::PROJECTILE_FIREPEA_RED:
-		aImage = IMAGE_PROJECTILESNOWPEA;
+		aImage = IMAGE_PROJECTILEPEA;
 		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
 		aImage = IMAGE_PROJECTILESNOWPEA;
@@ -1250,13 +1250,15 @@ void Projectile::Draw(Graphics* g)
 		Rect aSrcRect(aCelWidth * mFrame, aCelHeight * aProjectileDef.mImageRow, aCelWidth, aCelHeight);
 		if (mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 		{
-			// 白色闪电豌豆：冰豌豆白色贴图 + 白色加色辉光（引擎无颜色替换模式，白色乘色=恒等，故用白色系贴图）
+			// 纯白闪电豌豆：绿色豌豆贴图白色加色叠加 4 次，通道饱和到 255 呈纯白（引擎乘色无替换模式，加色堆叠是唯一纯白方案）
 			float aOffsetX = mPosX + aCelWidth * 0.5f;
 			float aOffsetY = mPosZ + mPosY + aCelHeight * 0.5f;
 			SexyTransform2D aTransform;
 			TodScaleRotateTransformMatrix(aTransform, aOffsetX + mBoard->mX, aOffsetY + mBoard->mY, mRotation, aScale, aScale);
-			TodBltMatrix(g, aImage, aTransform, g->mClipRect, Color::White, g->mDrawMode, aSrcRect);
-			TodBltMatrix(g, aImage, aTransform, g->mClipRect, Color::White, Graphics::DRAWMODE_ADDITIVE, aSrcRect);
+			for (int i = 0; i < 4; i++)
+			{
+				TodBltMatrix(g, aImage, aTransform, g->mClipRect, Color::White, Graphics::DRAWMODE_ADDITIVE, aSrcRect);
+			}
 		}
 		else if (FloatApproxEqual(mRotation, 0.0f) && FloatApproxEqual(aScale, 1.0f))
 		{

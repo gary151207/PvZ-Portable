@@ -48,7 +48,8 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_KERNEL,        0,  20  },
 	{ ProjectileType::PROJECTILE_COBBIG,        0,  300 },
 	{ ProjectileType::PROJECTILE_BUTTER,        0,  40  },
-	{ ProjectileType::PROJECTILE_ZOMBIE_PEA,    0,  20  }
+	{ ProjectileType::PROJECTILE_ZOMBIE_PEA,    0,  20  },
+	{ ProjectileType::PROJECTILE_FIREPEA_RED,   0,  1   }
 };
 
 Projectile::Projectile()

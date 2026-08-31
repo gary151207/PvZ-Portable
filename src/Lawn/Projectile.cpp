@@ -130,6 +130,12 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		AttachParticle(mAttachmentID, aParticle, 8.0f, 13.0f);
 		break;
 	}
+	case ProjectileType::PROJECTILE_FIREPEA_RED:
+	{
+		TodParticleSystem* aParticle = mApp->AddTodParticle(mPosX + 8.0f, mPosY + 13.0f, 400000, ParticleEffect::PARTICLE_FIREBALL_TRAIL);
+		AttachParticle(mAttachmentID, aParticle, 8.0f, 13.0f);
+		break;
+	}
 	case ProjectileType::PROJECTILE_FIREBALL:
 		TOD_ASSERT(false);
 		break;
@@ -444,7 +450,8 @@ bool Projectile::CantHitHighGround()
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
 		mProjectileType == ProjectileType::PROJECTILE_STAR ||
 		mProjectileType == ProjectileType::PROJECTILE_PUFF ||
-		mProjectileType == ProjectileType::PROJECTILE_FIREBALL
+		mProjectileType == ProjectileType::PROJECTILE_FIREBALL ||
+		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED
 		) && !mOnHighGround;
 }
 
@@ -456,7 +463,8 @@ void Projectile::CheckForHighGround()
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREBALL ||
 		mProjectileType == ProjectileType::PROJECTILE_SPIKE ||
-		mProjectileType == ProjectileType::PROJECTILE_COBBIG)
+		mProjectileType == ProjectileType::PROJECTILE_COBBIG ||
+		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 	{
 		if (aShadowDelta < 28.0f)
 		{
@@ -1122,7 +1130,8 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_BUTTER || 
 		mProjectileType == ProjectileType::PROJECTILE_COBBIG || 
 		mProjectileType == ProjectileType::PROJECTILE_ZOMBIE_PEA || 
-		mProjectileType == ProjectileType::PROJECTILE_SPIKE)
+		mProjectileType == ProjectileType::PROJECTILE_SPIKE || 
+		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 	{
 		aTime = 0;
 	}

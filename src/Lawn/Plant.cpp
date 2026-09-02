@@ -4898,7 +4898,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectileType = ProjectileType::PROJECTILE_BUTTER;
     }
 
-    // 白色灼烧豌豆掷骰：机枪射手每颗子弹独立 3% 判定（散射模式的每颗在循环内另行掷骰）
+    // 电能豌豆掷骰：机枪射手每颗子弹独立 3% 判定（散射模式的每颗在循环内另行掷骰）
     auto RollGatlingBulletType = [this](ProjectileType theBaseType) -> ProjectileType
     {
         if (mSeedType == SeedType::SEED_GATLINGPEA && Rand(100) < 3)

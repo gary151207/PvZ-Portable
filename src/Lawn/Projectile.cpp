@@ -49,7 +49,7 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_COBBIG,        0,  300 },
 	{ ProjectileType::PROJECTILE_BUTTER,        0,  40  },
 	{ ProjectileType::PROJECTILE_ZOMBIE_PEA,    0,  20  },
-	{ ProjectileType::PROJECTILE_FIREPEA_RED,   0,  2   }
+	{ ProjectileType::PROJECTILE_FIREPEA_RED,   0,  30  }
 };
 
 Projectile::Projectile()
@@ -424,7 +424,7 @@ void Projectile::CheckForCollision()
 
 	if (mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 	{
-		// 灼烧穿刺：每帧对矩形重叠的每个僵尸造成 2 点伤害；无限穿透，永不因击中僵尸而消亡（出屏判定在上方，正常 Die）
+		// 电能伤害：每 tick（10ms）对矩形重叠的每个僵尸造成 30 点伤害；无限穿透，永不因击中僵尸而消亡（出屏判定在上方，正常 Die）
 		Rect aProjectileRect = GetProjectileRect();
 		Zombie* aZombie = nullptr;
 		while (mBoard->IterateZombies(aZombie))
@@ -441,7 +441,7 @@ void Projectile::CheckForCollision()
 			Rect aZombieRect = aZombie->GetZombieRect();
 			if (GetRectOverlap(aProjectileRect, aZombieRect) > 0)
 			{
-				aZombie->TakeDamage(2, GetDamageFlags(aZombie));
+				aZombie->TakeDamage(30, GetDamageFlags(aZombie));
 			}
 		}
 		return;  // 无限穿透

@@ -452,6 +452,7 @@ enum GameMode : int32_t
     GAMEMODE_PUZZLE_I_ZOMBIE_9,
     GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS,
     GAMEMODE_CHALLENGE_CRICKET,                     // 斗蛐蛐：5 随机植物 vs 6 随机僵尸
+    GAMEMODE_CHALLENGE_TRAVEL_1,                    // 旅行模式体验关
     GAMEMODE_UPSELL,
     GAMEMODE_INTRO,
     NUM_GAME_MODES
@@ -1093,6 +1094,7 @@ enum SeedType : int32_t
     SEED_GIANT_WALLNUT,
     SEED_SPROUT,
     SEED_LEFTPEATER,
+    SEED_FUMESHROOM_GROUP,                          // 大喷菇群（紫卡升级：大喷菇 → 三头）
     NUM_SEED_TYPES,
     SEED_BEGHOULED_BUTTON_SHUFFLE,
     SEED_BEGHOULED_BUTTON_CRATER,

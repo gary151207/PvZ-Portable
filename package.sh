@@ -40,6 +40,11 @@ cp "${EXECUTABLE}" "${STAGING_DIR}/pvz-portable.exe"
 cp "${MAIN_PAK}" "${STAGING_DIR}/main.pak"
 cp -R "${PROPERTIES_DIR}" "${STAGING_DIR}/properties"
 
+# 追加仓库内自定义字符串文件（pak 中不存在该名，FOpen 会 fallback 到磁盘 properties）
+if [[ -d "${SCRIPT_DIR}/properties" ]]; then
+    cp "${SCRIPT_DIR}/properties/"*.xml "${STAGING_DIR}/properties/"
+fi
+
 mkdir -p "$(dirname "${OUTPUT_PATH}")"
 rm -f "${OUTPUT_PATH}"
 (

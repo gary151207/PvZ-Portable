@@ -1914,6 +1914,7 @@ void LawnApp::LoadingThreadProc()
 	// Load localized properties AFTER LawnStrings so they can override string values
 	LoadProperties("properties/default.xml", false, false);
 	LoadProperties("properties/Layout.xml", false, false);
+	LoadProperties("properties/pvzp-strings.xml", false, false);  // 旅行模式自定义字符串（文件缺失时静默）
 
 	if (mTitleScreen)
 	{

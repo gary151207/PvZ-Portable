@@ -39,6 +39,7 @@
 #include "../Sexy.TodLib/TodDebug.h"
 #include "../Sexy.TodLib/TodFoley.h"
 #include "Widget/SeedChooserScreen.h"
+#include "Travel.h"
 #include "../Sexy.TodLib/Attachment.h"
 #include "../Sexy.TodLib/Reanimator.h"
 #include "widget/Dialog.h"
@@ -712,6 +713,8 @@ void Board::PickZombieWaves()
 			mNumWaves = 12;
 		else if (mApp->IsCricketFightLevel())
 			mNumWaves = 1;
+		else if (IsTravelLevel(aGameMode))
+			mNumWaves = GetTravelLevelDef(aGameMode).mTotalWaves;   // 旅行体验关：6 波（2 旗帜）
 		else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_WALLNUT_BOWLING || aGameMode == GameMode::GAMEMODE_CHALLENGE_AIR_RAID ||
 				 aGameMode == GameMode::GAMEMODE_CHALLENGE_GRAVE_DANGER || aGameMode == GameMode::GAMEMODE_CHALLENGE_HIGH_GRAVITY ||
 				 aGameMode == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT || aGameMode == GameMode::GAMEMODE_CHALLENGE_WAR_AND_PEAS ||
@@ -1100,6 +1103,11 @@ void Board::PickBackground()
 	case GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS:
 	case GameMode::GAMEMODE_CHALLENGE_CRICKET:
 		mBackground = BackgroundType::BACKGROUND_2_NIGHT;
+		break;
+
+	case GameMode::GAMEMODE_CHALLENGE_TRAVEL_1:
+		// 旅行体验关：夜间泳池（FOG 背景 = 夜 + 泳池 + 6 行，雾在 StageHasFog 中关闭）
+		mBackground = BackgroundType::BACKGROUND_4_FOG;
 		break;
 
 	case GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_3:
@@ -2714,6 +2722,23 @@ Projectile* Board::AddProjectile(int theX, int theY, int theRenderOrder, int the
 
 bool Board::CanZombieSpawnOnLevel(ZombieType theZombieType, int theLevel)
 {
+	if (IsTravelLevel(gLawnApp->mGameMode))
+	{
+		// 旅行体验关教学友好档：普通/路障/铁桶/旗帜 + 少量泳池特色（潜水员、海豚）
+		switch (theZombieType)
+		{
+		case ZombieType::ZOMBIE_NORMAL:
+		case ZombieType::ZOMBIE_TRAFFIC_CONE:
+		case ZombieType::ZOMBIE_PAIL:
+		case ZombieType::ZOMBIE_FLAG:
+		case ZombieType::ZOMBIE_SNORKEL:
+		case ZombieType::ZOMBIE_DOLPHIN_RIDER:
+			return true;
+		default:
+			return false;
+		}
+	}
+
 	const ZombieDefinition& aZombieDef = GetZombieDefinition(theZombieType);
 	if (theZombieType == ZombieType::ZOMBIE_YETI)
 	{
@@ -9518,7 +9543,7 @@ bool Board::StageHasZombieWalkInFromRight()
 
 bool Board::StageHasFog()
 {
-	return !mApp->IsStormyNightLevel() && mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_INVISIGHOUL && mBackground == BackgroundType::BACKGROUND_4_FOG;
+	return !mApp->IsStormyNightLevel() && mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_INVISIGHOUL && mBackground == BackgroundType::BACKGROUND_4_FOG && !IsTravelLevel(mApp->mGameMode);
 }
 
 // GOTY @Patoke: inlined 0x41E669

@@ -56,8 +56,8 @@ python scripts/pvzp-v4-converter.py export <savefile.v4> dump.yaml
 
 The binary accepts modding flags beyond the original game. Defined in `LawnApp.cpp` arg parsing:
 
-- `--zombie-multiplier=N` — multiplies zombie spawn points budget (default 1 = vanilla)
-- `--zombie-hp-multiplier=N` — multiplies zombie HP (default 1 = vanilla)
+- `--zombie-multiplier=N` — multiplies zombie spawn points budget (default 6)
+- `--zombie-hp-multiplier=N` — multiplies zombie HP (default 2)
 - `-resdir=PATH` — override resource directory for `main.pak` and `properties/`
 
 ## More context

@@ -136,8 +136,8 @@ LawnApp::LawnApp()
 	mDanceMode = false;
 	mDaisyMode = false;
 	mSukhbirMode = false;
-	mZombieMultiplier = 1;
-	mZombieHPMultiplier = 1;
+	mZombieMultiplier = 6; // 默认六倍出怪（可用 --zombie-multiplier 覆盖）
+	mZombieHPMultiplier = 2; // 默认双倍血量（可用 --zombie-hp-multiplier 覆盖）
 	mGameScene = GameScenes::SCENE_LOADING;
 	mPoolEffect = nullptr;
 	mZenGarden = nullptr;

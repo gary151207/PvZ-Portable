@@ -417,3 +417,5 @@ tools/read-compiled/target
 build-*/
 
 run-pvz*
+
+dist/

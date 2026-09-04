@@ -300,24 +300,29 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     }
     case SeedType::SEED_FUMESHROOM_GROUP:
     {
-        // 大喷菇群：左右各一只小喷菇挤在同一格（世界坐标创建，随行定位）
+        // 大喷菇群：中间大喷菇（body）+ 左右各一只原版大小的小喷菇（独立 reanim，世界坐标）
+        // 图层：左小喷菇在大喷菇之上（renderOrder 高于植物本体），右小喷菇在大喷菇之下（低于本体）
+        // 注意：植物 reanim 原点 = 格左上 (mX, mY) + 动画数据内部偏移，以下常量为视觉调参点
         mPlantHealth = 300;
         if (aBodyReanim)
         {
-            Reanimation* aPuffL = mApp->AddReanimation(mX + 16.0f, mY + 58.0f, mRenderOrder + 2, ReanimationType::REANIM_PUFFSHROOM);
+            const float aSideOffsetX = 20.0f;   // 左右小喷菇相对大喷菇的横向间距（调参）
+            const float aPuffOffsetY  = 5.0f;   // 小喷菇站地微调（调参）
+
+            Reanimation* aPuffL = mApp->AddReanimation(mX - aSideOffsetX, mY + aPuffOffsetY, mRenderOrder + 2, ReanimationType::REANIM_PUFFSHROOM);
             aPuffL->mLoopType = ReanimLoopType::REANIM_LOOP;
             aPuffL->mAnimRate = aBodyReanim->mAnimRate;
             if (aPuffL->TrackExists("anim_idle"))
                 aPuffL->SetFramesForLayer("anim_idle");
-            aPuffL->OverrideScale(0.55f, 0.55f);
+            aPuffL->OverrideScale(1.0f, 1.0f);   // 原版大小
             mTravelPuffLReanimID = mApp->ReanimationGetID(aPuffL);
 
-            Reanimation* aPuffR = mApp->AddReanimation(mX + 72.0f, mY + 58.0f, mRenderOrder + 2, ReanimationType::REANIM_PUFFSHROOM);
+            Reanimation* aPuffR = mApp->AddReanimation(mX + aSideOffsetX, mY + aPuffOffsetY, mRenderOrder - 1, ReanimationType::REANIM_PUFFSHROOM);
             aPuffR->mLoopType = ReanimLoopType::REANIM_LOOP;
             aPuffR->mAnimRate = aBodyReanim->mAnimRate;
             if (aPuffR->TrackExists("anim_idle"))
                 aPuffR->SetFramesForLayer("anim_idle");
-            aPuffR->OverrideScale(0.55f, 0.55f);
+            aPuffR->OverrideScale(1.0f, 1.0f);   // 原版大小
             mTravelPuffRReanimID = mApp->ReanimationGetID(aPuffR);
         }
         mPuffLShootCounter = 10;   // 与中间头错开相位

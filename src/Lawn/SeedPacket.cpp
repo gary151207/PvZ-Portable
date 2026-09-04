@@ -357,6 +357,7 @@ void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedTyp
 		break;
 
 	case SeedType::SEED_FUMESHROOM:
+	case SeedType::SEED_FUMESHROOM_GROUP:
 	case SeedType::SEED_PUMPKINSHELL:
 	case SeedType::SEED_CHOMPER:
 	case SeedType::SEED_DOOMSHROOM:

@@ -2895,6 +2895,10 @@ bool Plant::IsUpgradableTo(SeedType theUpgradedType)
     {
         return true;
     }
+    if (theUpgradedType == SeedType::SEED_FUMESHROOM_GROUP && mSeedType == SeedType::SEED_FUMESHROOM)
+    {
+        return true;
+    }
     if (theUpgradedType == SeedType::SEED_CATTAIL && mSeedType == SeedType::SEED_LILYPAD)
     {
         Plant* aPlant = mBoard->GetTopPlantAt(mPlantCol, mRow, PlantPriority::TOPPLANT_ONLY_NORMAL_POSITION);
@@ -5514,7 +5518,8 @@ bool Plant::IsNocturnal(SeedType theSeedtype)
         theSeedtype == SeedType::SEED_ICESHROOM ||
         theSeedtype == SeedType::SEED_MAGNETSHROOM ||
         theSeedtype == SeedType::SEED_SCAREDYSHROOM ||
-        theSeedtype == SeedType::SEED_GLOOMSHROOM;
+        theSeedtype == SeedType::SEED_GLOOMSHROOM ||
+        theSeedtype == SeedType::SEED_FUMESHROOM_GROUP;
 }
 
 // GOTY @Patoke: inlined 0x40FB2B
@@ -5530,7 +5535,8 @@ bool Plant::IsFungus(SeedType theSeedtype)
         theSeedtype == SeedType::SEED_DOOMSHROOM ||
         theSeedtype == SeedType::SEED_SEASHROOM ||
         theSeedtype == SeedType::SEED_MAGNETSHROOM ||
-        theSeedtype == SeedType::SEED_GLOOMSHROOM;
+        theSeedtype == SeedType::SEED_GLOOMSHROOM ||
+        theSeedtype == SeedType::SEED_FUMESHROOM_GROUP;
 }
 
 bool Plant::IsAquatic(SeedType theSeedType)
@@ -5558,7 +5564,8 @@ bool Plant::IsUpgrade(SeedType theSeedtype)
         theSeedtype == SeedType::SEED_COBCANNON || 
         theSeedtype == SeedType::SEED_GOLD_MAGNET || 
         theSeedtype == SeedType::SEED_GLOOMSHROOM || 
-        theSeedtype == SeedType::SEED_CATTAIL;
+        theSeedtype == SeedType::SEED_CATTAIL ||
+        theSeedtype == SeedType::SEED_FUMESHROOM_GROUP;
 }
 
 Rect Plant::GetPlantRect()

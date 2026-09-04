@@ -96,7 +96,8 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_EXPLODE_O_NUT,     nullptr, ReanimationType::REANIM_WALLNUT,       2,  0,      2000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "EXPLODE_O_NUT" },
     { SeedType::SEED_GIANT_WALLNUT,     nullptr, ReanimationType::REANIM_WALLNUT,       2,  0,      2000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "GIANT_WALLNUT" },
     { SeedType::SEED_SPROUT,            nullptr, ReanimationType::REANIM_ZENGARDEN_SPROUT,          33, 0,      3000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "SPROUT" },
-    { SeedType::SEED_LEFTPEATER,        nullptr, ReanimationType::REANIM_REPEATER,      5,  200,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "REPEATER" }
+    { SeedType::SEED_LEFTPEATER,        nullptr, ReanimationType::REANIM_REPEATER,      5,  200,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "REPEATER" },
+    { SeedType::SEED_FUMESHROOM_GROUP,  nullptr, ReanimationType::REANIM_FUMESHROOM,    9,  0,      3000,   PlantSubClass::SUBCLASS_SHOOTER,    90,     "FUMESHROOM_GROUP" }
 };
 
 Plant::Plant()

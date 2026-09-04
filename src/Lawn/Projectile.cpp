@@ -325,6 +325,13 @@ void Projectile::CheckForCollision()
 		return;
 	}
 
+	// 大喷菇群两侧孢子（PUFF + STAR 斜飞）：飞行距离与大喷菇烟雾射程一致（约 340px），到点消散
+	if (mProjectileType == ProjectileType::PROJECTILE_PUFF && mMotionType == ProjectileMotion::MOTION_STAR && mProjectileAge >= 115)
+	{
+		Die();
+		return;
+	}
+
 	if (mPosX > WIDE_BOARD_WIDTH || mPosX + mWidth < 0.0f)
 	{
 		Die();

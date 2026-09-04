@@ -204,6 +204,10 @@ public:
     ReanimationID           mLightReanimID;
     ReanimationID           mSleepingReanimID;
     ReanimationID           mEliteSunReanimID;
+    ReanimationID           mTravelPuffLReanimID;    // 大喷菇群：左侧小喷菇动画
+    ReanimationID           mTravelPuffRReanimID;    // 大喷菇群：右侧小喷菇动画
+    int32_t                 mPuffLShootCounter;      // 左头独立攻击前摇计数
+    int32_t                 mPuffRShootCounter;      // 右头独立攻击前摇计数
     int32_t                 mBlinkCountdown;
     int32_t                 mRecentlyEatenCountdown;
     int32_t                 mTallnutCounterCooldown;
@@ -294,6 +298,9 @@ public:
     void                    AnimateNuts();
     void                    SetSleeping(bool theIsAsleep);
     void                    UpdateShooting();
+    void                    UpdateTravelPuffHeads();
+    void                    UpdateTravelPuffHead(int& theCounter, ReanimationID theReanimID, int theYDirection, bool aHasTarget);
+    void                    FireTravelPuff(int theYDirection);
     void                    DrawShadow(Graphics* g, float theOffsetX, float theOffsetY);
     void                    UpdateScaredyShroom();
     int                     DistanceToClosestZombie();

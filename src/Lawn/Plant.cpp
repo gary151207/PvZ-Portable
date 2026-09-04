@@ -144,6 +144,10 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mLightReanimID = ReanimationID::REANIMATIONID_NULL;
     mSleepingReanimID = ReanimationID::REANIMATIONID_NULL;
     mEliteSunReanimID = ReanimationID::REANIMATIONID_NULL;
+    mTravelPuffLReanimID = ReanimationID::REANIMATIONID_NULL;
+    mTravelPuffRReanimID = ReanimationID::REANIMATIONID_NULL;
+    mPuffLShootCounter = 0;
+    mPuffRShootCounter = 0;
     mBlinkCountdown = 0;
     mRecentlyEatenCountdown = 0;
     mGatlingScatterCountdown = 0;
@@ -292,6 +296,32 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         aHeadReanim3->AttachToAnotherReanimation(aBodyReanim, "anim_head3");
         mHeadReanimID3 = mApp->ReanimationGetID(aHeadReanim3);
 
+        break;
+    }
+    case SeedType::SEED_FUMESHROOM_GROUP:
+    {
+        // 大喷菇群：左右各一只小喷菇挤在同一格（世界坐标创建，随行定位）
+        mPlantHealth = 300;
+        if (aBodyReanim)
+        {
+            Reanimation* aPuffL = mApp->AddReanimation(mX + 16.0f, mY + 58.0f, mRenderOrder + 2, ReanimationType::REANIM_PUFFSHROOM);
+            aPuffL->mLoopType = ReanimLoopType::REANIM_LOOP;
+            aPuffL->mAnimRate = aBodyReanim->mAnimRate;
+            if (aPuffL->TrackExists("anim_idle"))
+                aPuffL->SetFramesForLayer("anim_idle");
+            aPuffL->OverrideScale(0.55f, 0.55f);
+            mTravelPuffLReanimID = mApp->ReanimationGetID(aPuffL);
+
+            Reanimation* aPuffR = mApp->AddReanimation(mX + 72.0f, mY + 58.0f, mRenderOrder + 2, ReanimationType::REANIM_PUFFSHROOM);
+            aPuffR->mLoopType = ReanimLoopType::REANIM_LOOP;
+            aPuffR->mAnimRate = aBodyReanim->mAnimRate;
+            if (aPuffR->TrackExists("anim_idle"))
+                aPuffR->SetFramesForLayer("anim_idle");
+            aPuffR->OverrideScale(0.55f, 0.55f);
+            mTravelPuffRReanimID = mApp->ReanimationGetID(aPuffR);
+        }
+        mPuffLShootCounter = 10;   // 与中间头错开相位
+        mPuffRShootCounter = 20;
         break;
     }
     case SeedType::SEED_WALLNUT:
@@ -643,6 +673,7 @@ int Plant::GetDamageRangeFlags(PlantWeapon thePlantWeapon)
     case SeedType::SEED_PUFFSHROOM:
     case SeedType::SEED_SEASHROOM:
     case SeedType::SEED_FUMESHROOM:
+    case SeedType::SEED_FUMESHROOM_GROUP:
     case SeedType::SEED_GLOOMSHROOM:
     case SeedType::SEED_CHOMPER:
         return 9;
@@ -817,7 +848,8 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
 
         switch (mSeedType)
         {
-        case SeedType::SEED_FUMESHROOM:     mShootingCounter = 50;  break;
+        case SeedType::SEED_FUMESHROOM:
+        case SeedType::SEED_FUMESHROOM_GROUP: mShootingCounter = 50;  break;
         case SeedType::SEED_PUFFSHROOM:     mShootingCounter = 29;  break;
         case SeedType::SEED_SCAREDYSHROOM:  mShootingCounter = 25;  break;
         case SeedType::SEED_CABBAGEPULT:    mShootingCounter = 32;  break;
@@ -2555,6 +2587,8 @@ void Plant::RemoveEffects()
     mApp->RemoveReanimation(mBlinkReanimID);
     mApp->RemoveReanimation(mSleepingReanimID);
     mApp->RemoveReanimation(mEliteSunReanimID);
+    mApp->RemoveReanimation(mTravelPuffLReanimID);
+    mApp->RemoveReanimation(mTravelPuffRReanimID);
 
     for (int i = 0; i < MAX_MAGNET_ITEMS; i++)
     {
@@ -3521,14 +3555,78 @@ void Plant::AnimatePumpkin()
     }
 }
 
+void Plant::UpdateTravelPuffHeads()
+{
+    if (mSeedType != SeedType::SEED_FUMESHROOM_GROUP)
+        return;
+
+    // 目标判定与大喷菇一致（本行 340px 攻击矩形内有僵尸才开火）
+    bool aHasTarget = FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY) != nullptr;
+
+    UpdateTravelPuffHead(mPuffLShootCounter, mTravelPuffLReanimID, -1, aHasTarget);
+    UpdateTravelPuffHead(mPuffRShootCounter, mTravelPuffRReanimID, 1, aHasTarget);
+}
+
+void Plant::UpdateTravelPuffHead(int& theCounter, ReanimationID theReanimID, int theYDirection, bool aHasTarget)
+{
+    if (theCounter > 0)
+    {
+        if (--theCounter == 0 && aHasTarget)
+        {
+            FireTravelPuff(theYDirection);
+            theCounter = 29;   // 下一轮前摇（与 Puff-shroom 原版节奏一致）
+        }
+        return;
+    }
+
+    if (aHasTarget && theReanimID != ReanimationID::REANIMATIONID_NULL)
+    {
+        Reanimation* aPuff = mApp->ReanimationTryToGet(theReanimID);
+        if (aPuff)
+        {
+            aPuff->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
+            aPuff->mAnimRate = 35.0f;
+            if (aPuff->TrackExists("anim_shooting"))
+                aPuff->SetFramesForLayer("anim_shooting");
+        }
+        theCounter = 29;
+    }
+}
+
+void Plant::FireTravelPuff(int theYDirection)
+{
+    if (mSeedType != SeedType::SEED_FUMESHROOM_GROUP)
+        return;
+
+    // 从左右喷口发射斜向孢子：MOTION_STAR 斜飞、行判定随位置实时更新（可跨行命中边缘僵尸）
+    float aOriginX = mX + (theYDirection < 0 ? 26.0f : 66.0f);
+    float aOriginY = mY + 24.0f;
+    int aRenderPosition = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PROJECTILE, mRow, 0);
+    Projectile* aPuff = mBoard->AddProjectile(aOriginX, aOriginY, aRenderPosition, mRow, ProjectileType::PROJECTILE_PUFF);
+    aPuff->mMotionType = ProjectileMotion::MOTION_STAR;
+    aPuff->mVelX = 3.33f;
+    aPuff->mVelY = 0.45f * theYDirection;   // 微斜：射程内可跨入邻行边缘
+    aPuff->mDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
+
+    // 喷口小孢子拖尾粒子（与 Puff-shroom 开火一致）
+    int aMuzzleOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PARTICLE, mRow, 0);
+    mApp->AddTodParticle(aOriginX + 13.0f, aOriginY + 13.0f, aMuzzleOrder, ParticleEffect::PARTICLE_PUFFSHROOM_TRAIL);
+}
+
 void Plant::UpdateShooting()
 {
-    if (NotOnGround() || mShootingCounter == 0)
+    if (NotOnGround())
+        return;
+
+    // 大喷菇群：左右小喷菇各喷各的（独立节奏，不受中间头计时影响）
+    UpdateTravelPuffHeads();
+
+    if (mShootingCounter == 0)
         return;
 
     mShootingCounter--;
 
-    if (mSeedType == SeedType::SEED_FUMESHROOM && mShootingCounter == 15)
+    if ((mSeedType == SeedType::SEED_FUMESHROOM || mSeedType == SeedType::SEED_FUMESHROOM_GROUP) && mShootingCounter == 15)
     {
         int aRenderPosition = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PARTICLE, mRow, 0);
         AddAttachedParticle(mX + 85, mY + 31, aRenderPosition, ParticleEffect::PARTICLE_FUMECLOUD);
@@ -4839,7 +4937,7 @@ void Plant::CobCannonFire(int theTargetX, int theTargetY)
 
 void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon, int theYOffset)
 {
-    if (mSeedType == SeedType::SEED_FUMESHROOM)
+    if (mSeedType == SeedType::SEED_FUMESHROOM || mSeedType == SeedType::SEED_FUMESHROOM_GROUP)
     {
         DoRowAreaDamage(60, 2U);
         mApp->PlayFoley(FoleyType::FOLEY_FUME);
@@ -5613,7 +5711,8 @@ Rect Plant::GetPlantAttackRect(PlantWeapon thePlantWeapon)
     case SeedType::SEED_TORCHWOOD:      aRect = Rect(mX + 50,       mY,             30,                 mHeight);               break;
     case SeedType::SEED_PUFFSHROOM:
     case SeedType::SEED_SEASHROOM:      aRect = Rect(mX + 60,       mY,             230,                mHeight);               break;
-    case SeedType::SEED_FUMESHROOM:     aRect = Rect(mX + 60,       mY,             340,                mHeight);               break;
+    case SeedType::SEED_FUMESHROOM:
+    case SeedType::SEED_FUMESHROOM_GROUP: aRect = Rect(mX + 60,      mY,             340,                mHeight);               break;
     case SeedType::SEED_GLOOMSHROOM:    aRect = Rect(mX - 80,       mY - 80,        240,                240);                   break;
     case SeedType::SEED_TANGLEKELP:     aRect = Rect(mX,            mY,             mWidth,             mHeight);               break;
     case SeedType::SEED_CATTAIL:        aRect = Rect(-BOARD_WIDTH,  -BOARD_HEIGHT,  BOARD_WIDTH * 2,    BOARD_HEIGHT * 2);      break;

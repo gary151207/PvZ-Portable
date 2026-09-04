@@ -457,6 +457,7 @@ void SeedChooserScreen::Draw(Graphics* g)
 	}
 
 	mImitaterButton->Draw(g);
+	mChooserPageButton->Draw(g);
 	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEED_TYPES; aSeedType = (SeedType)(aSeedType + 1))
 	{
 		ChosenSeed& aChosenSeed = mChosenSeeds[aSeedType];
@@ -595,6 +596,7 @@ void SeedChooserScreen::Update()
 	mAlmanacButton->Update();
 	mImitaterButton->Update();
 	mStoreButton->Update();
+	mChooserPageButton->Update();
 	mMenuButton->Update();
 	UpdateViewLawn();
 	UpdateCursor();

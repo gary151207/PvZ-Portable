@@ -29,6 +29,7 @@
 #include "Lawn/Cutscene.h"
 #include "GameConstants.h"
 #include "Lawn/Challenge.h"
+#include "Lawn/Travel.h"
 #include "Lawn/ZenGarden.h"
 #include "Sexy.TodLib/Trail.h"
 #include "Lawn/System/Music.h"
@@ -2688,6 +2689,8 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 		return mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_PLANT_COBCANNON] > 0;
 	case SeedType::SEED_IMITATER:
 		return mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_PLANT_IMITATER] > 0;
+	case SeedType::SEED_FUMESHROOM_GROUP:
+		return IsTravelLevel(mGameMode);   // 旅行专属：仅旅行关可选/拥有
 	default:
 		return theSeedType < GetSeedsAvailable();
 	}

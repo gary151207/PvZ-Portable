@@ -3,6 +3,8 @@
 <Properties>
 	<String id="TRAVEL_EXPERIENCE">Travel Experience: Puff-shroom Group!</String>
 	<String id="TRAVEL_NEED_FUMESHROOM">You need Fume-shroom in your seed pack to upgrade it.</String>
+	<String id="FUMESHROOM_GROUP">Puff-shroom Group</String>
+	<String id="FUMESHROOM_GROUP_TOOLTIP">A Fume-shroom upgraded into a three-headed colony: one big fume head plus two puff-shroom side heads. Each head attacks on its own rhythm.</String>
 	<String id="TRAVEL_PLANT_NAME">Puff-shroom Group</String>
 	<String id="TRAVEL_PLANT_DESC">A Fume-shroom upgraded into a three-headed colony: one big fume head plus two puff-shroom side heads. Each head attacks on its own rhythm.</String>
 </Properties>

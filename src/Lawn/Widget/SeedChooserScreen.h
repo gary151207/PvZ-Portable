@@ -67,7 +67,8 @@ private:
         SeedChooserScreen_Almanac = 103,
         SeedChooserScreen_Menu = 104,
         SeedChooserScreen_Store = 105,
-        SeedChooserScreen_Imitater = 106
+        SeedChooserScreen_Imitater = 106,
+        SeedChooserScreen_Page2 = 107
     };
 
 public:
@@ -78,6 +79,7 @@ public:
     GameButton*             mAlmanacButton;
     GameButton*             mMenuButton;
     GameButton*             mImitaterButton;
+    GameButton*             mChooserPageButton;   // 翻页按钮（仅旅行关卡显示）
     ChosenSeed              mChosenSeeds[NUM_SEED_TYPES];
     LawnApp*                mApp;
     Board*                  mBoard;
@@ -91,6 +93,7 @@ public:
     int                     mLastMouseY;
     SeedChooserState        mChooseState;
     int                     mViewLawnTime;
+    int                     mChooserPage;         // 0 = 原版卡页；1 = 旅行植物页
 
 public:
     SeedChooserScreen();
@@ -128,6 +131,7 @@ public:
     void                    UpdateImitaterButton();
     virtual void            MouseDown(int x, int y, int theClickCount);
     /*inline*/ bool         PickedPlantType(SeedType theSeedType);
+    /*inline*/ bool         SeedShownOnChooserPage(SeedType theSeedType);   // 当前页是否显示该种子（旅行翻页）
     void                    CloseSeedChooser();
     virtual void            KeyDown(KeyCode theKey);
     virtual void            KeyChar(char theChar);

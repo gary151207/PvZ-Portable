@@ -38,6 +38,7 @@
 #include "misc/Debug.h"
 #include "widget/Dialog.h"
 #include "misc/MTRand.h"
+#include "../../Lawn/Travel.h"
 #include "../../Sexy.TodLib/TodStringFile.h"
 #include "widget/WidgetManager.h"
 
@@ -54,6 +55,8 @@ SeedChooserScreen::SeedChooserScreen()
 	mLastMouseY = -1;
 	mChooseState = CHOOSE_NORMAL;
 	mViewLawnTime = 0;
+	mChooserPage = 0;
+	mChooserPageButton = nullptr;
 	mToolTip = new ToolTipWidget();
 	mToolTip->mMaxLinesWidth = mApp->GetInteger("SEED_CHOOSER_SCREEN_TOOL_TIP_MAX_LINE_WIDTH", 0);
 	mToolTipSeed = -1;
@@ -145,6 +148,24 @@ SeedChooserScreen::SeedChooserScreen()
 	mImitaterButton->Resize(464, 515, Sexy::IMAGE_IMITATERSEED->mWidth, Sexy::IMAGE_IMITATERSEED->mHeight);
 	mImitaterButton->mParentWidget = this;
 
+	// 翻页按钮（旅行关卡专属：切到旅行植物页）。普通模式 mVisible=false 不存在
+	mChooserPageButton = new GameButton(SeedChooserScreen::SeedChooserScreen_Page2);
+	mChooserPageButton->SetLabel("»");
+	mChooserPageButton->mButtonImage = Sexy::IMAGE_SEEDCHOOSER_BUTTON2;
+	mChooserPageButton->mOverImage = Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW;
+	mChooserPageButton->mDownImage = Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW;
+	mChooserPageButton->SetFont(Sexy::FONT_BRIANNETOD12);
+	mChooserPageButton->mColors[0] = aBtnColor;
+	mChooserPageButton->mColors[1] = aBtnColor;
+	mChooserPageButton->Resize(600, 88, 46, 30);
+	mChooserPageButton->mParentWidget = this;
+	mChooserPageButton->mTextOffsetY = 1;
+	if (!IsTravelLevel(mApp->mGameMode))
+	{
+		mChooserPageButton->mBtnNoDraw = true;
+		mChooserPageButton->mDisabled = true;
+	}
+
 	if (!mApp->CanShowAlmanac())
 	{
 		mAlmanacButton->mBtnNoDraw = true;
@@ -158,7 +179,7 @@ SeedChooserScreen::SeedChooserScreen()
 
 	DBG_ASSERT(mApp->GetSeedsAvailable() < NUM_SEED_TYPES);
 	memset(mChosenSeeds, 0, sizeof(mChosenSeeds));
-	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEEDS_IN_CHOOSER; aSeedType = (SeedType)(aSeedType + 1))
+	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEED_TYPES; aSeedType = (SeedType)(aSeedType + 1))
 	{
 		ChosenSeed& aChosenSeed = mChosenSeeds[aSeedType];
 		aChosenSeed.mSeedType = aSeedType;
@@ -282,6 +303,20 @@ bool SeedChooserScreen::Has7Rows()
 
 void SeedChooserScreen::GetSeedPositionInChooser(int theIndex, int& x, int& y)
 {
+	if (IsTravelOnlySeed((SeedType)theIndex))
+	{
+		// 旅行专属种子：按其页内序号排布（第 0 个从左上角网格起）
+		int aPage1Index = 0;
+		for (int i = 0; i < NUM_TRAVEL_PLANTS; i++)
+			if (gTravelPlantDefs[i].mSeedType == theIndex)
+				aPage1Index = i;
+		int aRow = aPage1Index / 8;
+		int aCol = aPage1Index % 8;
+		x = aCol * 53 + 22;
+		y = aRow * 70 + 123;
+		return;
+	}
+
 	if (theIndex == SEED_IMITATER)
 	{
 		x = mImitaterButton->mX;
@@ -318,6 +353,7 @@ SeedChooserScreen::~SeedChooserScreen()
 	if (mAlmanacButton) delete mAlmanacButton;
 	if (mImitaterButton) delete mImitaterButton;
 	if (mStoreButton) delete mStoreButton;
+	if (mChooserPageButton) delete mChooserPageButton;
 	if (mToolTip) delete mToolTip;
 	if (mMenuButton) delete mMenuButton;
 }
@@ -361,6 +397,8 @@ void SeedChooserScreen::Draw(Graphics* g)
 	int aNumSeeds = Has7Rows() ? 48 : 40;
 	for (SeedType aSeedShadow = SEED_PEASHOOTER; aSeedShadow < aNumSeeds; aSeedShadow = (SeedType)(aSeedShadow + 1))
 	{
+		if (mChooserPage == 1)   // 页 1：不显示页 0 网格内容
+			continue;
 		int x, y;
 		GetSeedPositionInChooser(aSeedShadow, x, y);
 		if (aSeedShadow == SEED_IMITATER)
@@ -393,10 +431,12 @@ void SeedChooserScreen::Draw(Graphics* g)
 		}
 	}
 
-	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEEDS_IN_CHOOSER; aSeedType = (SeedType)(aSeedType + 1))
+	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEED_TYPES; aSeedType = (SeedType)(aSeedType + 1))
 	{
 		ChosenSeed& aChosenSeed = mChosenSeeds[aSeedType];
 		ChosenSeedState aSeedState = aChosenSeed.mSeedState;
+		if (aSeedState == SEED_IN_CHOOSER && !SeedShownOnChooserPage(aSeedType))
+			continue;
 		if (mApp->HasSeedType(aSeedType) && aSeedState != SEED_FLYING_TO_BANK && aSeedState != SEED_FLYING_TO_CHOOSER && 
 			aSeedState != SEED_PACKET_HIDDEN && (aSeedState == SEED_IN_CHOOSER || mBoard->mCutScene->mSeedChoosing))
 		{
@@ -417,7 +457,7 @@ void SeedChooserScreen::Draw(Graphics* g)
 	}
 
 	mImitaterButton->Draw(g);
-	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEEDS_IN_CHOOSER; aSeedType = (SeedType)(aSeedType + 1))
+	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEED_TYPES; aSeedType = (SeedType)(aSeedType + 1))
 	{
 		ChosenSeed& aChosenSeed = mChosenSeeds[aSeedType];
 		ChosenSeedState aSeedState = aChosenSeed.mSeedState;
@@ -529,7 +569,7 @@ void SeedChooserScreen::Update()
 	mSeedChooserAge++;
 	mToolTip->Update();
 
-	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEEDS_IN_CHOOSER; aSeedType = (SeedType)(aSeedType + 1))
+	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEED_TYPES; aSeedType = (SeedType)(aSeedType + 1))
 	{
 		if (mApp->HasSeedType(aSeedType))
 		{
@@ -775,10 +815,11 @@ SeedType SeedChooserScreen::SeedHitTest(int x, int y)
 {
 	if (mMouseVisible)
 	{
-		for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEEDS_IN_CHOOSER; aSeedType = (SeedType)(aSeedType + 1))
+		for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEED_TYPES; aSeedType = (SeedType)(aSeedType + 1))
 		{
 			ChosenSeed& aChosenSeed = mChosenSeeds[aSeedType];
 			if (!mApp->HasSeedType(aSeedType) || aChosenSeed.mSeedState == SEED_PACKET_HIDDEN) continue;
+			if (aChosenSeed.mSeedState == SEED_IN_CHOOSER && !SeedShownOnChooserPage(aSeedType)) continue;
 			if (Rect(aChosenSeed.mX, aChosenSeed.mY, SEED_PACKET_WIDTH, SEED_PACKET_HEIGHT).Contains(x, y)) return aSeedType;
 		}
 	}
@@ -787,7 +828,7 @@ SeedType SeedChooserScreen::SeedHitTest(int x, int y)
 
 SeedType SeedChooserScreen::FindSeedInBank(int theIndexInBank)
 {
-	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEEDS_IN_CHOOSER; aSeedType = (SeedType)(aSeedType + 1))
+	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEED_TYPES; aSeedType = (SeedType)(aSeedType + 1))
 	{
 		if (mApp->HasSeedType(aSeedType))
 		{
@@ -989,7 +1030,7 @@ void SeedChooserScreen::MouseDown(int x, int y, int theClickCount)
 
 	if (mSeedsInFlight > 0)
 	{
-		for (int i = 0; i < NUM_SEEDS_IN_CHOOSER; i++)
+		for (int i = 0; i < NUM_SEED_TYPES; i++)
 		{
 			LandFlyingSeed(mChosenSeeds[i]);
 		}
@@ -1008,6 +1049,12 @@ void SeedChooserScreen::MouseDown(int x, int y, int theClickCount)
 	{
 		mApp->PlaySample(Sexy::SOUND_TAP);
 		ButtonDepress(SeedChooserScreen::SeedChooserScreen_ViewLawn);
+	}
+	else if (mChooserPageButton->IsMouseOver() && !mChooserPageButton->mDisabled)
+	{
+		mApp->PlaySample(Sexy::SOUND_TAP);
+		mChooserPage = mChooserPage == 0 ? 1 : 0;
+		mChooserPageButton->SetLabel(mChooserPage == 0 ? "»" : "«");
 	}
 	else if (mMenuButton->IsMouseOver())
 	{
@@ -1081,7 +1128,7 @@ void SeedChooserScreen::MouseDown(int x, int y, int theClickCount)
 
 bool SeedChooserScreen::PickedPlantType(SeedType theSeedType)
 {
-	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEEDS_IN_CHOOSER; aSeedType = (SeedType)(aSeedType + 1))
+	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEED_TYPES; aSeedType = (SeedType)(aSeedType + 1))
 	{
 		ChosenSeed& aChosenSeed = mChosenSeeds[aSeedType];
 		if (aChosenSeed.mSeedState == SEED_IN_BANK)
@@ -1093,6 +1140,13 @@ bool SeedChooserScreen::PickedPlantType(SeedType theSeedType)
 		}
 	}
 	return false;
+}
+
+bool SeedChooserScreen::SeedShownOnChooserPage(SeedType theSeedType)
+{
+	if (mChooserPage == 1)
+		return IsTravelOnlySeed(theSeedType) && IsTravelLevel(mApp->mGameMode);
+	return !IsTravelOnlySeed(theSeedType);
 }
 
 void SeedChooserScreen::CloseSeedChooser()

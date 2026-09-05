@@ -26,6 +26,7 @@
 #include "GridItem.h"
 #include "Cutscene.h"
 #include "ZenGarden.h"
+#include "Travel.h"
 #include "LawnMower.h"
 #include "Challenge.h"
 #include "SeedPacket.h"
@@ -1848,6 +1849,23 @@ void Challenge::UpdateConveyorBelt()
 		aSeedPickArray[4].mWeight = 30;
 		aSeedPickArray[5].mItem = SEED_ICESHROOM;
 		aSeedPickArray[5].mWeight = 10;
+	}
+	else if (IsTravelLevel(mApp->mGameMode))
+	{
+		// 旅行体验关传送带：小喷菇/大喷菇/大喷菇群/魅惑菇/荷叶/海蘑菇
+		aSeedPickCount = 6;
+		aSeedPickArray[0].mItem = SeedType::SEED_PUFFSHROOM;
+		aSeedPickArray[0].mWeight = 15;
+		aSeedPickArray[1].mItem = SeedType::SEED_FUMESHROOM;
+		aSeedPickArray[1].mWeight = 20;
+		aSeedPickArray[2].mItem = SeedType::SEED_FUMESHROOM_GROUP;
+		aSeedPickArray[2].mWeight = 12;
+		aSeedPickArray[3].mItem = SeedType::SEED_HYPNOSHROOM;
+		aSeedPickArray[3].mWeight = 8;
+		aSeedPickArray[4].mItem = SeedType::SEED_LILYPAD;
+		aSeedPickArray[4].mWeight = 20;
+		aSeedPickArray[5].mItem = SeedType::SEED_SEASHROOM;
+		aSeedPickArray[5].mWeight = 8;
 	}
 	else TOD_ASSERT(false);
 

@@ -9406,6 +9406,9 @@ void Board::ProcessDeleteQueue()
 // GOTY @Patoke: 0x41EC10
 bool Board::HasConveyorBeltSeedBank()
 {
+	if (IsTravelLevel(mApp->mGameMode))
+		return GetTravelLevelDef(mApp->mGameMode).mConveyorBelt;
+
 	return
 		mApp->IsFinalBossLevel() || 
 		mApp->IsMiniBossLevel() || 

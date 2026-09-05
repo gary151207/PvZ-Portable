@@ -35,6 +35,7 @@ struct TravelLevelDef
     int        mTotalWaves;      // 总波数
     bool       mFreeChooser;     // 自由选卡
     bool       mChooserPaged;    // 选卡器启用翻页（旅行专属）
+    bool       mConveyorBelt;    // 传送带关卡（不选卡）
 };
 
 struct TravelPlantDef

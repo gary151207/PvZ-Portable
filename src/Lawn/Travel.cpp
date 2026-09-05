@@ -23,8 +23,8 @@
 #include "../Sexy.TodLib/TodDebug.h"
 
 const TravelLevelDef gTravelLevelDefs[] = {
-    // mTravelId=1：体验关。夜间泳池 2 旗帜 6 波（第 1、6 波为旗帜波），自由选卡 + 可翻页
-    { 1, GameMode::GAMEMODE_CHALLENGE_TRAVEL_1, 2, 6, true, true },
+    // mTravelId=1：体验关。夜间泳池 2 旗帜 6 波（第 1、6 波为旗帜波），传送带关卡
+    { 1, GameMode::GAMEMODE_CHALLENGE_TRAVEL_1, 2, 6, false, false, true },
 };
 const int NUM_TRAVEL_LEVELS = sizeof(gTravelLevelDefs) / sizeof(gTravelLevelDefs[0]);
 

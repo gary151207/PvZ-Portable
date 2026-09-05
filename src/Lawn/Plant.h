@@ -301,6 +301,8 @@ public:
     void                    UpdateTravelPuffHeads();
     void                    UpdateTravelPuffHead(int& theCounter, ReanimationID theReanimID, int theYDirection, bool aHasTarget);
     void                    FireTravelPuff(int theYDirection);
+    void                    PlayTravelPuffShoot(Reanimation* thePuffReanim);
+    void                    PlayTravelPuffIdle(Reanimation* thePuffReanim);
     void                    DrawShadow(Graphics* g, float theOffsetX, float theOffsetY);
     void                    UpdateScaredyShroom();
     int                     DistanceToClosestZombie();

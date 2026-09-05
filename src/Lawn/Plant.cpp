@@ -307,7 +307,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         if (aBodyReanim)
         {
             const float aSideOffsetX = 20.0f;   // 左右小喷菇相对大喷菇的横向间距（调参）
-            const float aPuffOffsetY  = 5.0f;   // 小喷菇站地微调（调参）
+            const float aPuffOffsetY  = 40.0f;   // 小喷菇站地微调（调参）
 
             Reanimation* aPuffL = mApp->AddReanimation(mX - aSideOffsetX, mY + aPuffOffsetY, mRenderOrder + 2, ReanimationType::REANIM_PUFFSHROOM);
             aPuffL->mLoopType = ReanimLoopType::REANIM_LOOP;
@@ -3574,28 +3574,59 @@ void Plant::UpdateTravelPuffHeads()
 
 void Plant::UpdateTravelPuffHead(int& theCounter, ReanimationID theReanimID, int theYDirection, bool aHasTarget)
 {
+    Reanimation* aPuff = mApp->ReanimationTryToGet(theReanimID);
+    if (aPuff == nullptr)
+        return;
+
     if (theCounter > 0)
     {
-        if (--theCounter == 0 && aHasTarget)
+        if (--theCounter == 0)
         {
-            FireTravelPuff(theYDirection);
-            theCounter = 29;   // 下一轮前摇（与 Puff-shroom 原版节奏一致）
+            if (aHasTarget)
+            {
+                // 开火：小喷菇鼓起喷射动画 + 发射孢子
+                PlayTravelPuffShoot(aPuff);
+                FireTravelPuff(theYDirection);
+                theCounter = 29;   // 下一轮前摇（与 Puff-shroom 原版节奏一致）
+            }
+            else
+            {
+                PlayTravelPuffIdle(aPuff);
+            }
         }
         return;
     }
 
-    if (aHasTarget && theReanimID != ReanimationID::REANIMATIONID_NULL)
+    if (aHasTarget)
     {
-        Reanimation* aPuff = mApp->ReanimationTryToGet(theReanimID);
-        if (aPuff)
-        {
-            aPuff->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
-            aPuff->mAnimRate = 35.0f;
-            if (aPuff->TrackExists("anim_shooting"))
-                aPuff->SetFramesForLayer("anim_shooting");
-        }
+        PlayTravelPuffShoot(aPuff);   // 目标出现，起手蓄力动画
         theCounter = 29;
     }
+    else
+    {
+        PlayTravelPuffIdle(aPuff);
+    }
+}
+
+void Plant::PlayTravelPuffShoot(Reanimation* thePuffReanim)
+{
+    if (thePuffReanim->TrackExists("anim_shooting"))
+    {
+        thePuffReanim->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
+        thePuffReanim->mAnimRate = 35.0f;
+        thePuffReanim->SetFramesForLayer("anim_shooting");
+        thePuffReanim->mAnimTime = 0.0f;   // 每轮从头播放，保证动作可见
+    }
+}
+
+void Plant::PlayTravelPuffIdle(Reanimation* thePuffReanim)
+{
+    if (thePuffReanim->mLoopType == ReanimLoopType::REANIM_LOOP)
+        return;
+    thePuffReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
+    thePuffReanim->mAnimRate = 12.0f;
+    if (thePuffReanim->TrackExists("anim_idle"))
+        thePuffReanim->SetFramesForLayer("anim_idle");
 }
 
 void Plant::FireTravelPuff(int theYDirection)
@@ -3612,10 +3643,7 @@ void Plant::FireTravelPuff(int theYDirection)
     aPuff->mVelX = 3.33f;
     aPuff->mVelY = 0.45f * theYDirection;   // 微斜：射程内可跨入邻行边缘
     aPuff->mDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
-
-    // 喷口小孢子拖尾粒子（与 Puff-shroom 开火一致）
-    int aMuzzleOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PARTICLE, mRow, 0);
-    mApp->AddTodParticle(aOriginX + 13.0f, aOriginY + 13.0f, aMuzzleOrder, ParticleEffect::PARTICLE_PUFFSHROOM_TRAIL);
+    mApp->PlayFoley(FoleyType::FOLEY_PUFF);
 }
 
 void Plant::UpdateShooting()

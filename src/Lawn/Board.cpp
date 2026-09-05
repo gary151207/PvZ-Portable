@@ -629,6 +629,11 @@ void Board::AddGraveStones(int theGridX, int theCount, MTRand& theLevelRNG)
 
 int Board::GetNumWavesPerFlag()
 {
+	if (IsTravelLevel(mApp->mGameMode))
+	{
+		// 旅行关：旗帜波按关卡定义均匀分布（6 波 2 旗 → 每 3 波 1 旗）
+		return mNumWaves / std::max(GetTravelLevelDef(mApp->mGameMode).mNumFlags, 1);
+	}
 	return (mApp->IsFirstTimeAdventureMode() && mNumWaves < 10) ? mNumWaves : 10;
 }
 

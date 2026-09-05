@@ -307,7 +307,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         if (aBodyReanim)
         {
             const float aSideOffsetX = 20.0f;   // 左右小喷菇相对大喷菇的横向间距（调参）
-            const float aPuffOffsetY  = 40.0f;   // 小喷菇站地微调（调参）
+            const float aPuffOffsetY  = 22.0f;   // 小喷菇站地微调（调参）
 
             Reanimation* aPuffL = mApp->AddReanimation(mX - aSideOffsetX, mY + aPuffOffsetY, mRenderOrder + 2, ReanimationType::REANIM_PUFFSHROOM);
             aPuffL->mLoopType = ReanimLoopType::REANIM_LOOP;
@@ -3636,7 +3636,7 @@ void Plant::FireTravelPuff(int theYDirection)
 
     // 从左右喷口发射斜向孢子：MOTION_STAR 斜飞、行判定随位置实时更新（可跨行命中边缘僵尸）
     float aOriginX = mX + (theYDirection < 0 ? 26.0f : 66.0f);
-    float aOriginY = mY + 24.0f;
+    float aOriginY = mY + 52.0f;   // 喷口跟随小喷菇蘑菇头高度（调参）
     int aRenderPosition = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PROJECTILE, mRow, 0);
     Projectile* aPuff = mBoard->AddProjectile(aOriginX, aOriginY, aRenderPosition, mRow, ProjectileType::PROJECTILE_PUFF);
     aPuff->mMotionType = ProjectileMotion::MOTION_STAR;

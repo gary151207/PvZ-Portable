@@ -901,6 +901,23 @@ void Board::PickZombieWaves()
 				}
 			}
 		}
+
+		// 巨大坚果体验关：固定出怪——第 3 波 1 只小丑、第 5 波 1 只冰车、末波 1 只巨人（保证必出）
+		if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2)
+		{
+			if (aWave == 2)
+			{
+				PutZombieInWave(ZombieType::ZOMBIE_JACK_IN_THE_BOX, aWave, &aZombiePicker);
+			}
+			if (aWave == 4)
+			{
+				PutZombieInWave(ZombieType::ZOMBIE_ZAMBONI, aWave, &aZombiePicker);
+			}
+			if (aWave == mNumWaves - 1)
+			{
+				PutZombieInWave(ZombieType::ZOMBIE_GARGANTUAR, aWave, &aZombiePicker);
+			}
+		}
 		
 		// ------------------------------------------------------------------------------------------------
 		// △ 倍率应用于剩余点数

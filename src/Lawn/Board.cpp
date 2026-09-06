@@ -809,10 +809,6 @@ void Board::PickZombieWaves()
 		{
 			aZombiePoints *= 4;
 		}
-		else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2)
-		{
-			aZombiePoints *= 3;   // 巨大坚果体验关：多来点僵尸
-		}
 		else if (mApp->IsMiniBossLevel())
 		{
 			aZombiePoints *= 3;
@@ -926,7 +922,14 @@ void Board::PickZombieWaves()
 		// ------------------------------------------------------------------------------------------------
 		// △ 倍率应用于剩余点数
 		// ------------------------------------------------------------------------------------------------
-		aZombiePoints *= mZombieMultiplier;
+		if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2)
+		{
+			aZombiePoints *= 100;   // 巨大坚果体验关：自带 100 倍出怪（不依赖 CLI 参数）
+		}
+		else
+		{
+			aZombiePoints *= mZombieMultiplier;
+		}
 
 		// ------------------------------------------------------------------------------------------------
 		// △ 剩余的僵尸点数用于向列表中补充随机僵尸

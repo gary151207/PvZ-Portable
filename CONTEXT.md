@@ -114,7 +114,7 @@ Board/LawnApp/SeedChooserScreen 只通过查询取参，不为每个旅行关卡
 - `GAMEMODE_CHALLENGE_TRAVEL_1`：夜间泳池、2 旗帜、6 波（大喷菇群主题，传送带）
 - `GAMEMODE_CHALLENGE_TRAVEL_2`：**普通白天**、3 旗帜、6 波（巨大坚果主题，传送带；
   传送带=双发射手/机枪射手/坚果/巨大坚果/樱桃炸弹；出怪=普通/路障/铁桶/小丑/巨人/冰车
-  （小丑/冰车/巨人按固定波必出，随机填充倍率加成，僵尸更多）；
+  （小丑/冰车/巨人按固定波必出；本关**自带 100 倍出怪**，不依赖 `--zombie-multiplier`）；
   使用传送带关音乐 `MUSIC_TUNE_CONVEYER`）
 _避免_：旅关卡、旅游关
 

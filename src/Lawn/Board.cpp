@@ -902,18 +902,15 @@ void Board::PickZombieWaves()
 			}
 		}
 
-		// 巨大坚果体验关：固定出怪——第 3 波 1 只小丑、第 5 波 1 只冰车、末波 1 只巨人（保证必出）
+		// 巨大坚果体验关：固定出怪——第 5 波小丑+冰车、末波巨人（三类仅在第五波及之后出现）
 		if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2)
 		{
-			if (aWave == 2)
+			if (aWave == 4)   // 第 5 波：小丑 + 冰车
 			{
 				PutZombieInWave(ZombieType::ZOMBIE_JACK_IN_THE_BOX, aWave, &aZombiePicker);
-			}
-			if (aWave == 4)
-			{
 				PutZombieInWave(ZombieType::ZOMBIE_ZAMBONI, aWave, &aZombiePicker);
 			}
-			if (aWave == mNumWaves - 1)
+			if (aWave == mNumWaves - 1)   // 末波：巨人
 			{
 				PutZombieInWave(ZombieType::ZOMBIE_GARGANTUAR, aWave, &aZombiePicker);
 			}
@@ -2898,6 +2895,15 @@ ZombieType Board::PickZombieType(int theZombiePoints, int theWaveIndex, ZombiePi
 		if (aZombieType == ZombieType::ZOMBIE_BUNGEE && mApp->IsSurvivalEndless(aGameMode))
 		{
 			if (!IsFlagWave(theWaveIndex))
+			{
+				continue;
+			}
+		}
+		// 巨大坚果体验关：小丑/巨人/冰车仅从第 5 波起出现
+		else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2 &&
+			(aZombieType == ZombieType::ZOMBIE_JACK_IN_THE_BOX || aZombieType == ZombieType::ZOMBIE_GARGANTUAR || aZombieType == ZombieType::ZOMBIE_ZAMBONI))
+		{
+			if (theWaveIndex + 1 < 5 || theZombiePoints < aZombieDef.mZombieValue)
 			{
 				continue;
 			}

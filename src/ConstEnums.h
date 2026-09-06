@@ -766,7 +766,8 @@ enum PlantingReason : int32_t
     PLANTING_NOT_ON_CRATER,
     PLANTING_NOT_ON_WATER,
     PLANTING_NEEDS_GROUND,
-    PLANTING_NEEDS_SLEEPING
+    PLANTING_NEEDS_SLEEPING,
+    PLANTING_NEEDS_TWO_WALLNUTS   // 巨大坚果：需要同行相邻两颗坚果作底座
 };
 enum PlantRowType : int32_t
 {

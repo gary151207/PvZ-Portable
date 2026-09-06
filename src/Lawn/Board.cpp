@@ -2558,7 +2558,8 @@ void Board::GetPlantsOnLawn(int theGridX, int theGridY, PlantsOnLawn* thePlantOn
 		{
 			continue;
 		}
-		if (aSeedType == SeedType::SEED_COBCANNON)
+		// 玉米加农炮 / 巨大坚果占两格：锚定左格，覆盖 mPlantCol 与 mPlantCol+1 两格
+		if (aSeedType == SeedType::SEED_COBCANNON || aSeedType == SeedType::SEED_GIANT_WALLNUT)
 		{
 			if (aPlant->mPlantCol < theGridX - 1 || aPlant->mPlantCol > theGridX)
 			{
@@ -3312,8 +3313,8 @@ PlantingReason Board::CanPlantAt(int theGridX, int theGridY, SeedType theSeedTyp
 	bool aAidPurchased = mApp->mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_FIRSTAID] > 0;
 	if (theSeedType == SeedType::SEED_PUMPKINSHELL)
 	{
-		// 不可种植在玉米加农炮上
-		if (aNormalPlant && aNormalPlant->mSeedType == SeedType::SEED_COBCANNON)
+		// 不可种植在玉米加农炮上（占两格植物同理不可套南瓜）
+		if (aNormalPlant && (aNormalPlant->mSeedType == SeedType::SEED_COBCANNON || aNormalPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT))
 		{
 			return PlantingReason::PLANTING_NOT_HERE;
 		}
@@ -3363,6 +3364,31 @@ PlantingReason Board::CanPlantAt(int theGridX, int theGridY, SeedType theSeedTyp
 				return PlantingReason::PLANTING_NOT_HERE;
 			}
 		}
+	}
+
+	// 巨大坚果（旅行红卡）：双坚果底座 = 落点格坚果 + 同行相邻格坚果，两颗缺一不可（保龄球 2 滚球不适用）
+	if (theSeedType == SeedType::SEED_GIANT_WALLNUT && !mApp->IsWallnutBowlingLevel())
+	{
+		Plant* aTargetNut = aNormalPlant;
+		if (aTargetNut && aTargetNut->mSeedType == SeedType::SEED_WALLNUT && !aPumpkinPlant &&
+			aTargetNut->mOnBungeeState != PlantOnBungeeState::GETTING_GRABBED_BY_BUNGEE)
+		{
+			for (int aDX = -1; aDX <= 1; aDX += 2)
+			{
+				int aNX = theGridX + aDX;
+				if (aNX < 0 || aNX >= MAX_GRID_SIZE_X)
+					continue;
+				PlantsOnLawn aNeighbor;
+				GetPlantsOnLawn(aNX, theGridY, &aNeighbor);
+				Plant* aNeighborNut = aNeighbor.mNormalPlant;
+				if (aNeighborNut && aNeighborNut->mSeedType == SeedType::SEED_WALLNUT && !aNeighbor.mPumpkinPlant &&
+					aNeighborNut->mOnBungeeState != PlantOnBungeeState::GETTING_GRABBED_BY_BUNGEE)
+				{
+					return PlantingReason::PLANTING_OK;
+				}
+			}
+		}
+		return PlantingReason::PLANTING_NEEDS_TWO_WALLNUTS;
 	}
 
 	// 一般紫卡植物的更迭判断
@@ -4349,6 +4375,10 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 		{
 			DisplayAdvice("[ADVICE_PLANTING_NEED_SLEEPING]", MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_PLANTING_NEED_SLEEPING);
 		}
+		else if (aPlantingSeedType == SeedType::SEED_GIANT_WALLNUT && aReason == PlantingReason::PLANTING_NEEDS_TWO_WALLNUTS)
+		{
+			DisplayAdvice("[TRAVEL_NEED_TWO_WALLNUTS]", MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_CANT_PLANT_THERE);
+		}
 
 		// 特定情况下，放下原有手持的植物
 		if (mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE || mApp->IsWhackAZombieLevel())
@@ -4443,6 +4473,39 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 		{
 			aNormalPlant->Die();
 		}
+	}
+	// 巨大坚果（旅行红卡）：双坚果底座融合——落点格与相邻格两颗坚果整体替换为一只占两格的巨大坚果
+	if (aPlantingSeedType == SeedType::SEED_GIANT_WALLNUT && !mApp->IsWallnutBowlingLevel())
+	{
+		Plant* aTargetNut = aNormalPlant;   // 落点格坚果（CanPlantAt 已保证为普通坚果）
+		int aPartnerX = -1;
+		Plant* aPartnerNut = nullptr;
+		for (int aDX = -1; aDX <= 1; aDX += 2)
+		{
+			int aNX = aGridX + aDX;
+			if (aNX < 0 || aNX >= MAX_GRID_SIZE_X)
+				continue;
+			PlantsOnLawn aNeighbor;
+			GetPlantsOnLawn(aNX, aGridY, &aNeighbor);
+			if (aNeighbor.mNormalPlant && aNeighbor.mNormalPlant->mSeedType == SeedType::SEED_WALLNUT)
+			{
+				aPartnerNut = aNeighbor.mNormalPlant;
+				aPartnerX = aNX;
+				break;
+			}
+		}
+		// 锚点 = 两颗中的左格；非锚格（靠右那格）连带其睡莲一起清掉，保证第二格完全干净
+		int aSecondX = std::max(aGridX, aPartnerX);
+		PlantsOnLawn aSecondLawn;
+		GetPlantsOnLawn(aSecondX, aGridY, &aSecondLawn);
+		Plant* aSecondLily = (aSecondLawn.mUnderPlant && aSecondLawn.mUnderPlant->mSeedType == SeedType::SEED_LILYPAD) ? aSecondLawn.mUnderPlant : nullptr;
+		if (aPartnerNut)
+			aPartnerNut->Die();
+		if (aTargetNut)
+			aTargetNut->Die();
+		if (aSecondLily)
+			aSecondLily->Die();
+		aGridX = std::min(aGridX, aPartnerX);   // 巨大坚果锚定在两格中的左格
 	}
 
 	if (mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE)

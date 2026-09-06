@@ -1553,7 +1553,7 @@ void Zombie::UpdateZombiePogo()
     if (mZombiePhase == ZombiePhase::PHASE_POGO_FORWARD_BOUNCE_2 && mPhaseCounter == 70)
     {
         Plant* aPlant = FindPlantTarget(ZombieAttackType::ATTACKTYPE_VAULT);
-        if (aPlant && aPlant->mSeedType == SeedType::SEED_TALLNUT)
+        if (aPlant && (aPlant->mSeedType == SeedType::SEED_TALLNUT || aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT))   // 巨大坚果与高坚果同样挡跳跃
         {
             mApp->PlayFoley(FoleyType::FOLEY_BONK);
             mApp->AddTodParticle(aPlant->mX + 60, aPlant->mY - 20, mRenderOrder + 1, ParticleEffect::PARTICLE_TALL_NUT_BLOCK);
@@ -1825,14 +1825,15 @@ void Zombie::UpdateZombiePolevaulter()
         if (aBodyReanim->mAnimTime > 0.6f && aBodyReanim->mAnimTime <= 0.7f)
         {
             Plant* aPlant = FindPlantTarget(ZombieAttackType::ATTACKTYPE_VAULT);
-            if (aPlant && aPlant->mSeedType == SeedType::SEED_TALLNUT)
+            if (aPlant && (aPlant->mSeedType == SeedType::SEED_TALLNUT || aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT))   // 巨大坚果与高坚果同样挡跳跃
             {
                 mApp->PlayFoley(FoleyType::FOLEY_BONK);
                 aJumpEnds = true;
                 mApp->AddTodParticle(aPlant->mX + 60, aPlant->mY - 20, mRenderOrder + 1, ParticleEffect::PARTICLE_TALL_NUT_BLOCK);
 
                 mZombieHeight = ZombieHeight::HEIGHT_FALLING;
-                mPosX = aPlant->mX;
+                // 高坚果落其格左缘；巨大坚果占两格，落其右缘（前方）避免穿墙（调参点）
+                mPosX = aPlant->mX + (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT ? 150.0f : 0.0f);
                 mPosY -= 30.0f;
             }
         }
@@ -1955,14 +1956,14 @@ void Zombie::UpdateZombieDolphinRider()
         if (aBodyReanim->ShouldTriggerTimedEvent(0.3f))
         {
             Plant* aPlant = FindPlantTarget(ZombieAttackType::ATTACKTYPE_VAULT);
-            if (aPlant && aPlant->mSeedType == SeedType::SEED_TALLNUT)
+            if (aPlant && (aPlant->mSeedType == SeedType::SEED_TALLNUT || aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT))   // 巨大坚果与高坚果同样挡跳跃
             {
                 mApp->PlayFoley(FoleyType::FOLEY_BONK);
                 aJumpEnds = true;
                 mApp->AddTodParticle(aPlant->mX + 60, aPlant->mY - 20, mRenderOrder + 1, ParticleEffect::PARTICLE_TALL_NUT_BLOCK);
 
                 mZombieHeight = ZombieHeight::HEIGHT_FALLING;
-                mPosX = aPlant->mX + 25.0f;
+                mPosX = aPlant->mX + (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT ? 145.0f : 25.0f);   // 巨大坚果两格宽：落其右缘（调参点）
                 mAltitude = 30.0f;
             }
         }
@@ -4989,7 +4990,7 @@ void Zombie::AnimateChewSound()
         }
         else
         {
-            if (aPlant->mSeedType == SeedType::SEED_WALLNUT || aPlant->mSeedType == SeedType::SEED_TALLNUT || aPlant->mSeedType == SeedType::SEED_PUMPKINSHELL)
+            if (aPlant->mSeedType == SeedType::SEED_WALLNUT || aPlant->mSeedType == SeedType::SEED_TALLNUT || aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT || aPlant->mSeedType == SeedType::SEED_PUMPKINSHELL)
             {
                 mApp->PlayFoley(FoleyType::FOLEY_CHOMP_SOFT);
             }
@@ -5030,7 +5031,7 @@ void Zombie::AnimateChewEffect()
     Plant* aPlant = FindPlantTarget(ZombieAttackType::ATTACKTYPE_CHEW);
     if (aPlant)
     {
-        if (aPlant->mSeedType == SeedType::SEED_WALLNUT || aPlant->mSeedType == SeedType::SEED_TALLNUT)
+        if (aPlant->mSeedType == SeedType::SEED_WALLNUT || aPlant->mSeedType == SeedType::SEED_TALLNUT || aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
         {
             int aRenderOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PROJECTILE, mRow, 0);
             ZombieDrawPosition aDrawPos;

@@ -419,7 +419,11 @@ void Projectile::CheckForCollision()
 			}
 
 			const ProjectileDefinition& aProjectileDef = GetProjectileDef();
-			if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
+			if (Plant* aShieldNut = mBoard->FindGiantWallnutShield(aPlant->mPlantCol, aPlant->mRow); aShieldNut)
+			{
+				mBoard->GiantWallnutShareDamage(aProjectileDef.mDamage, aShieldNut);   // 巨大坚果为周围植物承伤
+			}
+			else if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
 			{
 				mBoard->GiantWallnutShareDamage(aProjectileDef.mDamage, aPlant);   // 巨大坚果：伤害全场分摊
 			}
@@ -755,7 +759,11 @@ void Projectile::UpdateLobMotion()
 		else
 		{
 			int aProjDamage = GetProjectileDef().mDamage;
-			if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
+			if (Plant* aShieldNut = mBoard->FindGiantWallnutShield(aPlant->mPlantCol, aPlant->mRow); aShieldNut)
+			{
+				mBoard->GiantWallnutShareDamage(aProjDamage, aShieldNut);   // 巨大坚果为周围植物承伤
+			}
+			else if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
 			{
 				mBoard->GiantWallnutShareDamage(aProjDamage, aPlant);   // 巨大坚果：伤害全场分摊
 			}

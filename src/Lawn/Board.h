@@ -392,6 +392,7 @@ public:
 	Plant*						PlantHitTest(int theMouseX, int theMouseY);
 	void							KillAllPlantsInRadius(int theX, int theY, int theRadius);
 	void							GiantWallnutShareDamage(int theTotalDamage, Plant* theSourcePlant);   // 巨大坚果：伤害全场分摊
+	Plant*							FindGiantWallnutShield(int theGridX, int theGridY);   // 巨大坚果：为周围 3x4 范围植物承伤的守护者
 	Plant*							GetPumpkinAt(int theGridX, int theGridY);
 	Plant*							GetFlowerPotAt(int theGridX, int theGridY);
 	static bool						CanZombieSpawnOnLevel(ZombieType theZombieType, int theLevel);

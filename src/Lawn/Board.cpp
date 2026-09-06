@@ -10100,24 +10100,68 @@ void Board::GiantWallnutShareDamage(int theTotalDamage, Plant* theSourcePlant)
 	}
 }
 
+// 巨大坚果：寻找"替 (theGridX,theGridY) 的植物承伤"的守护者。
+// 保护区域 = 以巨大坚果两格为中心、3 行 × 4 列的矩形（行 R-1..R+1，列 C-1..C+2，C=锚点列；
+// 排除巨大坚果自身占的两格）。实测需要扩大/缩小改下面的范围常量即可。
+Plant* Board::FindGiantWallnutShield(int theGridX, int theGridY)
+{
+	if (theGridX < 0 || theGridX >= MAX_GRID_SIZE_X || theGridY < 0 || theGridY >= MAX_GRID_SIZE_Y)
+	{
+		return nullptr;
+	}
+
+	Plant* aPlant = nullptr;
+	while (IteratePlants(aPlant))
+	{
+		if (aPlant->mSeedType != SeedType::SEED_GIANT_WALLNUT || aPlant->mPlantHealth <= 0 || aPlant->mDead)
+		{
+			continue;
+		}
+		int aC = aPlant->mPlantCol;
+		int aR = aPlant->mRow;
+		if (theGridY >= aR - 1 && theGridY <= aR + 1 &&
+			theGridX >= aC - 1 && theGridX <= aC + 2 &&
+			!(theGridY == aR && (theGridX == aC || theGridX == aC + 1)))
+		{
+			return aPlant;   // 该格处于守护区域（且不是巨大坚果自身两格）
+		}
+	}
+	return nullptr;
+}
+
 void Board::KillAllPlantsInRadius(int theX, int theY, int theRadius)
 {
-	// 巨大坚果（旅行红卡）：免疫爆炸（小丑僵尸/毁灭菇头）秒杀——爆炸圈内只要有巨大坚果，
-	// 该次爆炸伤害（合计 2000）按"全场分摊"规则由所有在场巨大坚果平均承担（圈外也参与分担）
-	Plant* aHitGiant = nullptr;
+	// 巨大坚果相关：爆炸(小丑/毁灭菇头)对巨大坚果本体不死；对"受巨大坚果守护"的植物也不死。
+	// 若爆炸打中巨大坚果或受守护植物，该次爆炸伤害（合计 2000）由所有巨大坚果按"全场分摊"承担。
+	Plant* aBlastSink = nullptr;   // 承伤的巨大坚果（用于 2000 分摊）
 	Plant* aPlant = nullptr;
 	while (IteratePlants(aPlant))
 	{
 		if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT &&
 			GetCircleRectOverlap(theX, theY, theRadius, aPlant->GetPlantRect()))
 		{
-			aHitGiant = aPlant;
+			aBlastSink = aPlant;
 			break;
 		}
 	}
-	if (aHitGiant)
+	if (!aBlastSink)
 	{
-		GiantWallnutShareDamage(2000, aHitGiant);
+		// 圈内没有巨大坚果本体；但若圈内有"受巨大坚果守护"的植物，同样由巨大坚果承担
+		aPlant = nullptr;
+		while (IteratePlants(aPlant))
+		{
+			if (aPlant->mSeedType != SeedType::SEED_GIANT_WALLNUT &&
+				GetCircleRectOverlap(theX, theY, theRadius, aPlant->GetPlantRect()))
+			{
+				aBlastSink = FindGiantWallnutShield(aPlant->mPlantCol, aPlant->mRow);
+				if (aBlastSink)
+					break;
+			}
+		}
+	}
+	if (aBlastSink)
+	{
+		GiantWallnutShareDamage(2000, aBlastSink);
 		// 分摊后归零的巨大坚果照常消失（与爆炸清场一致计数）
 		aPlant = nullptr;
 		while (IteratePlants(aPlant))
@@ -10130,13 +10174,17 @@ void Board::KillAllPlantsInRadius(int theX, int theY, int theRadius)
 		}
 	}
 
-	// 爆炸圈内其余植物照旧被秒杀
+	// 爆炸圈内其余植物：受巨大坚果守护的不死（不掉血），其余照旧被秒杀
 	aPlant = nullptr;
 	while (IteratePlants(aPlant))
 	{
 		if (aPlant->mSeedType != SeedType::SEED_GIANT_WALLNUT &&
 			GetCircleRectOverlap(theX, theY, theRadius, aPlant->GetPlantRect()))
 		{
+			if (FindGiantWallnutShield(aPlant->mPlantCol, aPlant->mRow))
+			{
+				continue;   // 受守护：不掉血、不炸毁
+			}
 			mPlantsEaten++;
 			aPlant->Die();
 		}

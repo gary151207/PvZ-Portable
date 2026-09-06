@@ -6676,6 +6676,23 @@ void Zombie::SquishAllInSquare(int theX, int theY, ZombieAttackType theAttackTyp
                 continue;
             }
 
+            if (Plant* aShieldNut = mBoard->FindGiantWallnutShield(aPlant->mPlantCol, aPlant->mRow); aShieldNut)
+            {
+                // 巨大坚果为周围植物承伤：碾压/砸击伤害转给巨大坚果（受保护植物不掉血、不被判定死）；
+                // 车类僵尸碾到受守护植物同样被击退一格
+                if (aShieldNut->mPlantHealth > 0)
+                {
+                    mBoard->GiantWallnutShareDamage(500, aShieldNut);
+                    if (mZombieType == ZombieType::ZOMBIE_ZAMBONI || mZombieType == ZombieType::ZOMBIE_CATAPULT)
+                    {
+                        mPosX += 80.0f;
+                        mX += 80;
+                        mApp->PlayFoley(FoleyType::FOLEY_BONK);
+                    }
+                }
+                continue;
+            }
+
             if (aPlant->mSeedType != SeedType::SEED_SPIKEROCK)
             {
                 mBoard->mPlantsEaten++;
@@ -7322,7 +7339,13 @@ void Zombie::EatPlant(Plant* thePlant)
     {
         aEatDamage *= 15;
     }
-    if (thePlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
+    Plant* aShieldNut = mBoard->FindGiantWallnutShield(thePlant->mPlantCol, thePlant->mRow);
+    if (aShieldNut)
+    {
+        // 巨大坚果为周围植物承伤：受保护植物不掉血，伤害转给巨大坚果（再全场分摊）
+        mBoard->GiantWallnutShareDamage(aEatDamage, aShieldNut);
+    }
+    else if (thePlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
     {
         // 巨大坚果：伤害全场分摊（咬一口 = 全场每只巨大坚果各扣 aEatDamage/N）
         mBoard->GiantWallnutShareDamage(aEatDamage, thePlant);

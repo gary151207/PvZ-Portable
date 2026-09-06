@@ -2,6 +2,7 @@
 <!-- PvZ-Portable 旅行模式字符串（英文默认）。中文资源包用户请用 pvzp-strings.zh-CN.xml 内容替换本文件 -->
 <Properties>
 	<String id="TRAVEL_EXPERIENCE">Travel Experience: Puff-shroom Group!</String>
+	<String id="TRAVEL_EXPERIENCE_GIANT">Travel Experience: Giant Wall-nut!</String>
 	<String id="TRAVEL_NEED_FUMESHROOM">You need Fume-shroom in your seed pack to upgrade it.</String>
 	<String id="FUMESHROOM_GROUP">Puff-shroom Group</String>
 	<String id="FUMESHROOM_GROUP_TOOLTIP">A Fume-shroom upgraded into a three-headed colony: one big fume head plus two puff-shroom side heads. Each head attacks on its own rhythm.</String>

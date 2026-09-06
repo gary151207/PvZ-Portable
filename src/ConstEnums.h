@@ -452,7 +452,8 @@ enum GameMode : int32_t
     GAMEMODE_PUZZLE_I_ZOMBIE_9,
     GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS,
     GAMEMODE_CHALLENGE_CRICKET,                     // 斗蛐蛐：5 随机植物 vs 6 随机僵尸
-    GAMEMODE_CHALLENGE_TRAVEL_1,                    // 旅行模式体验关
+    GAMEMODE_CHALLENGE_TRAVEL_1,                    // 旅行模式体验关（大喷菇群）
+    GAMEMODE_CHALLENGE_TRAVEL_2,                    // 旅行模式体验关（巨大坚果）
     GAMEMODE_UPSELL,
     GAMEMODE_INTRO,
     NUM_GAME_MODES

@@ -1111,6 +1111,7 @@ void Board::PickBackground()
 		break;
 
 	case GameMode::GAMEMODE_CHALLENGE_TRAVEL_1:
+	case GameMode::GAMEMODE_CHALLENGE_TRAVEL_2:
 		// 旅行体验关：夜间泳池（FOG 背景 = 夜 + 泳池 + 6 行，雾在 StageHasFog 中关闭）
 		mBackground = BackgroundType::BACKGROUND_4_FOG;
 		break;

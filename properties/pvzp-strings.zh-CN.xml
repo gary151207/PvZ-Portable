@@ -2,6 +2,7 @@
 <!-- PvZ-Portable 旅行模式字符串（中文备用）。使用中文资源包时，请用本文件内容替换 pvzp-strings.xml -->
 <Properties>
 	<String id="TRAVEL_EXPERIENCE">旅行体验：大喷菇群！</String>
+	<String id="TRAVEL_EXPERIENCE_GIANT">旅行体验：巨大坚果！</String>
 	<String id="TRAVEL_NEED_FUMESHROOM">你的卡组需要包含大喷菇才能升级。</String>
 	<String id="FUMESHROOM_GROUP">大喷菇群</String>
 	<String id="FUMESHROOM_GROUP_TOOLTIP">由大喷菇升级而成的三头菌落：中间一只大喷菇喷烟雾，左右两只小喷菇各自喷孢子，三头独立攻击。</String>

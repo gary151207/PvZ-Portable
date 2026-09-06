@@ -2899,19 +2899,11 @@ ZombieType Board::PickZombieType(int theZombiePoints, int theWaveIndex, ZombiePi
 				continue;
 			}
 		}
-		// 巨大坚果体验关：小丑/巨人/冰车仅从第 5 波起出现
-		else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2 &&
-			(aZombieType == ZombieType::ZOMBIE_JACK_IN_THE_BOX || aZombieType == ZombieType::ZOMBIE_GARGANTUAR || aZombieType == ZombieType::ZOMBIE_ZAMBONI))
-		{
-			if (theWaveIndex + 1 < 5 || theZombiePoints < aZombieDef.mZombieValue)
-			{
-				continue;
-			}
-		}
 		// 僵尸最早出现的波数的限制（出怪限制）
 		else if (aGameMode != GameMode::GAMEMODE_CHALLENGE_POGO_PARTY && aGameMode != GameMode::GAMEMODE_CHALLENGE_BOBSLED_BONANZA && aGameMode != GameMode::GAMEMODE_CHALLENGE_AIR_RAID)
 		{
-			int aFirstAllowedWave = aZombieDef.mFirstAllowedWave;
+			// 巨大坚果体验关：所有僵尸不受默认"最早波数"限制，任何波都可能出现
+			int aFirstAllowedWave = (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2) ? 1 : aZombieDef.mFirstAllowedWave;
 			// 无尽模式中，僵尸最早可出现的波数逐渐前移
 			if (mApp->IsSurvivalEndless(aGameMode))
 			{

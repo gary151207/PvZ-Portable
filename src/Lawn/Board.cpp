@@ -10057,39 +10057,74 @@ bool Board::IterateReanimations(Reanimation*& theReanimation)
 	return false;
 }
 
-void Board::KillAllPlantsInRadius(int theX, int theY, int theRadius)
+// 巨大坚果（旅行红卡）：伤害全场分摊——theTotalDamage 由场上所有巨大坚果平分承担，
+// 整除余数记在直接受击者（theSourcePlant）身上，保证总伤害不丢。
+// 只扣血、不判死不计数：归零者置 -1，由各自死亡路径/Plant::Update 统一处理。
+void Board::GiantWallnutShareDamage(int theTotalDamage, Plant* theSourcePlant)
 {
-	// 巨大坚果（旅行红卡）：免疫爆炸（小丑僵尸/毁灭菇头）秒杀——爆炸圈内只要有巨大坚果，
-	// 全场合计 2000 伤害由所有在场巨大坚果分摊（圈外的巨大坚果也参与分担）
-	int aGiantTotal = 0;
-	int aHitGiants = 0;
+	int aCount = 0;
 	Plant* aPlant = nullptr;
 	while (IteratePlants(aPlant))
 	{
-		if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
+		if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT && aPlant->mPlantHealth > 0)
 		{
-			aGiantTotal++;
-			if (GetCircleRectOverlap(theX, theY, theRadius, aPlant->GetPlantRect()))
-			{
-				aHitGiants++;
-			}
+			aCount++;
 		}
 	}
-	if (aHitGiants > 0)
+	if (aCount <= 0 || theTotalDamage <= 0)
 	{
-		int aShare = 2000 / aGiantTotal;
+		return;
+	}
+
+	int aShare = theTotalDamage / aCount;
+	int aRemainder = theTotalDamage % aCount;
+	aPlant = nullptr;
+	while (IteratePlants(aPlant))
+	{
+		if (aPlant->mSeedType != SeedType::SEED_GIANT_WALLNUT || aPlant->mPlantHealth <= 0)
+		{
+			continue;
+		}
+		int aDmg = aShare;
+		if (aRemainder > 0 && aPlant == theSourcePlant)
+		{
+			aDmg++;
+			aRemainder--;
+		}
+		aPlant->mPlantHealth -= aDmg;
+		if (aPlant->mPlantHealth <= 0)
+		{
+			aPlant->mPlantHealth = -1;   // 触发既有死亡路径（啃食/碾压目标当场处理，其余随 Plant::Update）
+		}
+	}
+}
+
+void Board::KillAllPlantsInRadius(int theX, int theY, int theRadius)
+{
+	// 巨大坚果（旅行红卡）：免疫爆炸（小丑僵尸/毁灭菇头）秒杀——爆炸圈内只要有巨大坚果，
+	// 该次爆炸伤害（合计 2000）按"全场分摊"规则由所有在场巨大坚果平均承担（圈外也参与分担）
+	Plant* aHitGiant = nullptr;
+	Plant* aPlant = nullptr;
+	while (IteratePlants(aPlant))
+	{
+		if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT &&
+			GetCircleRectOverlap(theX, theY, theRadius, aPlant->GetPlantRect()))
+		{
+			aHitGiant = aPlant;
+			break;
+		}
+	}
+	if (aHitGiant)
+	{
+		GiantWallnutShareDamage(2000, aHitGiant);
+		// 分摊后归零的巨大坚果照常消失（与爆炸清场一致计数）
 		aPlant = nullptr;
 		while (IteratePlants(aPlant))
 		{
-			if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
+			if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT && aPlant->mPlantHealth <= 0)
 			{
-				aPlant->mPlantHealth -= aShare;
-				aPlant->mEatenFlashCountdown = 25;
-				if (aPlant->mPlantHealth <= 0)
-				{
-					mPlantsEaten++;
-					aPlant->Die();
-				}
+				mPlantsEaten++;
+				aPlant->Die();
 			}
 		}
 	}

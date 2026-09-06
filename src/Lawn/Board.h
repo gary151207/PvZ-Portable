@@ -391,6 +391,7 @@ public:
 	Zombie*							ZombieHitTest(int theMouseX, int theMouseY);
 	Plant*						PlantHitTest(int theMouseX, int theMouseY);
 	void							KillAllPlantsInRadius(int theX, int theY, int theRadius);
+	void							GiantWallnutShareDamage(int theTotalDamage, Plant* theSourcePlant);   // 巨大坚果：伤害全场分摊
 	Plant*							GetPumpkinAt(int theGridX, int theGridY);
 	Plant*							GetFlowerPotAt(int theGridX, int theGridY);
 	static bool						CanZombieSpawnOnLevel(ZombieType theZombieType, int theLevel);

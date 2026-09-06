@@ -6652,10 +6652,10 @@ void Zombie::SquishAllInSquare(int theX, int theY, ZombieAttackType theAttackTyp
 
             if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
             {
-                // 巨大坚果免疫碾压/砸击秒杀：改为扣 500 血；若碾压来自车类僵尸（铲雪车/投石车）则将其向后击退一格
+                // 巨大坚果免疫碾压/砸击秒杀：伤害按全场分摊（合计 500）；若碾压来自车类僵尸则将其向后击退一格
                 if (aPlant->mPlantHealth > 0)
                 {
-                    aPlant->mPlantHealth -= 500;
+                    mBoard->GiantWallnutShareDamage(500, aPlant);
                     aPlant->mRecentlyEatenCountdown = 50;
                     aPlant->mEatenFlashCountdown = 25;
                     mApp->PlayFoley(FoleyType::FOLEY_SQUISH);
@@ -7322,7 +7322,15 @@ void Zombie::EatPlant(Plant* thePlant)
     {
         aEatDamage *= 15;
     }
-    thePlant->mPlantHealth -= aEatDamage;
+    if (thePlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
+    {
+        // 巨大坚果：伤害全场分摊（咬一口 = 全场每只巨大坚果各扣 aEatDamage/N）
+        mBoard->GiantWallnutShareDamage(aEatDamage, thePlant);
+    }
+    else
+    {
+        thePlant->mPlantHealth -= aEatDamage;
+    }
     thePlant->mRecentlyEatenCountdown = 50;
     if (mApp->IsIZombieLevel() && mJustGotShotCounter < -500)
     {

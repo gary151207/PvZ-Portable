@@ -419,7 +419,14 @@ void Projectile::CheckForCollision()
 			}
 
 			const ProjectileDefinition& aProjectileDef = GetProjectileDef();
-			aPlant->mPlantHealth -= aProjectileDef.mDamage;
+			if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
+			{
+				mBoard->GiantWallnutShareDamage(aProjectileDef.mDamage, aPlant);   // 巨大坚果：伤害全场分摊
+			}
+			else
+			{
+				aPlant->mPlantHealth -= aProjectileDef.mDamage;
+			}
 			aPlant->mEatenFlashCountdown = std::max(aPlant->mEatenFlashCountdown, 25);
 
 			mApp->PlayFoley(FoleyType::FOLEY_SPLAT);
@@ -747,7 +754,15 @@ void Projectile::UpdateLobMotion()
 		}
 		else
 		{
-			aPlant->mPlantHealth -= GetProjectileDef().mDamage;
+			int aProjDamage = GetProjectileDef().mDamage;
+			if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
+			{
+				mBoard->GiantWallnutShareDamage(aProjDamage, aPlant);   // 巨大坚果：伤害全场分摊
+			}
+			else
+			{
+				aPlant->mPlantHealth -= aProjDamage;
+			}
 			aPlant->mEatenFlashCountdown = std::max(aPlant->mEatenFlashCountdown, 25);
 			mApp->PlayFoley(FoleyType::FOLEY_SPLAT);
 			Die();

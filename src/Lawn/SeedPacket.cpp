@@ -286,6 +286,7 @@ void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedTyp
 	{
 		aSeedType = theImitaterType;
 	}
+	bool aIsRedCard = Plant::IsRedCard(aSeedType);   // 红卡（巨大坚果）：卡包底色渲染为红色系
 
 	if (theGrayness != 255)
 	{
@@ -314,7 +315,18 @@ void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedTyp
 	}
 	else
 	{
-		TodDrawImageCelScaledF(g, Sexy::IMAGE_SEEDS, x, y, aPacketBackground, 0, g->mScaleX, g->mScaleY);
+		if (aIsRedCard)
+		{
+			// 红卡：图集无红色卡包 cel，用子画布把绿色 cel 染成红色系（作用域仅限底色这一张图）
+			Graphics aRedG(*g);
+			aRedG.SetColorizeImages(true);
+			aRedG.SetColor(Color(255, 96, 96));
+			TodDrawImageCelScaledF(&aRedG, Sexy::IMAGE_SEEDS, x, y, aPacketBackground, 0, g->mScaleX, g->mScaleY);
+		}
+		else
+		{
+			TodDrawImageCelScaledF(g, Sexy::IMAGE_SEEDS, x, y, aPacketBackground, 0, g->mScaleX, g->mScaleY);
+		}
 	}
 
 	float aScale = 0.5f;
@@ -548,7 +560,7 @@ void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedTyp
 	{
 		int aDarknessHeight = FloatRoundToInt(68.0f * thePercentDark) + 2;
 		Graphics aPlantG(*g);
-		aPlantG.SetColor(Color(64, 64, 64, 255));
+		aPlantG.SetColor(aIsRedCard ? Color(255, 64, 64, 255) : Color(64, 64, 64, 255));   // 红卡禁用/充能态保持红色系变暗
 		aPlantG.SetColorizeImages(true);
 		aPlantG.ClipRect(x, y, SEED_PACKET_WIDTH, aDarknessHeight);
 		TodDrawImageCelScaledF(&aPlantG, Sexy::IMAGE_SEEDS, x, y, aPacketBackground, 0, aPlantG.mScaleX, aPlantG.mScaleY);
@@ -1123,9 +1135,9 @@ void SeedPacket::SetPacketType(SeedType theSeedType, SeedType theImitaterType)
 		mApp->IsIZombieLevel() || mApp->IsScaryPotterLevel() || mApp->IsWhackAZombieLevel() || (mApp->IsSurvivalMode() && mBoard->mChallenge->mSurvivalStage > 0))
 		return;
 
-	if (aUseSeedType == SeedType::SEED_GATLINGPEA)
+	if (aUseSeedType == SeedType::SEED_GATLINGPEA || aUseSeedType == SeedType::SEED_GIANT_WALLNUT)
 	{
-		// Gatling Pea uses its own base cooldown (30.01 s); do not apply the generic upgrade overrides.
+		// Gatling Pea / Giant Wall-nut use their own base cooldown (30.01 s / 50 s); do not apply the generic upgrade overrides.
 	}
 	else if ((Plant::IsUpgrade(aUseSeedType) && !gLawnApp->IsSurvivalMode()) || Plant::GetRefreshTime(mPacketType, mImitaterType) == 5000)
 	{

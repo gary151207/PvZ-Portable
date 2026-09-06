@@ -258,6 +258,7 @@ public:
     static /*inline*/ bool  IsAquatic(SeedType theSeedType);
     static /*inline*/ bool  IsFlying(SeedType theSeedtype);
     static /*inline*/ bool  IsUpgrade(SeedType theSeedtype);
+    static /*inline*/ bool  IsRedCard(SeedType theSeedtype);   // 红卡（旅行高阶卡面；当前唯一：巨大坚果）
     void                    UpdateAbilities();
     void                    Squish();
     void                    DoRowAreaDamage(int theDamage, unsigned int theDamageFlags);

@@ -94,7 +94,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_COBCANNON,         nullptr, ReanimationType::REANIM_COBCANNON,     16, 500,    3000,   PlantSubClass::SUBCLASS_NORMAL,     600,    "COB_CANNON" },
     { SeedType::SEED_IMITATER,          nullptr, ReanimationType::REANIM_IMITATER,      33, 0,      750,    PlantSubClass::SUBCLASS_NORMAL,     0,      "IMITATER" },
     { SeedType::SEED_EXPLODE_O_NUT,     nullptr, ReanimationType::REANIM_WALLNUT,       2,  0,      2000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "EXPLODE_O_NUT" },
-    { SeedType::SEED_GIANT_WALLNUT,     nullptr, ReanimationType::REANIM_WALLNUT,       2,  0,      2000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "GIANT_WALLNUT" },
+    { SeedType::SEED_GIANT_WALLNUT,     nullptr, ReanimationType::REANIM_WALLNUT,       2,  200,    5000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "GIANT_WALLNUT" },   // 巨大坚果：200 阳光 / 50s 冷却（旅行红卡）
     { SeedType::SEED_SPROUT,            nullptr, ReanimationType::REANIM_ZENGARDEN_SPROUT,          33, 0,      3000,   PlantSubClass::SUBCLASS_NORMAL,     0,      "SPROUT" },
     { SeedType::SEED_LEFTPEATER,        nullptr, ReanimationType::REANIM_REPEATER,      5,  200,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "REPEATER" },
     { SeedType::SEED_FUMESHROOM_GROUP,  nullptr, ReanimationType::REANIM_FUMESHROOM,    9,  0,      3000,   PlantSubClass::SUBCLASS_SHOOTER,    90,     "FUMESHROOM_GROUP" }
@@ -339,7 +339,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         aBodyReanim->mColorOverride = Color(255, 64, 64);
         break;
     case SeedType::SEED_GIANT_WALLNUT:
-        mPlantHealth = 4000;
+        mPlantHealth = 32000;   // 巨大坚果（旅行红卡）：32000 生命
         mBlinkCountdown = 1000 + Sexy::Rand(1000);
         break;
     case SeedType::SEED_TALLNUT:
@@ -2973,7 +2973,9 @@ void Plant::UpdateReanimColor()
     {
         aColorOverride = Color(128, 128, 128);
     }
-    else if (IsPartOfUpgradableTo(aSeedType) && mBoard->CanPlantAt(mPlantCol, mRow, aSeedType) == PLANTING_OK)
+    else if ((IsPartOfUpgradableTo(aSeedType) ||
+              (aSeedType == SeedType::SEED_GIANT_WALLNUT && mSeedType == SeedType::SEED_WALLNUT))   // 巨大坚果：可作双坚果底座的坚果闪白放行
+             && mBoard->CanPlantAt(mPlantCol, mRow, aSeedType) == PLANTING_OK)
     {
         aColorOverride = GetFlashingColor(mBoard->mMainCounter, 90);
     }
@@ -3455,8 +3457,9 @@ void Plant::AnimateNuts()
     Image* aCracked1;
     Image* aCracked2;
     const char* aTrackToOverride;
-    if (mSeedType == SeedType::SEED_WALLNUT)
+    if (mSeedType == SeedType::SEED_WALLNUT || mSeedType == SeedType::SEED_GIANT_WALLNUT)
     {
+        // 巨大坚果与普通坚果同款裂纹脸（随 2x 缩放自然放大）
         aCracked1 = IMAGE_REANIM_WALLNUT_CRACKED1;
         aCracked2 = IMAGE_REANIM_WALLNUT_CRACKED2;
         aTrackToOverride = "anim_face";
@@ -3474,6 +3477,10 @@ void Plant::AnimateNuts()
     if (mSeedType == SeedType::SEED_TALLNUT)
     {
         aPosY -= 32;
+    }
+    else if (mSeedType == SeedType::SEED_GIANT_WALLNUT)
+    {
+        aPosY -= 60;   // 巨大坚果 2x 更高，裂纹粒子/碎屑位置随之上移（调参点）
     }
 
     Image* aImageOverride = aBodyReanim->GetImageOverride(aTrackToOverride);
@@ -3913,7 +3920,7 @@ void Plant::Animate()
         return;
     }
 
-    if (mSeedType == SeedType::SEED_WALLNUT || mSeedType == SeedType::SEED_TALLNUT)
+    if (mSeedType == SeedType::SEED_WALLNUT || mSeedType == SeedType::SEED_TALLNUT || mSeedType == SeedType::SEED_GIANT_WALLNUT)
     {
         AnimateNuts();
     }
@@ -5699,12 +5706,24 @@ bool Plant::IsUpgrade(SeedType theSeedtype)
         theSeedtype == SeedType::SEED_FUMESHROOM_GROUP;
 }
 
+bool Plant::IsRedCard(SeedType theSeedtype)
+{
+    // 红卡：旅行专属高阶卡级（对标紫卡 IsUpgrade 的全局观感列表）。
+    // 目前唯一一张 = 巨大坚果（旅行专属；保龄球 2 作为滚球出现时同样显示红卡，同物种同卡）。
+    return theSeedtype == SeedType::SEED_GIANT_WALLNUT;
+}
+
 Rect Plant::GetPlantRect()
 {
     Rect aRect;
     if (mSeedType == SeedType::SEED_TALLNUT)
     {
         aRect = Rect(mX + 10, mY, mWidth, mHeight);
+    }
+    else if (mSeedType == SeedType::SEED_GIANT_WALLNUT)
+    {
+        // 巨大坚果占两格：受击/啃食矩形展宽到两格（80px × 2），僵尸在两格任一处都能咬到
+        aRect = Rect(mX + 10, mY, 150, mHeight);
     }
     else if (mSeedType == SeedType::SEED_PUMPKINSHELL)
     {

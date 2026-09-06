@@ -110,8 +110,9 @@ Board/LawnApp/SeedChooserScreen 只通过查询取参，不为每个旅行关卡
 ### 语言
 
 **旅行关卡 (Travel Level)**：
-由 `TravelLevelDef` 表（`gTravelLevelDefs`）驱动的关卡；当前仅一条体验关
-（`GAMEMODE_CHALLENGE_TRAVEL_1`：夜间泳池、2 旗帜、6 波、自由选卡 + 可翻页）。
+由 `TravelLevelDef` 表（`gTravelLevelDefs`）驱动的关卡；当前两条体验关：
+- `GAMEMODE_CHALLENGE_TRAVEL_1`：夜间泳池、2 旗帜、6 波（大喷菇群主题，传送带）
+- `GAMEMODE_CHALLENGE_TRAVEL_2`：夜间泳池、2 旗帜、6 波（巨大坚果主题，传送带）
 _避免_：旅关卡、旅游关
 
 **旅行专属植物 (Travel-Only Plant)**：

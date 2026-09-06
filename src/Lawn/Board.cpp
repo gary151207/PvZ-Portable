@@ -809,6 +809,10 @@ void Board::PickZombieWaves()
 		{
 			aZombiePoints *= 4;
 		}
+		else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2)
+		{
+			aZombiePoints *= 3;   // 巨大坚果体验关：多来点僵尸
+		}
 		else if (mApp->IsMiniBossLevel())
 		{
 			aZombiePoints *= 3;

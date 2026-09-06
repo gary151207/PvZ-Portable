@@ -1111,9 +1111,13 @@ void Board::PickBackground()
 		break;
 
 	case GameMode::GAMEMODE_CHALLENGE_TRAVEL_1:
-	case GameMode::GAMEMODE_CHALLENGE_TRAVEL_2:
-		// 旅行体验关：夜间泳池（FOG 背景 = 夜 + 泳池 + 6 行，雾在 StageHasFog 中关闭）
+		// 旅行体验关（大喷菇群）：夜间泳池（FOG 背景 = 夜 + 泳池 + 6 行，雾在 StageHasFog 中关闭）
 		mBackground = BackgroundType::BACKGROUND_4_FOG;
+		break;
+
+	case GameMode::GAMEMODE_CHALLENGE_TRAVEL_2:
+		// 巨大坚果体验关：普通白天（5 行、无池）
+		mBackground = BackgroundType::BACKGROUND_1_DAY;
 		break;
 
 	case GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_3:
@@ -2729,6 +2733,22 @@ Projectile* Board::AddProjectile(int theX, int theY, int theRenderOrder, int the
 
 bool Board::CanZombieSpawnOnLevel(ZombieType theZombieType, int theLevel)
 {
+	if (gLawnApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2)
+	{
+		// 巨大坚果体验关出怪：普通/路障/铁桶/小丑/巨人/冰车
+		switch (theZombieType)
+		{
+		case ZombieType::ZOMBIE_NORMAL:
+		case ZombieType::ZOMBIE_TRAFFIC_CONE:
+		case ZombieType::ZOMBIE_PAIL:
+		case ZombieType::ZOMBIE_JACK_IN_THE_BOX:
+		case ZombieType::ZOMBIE_GARGANTUAR:
+		case ZombieType::ZOMBIE_ZAMBONI:
+			return true;
+		default:
+			return false;
+		}
+	}
 	if (IsTravelLevel(gLawnApp->mGameMode))
 	{
 		// 旅行体验关教学友好档：普通/路障/铁桶/旗帜 + 少量泳池特色（潜水员、海豚）

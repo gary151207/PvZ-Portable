@@ -29,7 +29,8 @@ const TravelLevelDef gTravelLevelDefs[] = {
 const int NUM_TRAVEL_LEVELS = sizeof(gTravelLevelDefs) / sizeof(gTravelLevelDefs[0]);
 
 const TravelPlantDef gTravelPlantDefs[] = {
-    { SeedType::SEED_FUMESHROOM_GROUP, true },
+    { SeedType::SEED_FUMESHROOM_GROUP, true  },   // 大喷菇群（紫卡升级卡）
+    { SeedType::SEED_GIANT_WALLNUT,    false },   // 巨大坚果（红卡：双坚果底座融合，见 2026-09-06-giant-wallnut）
 };
 const int NUM_TRAVEL_PLANTS = sizeof(gTravelPlantDefs) / sizeof(gTravelPlantDefs[0]);
 

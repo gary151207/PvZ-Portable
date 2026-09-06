@@ -2691,6 +2691,8 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 		return mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_PLANT_IMITATER] > 0;
 	case SeedType::SEED_FUMESHROOM_GROUP:
 		return IsTravelLevel(mGameMode);   // 旅行专属：仅旅行关可选/拥有
+	case SeedType::SEED_GIANT_WALLNUT:
+		return IsTravelLevel(mGameMode);   // 旅行专属红卡：仅旅行关可选/拥有
 	default:
 		return theSeedType < GetSeedsAvailable();
 	}

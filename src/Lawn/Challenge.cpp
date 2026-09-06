@@ -1852,8 +1852,8 @@ void Challenge::UpdateConveyorBelt()
 	}
 	else if (IsTravelLevel(mApp->mGameMode))
 	{
-		// 旅行体验关传送带：小喷菇/大喷菇/大喷菇群/魅惑菇/荷叶/海蘑菇
-		aSeedPickCount = 6;
+		// 旅行体验关传送带：小喷菇/大喷菇/大喷菇群/魅惑菇/荷叶/海蘑菇 + 坚果/巨大坚果（红卡底座）
+		aSeedPickCount = 8;
 		aSeedPickArray[0].mItem = SeedType::SEED_PUFFSHROOM;
 		aSeedPickArray[0].mWeight = 15;
 		aSeedPickArray[1].mItem = SeedType::SEED_FUMESHROOM;
@@ -1866,6 +1866,10 @@ void Challenge::UpdateConveyorBelt()
 		aSeedPickArray[4].mWeight = 20;
 		aSeedPickArray[5].mItem = SeedType::SEED_SEASHROOM;
 		aSeedPickArray[5].mWeight = 8;
+		aSeedPickArray[6].mItem = SeedType::SEED_WALLNUT;   // 巨大坚果的双坚果底座
+		aSeedPickArray[6].mWeight = 14;
+		aSeedPickArray[7].mItem = SeedType::SEED_GIANT_WALLNUT;   // 红卡：拖到两颗紧邻坚果上融合
+		aSeedPickArray[7].mWeight = 6;
 	}
 	else TOD_ASSERT(false);
 

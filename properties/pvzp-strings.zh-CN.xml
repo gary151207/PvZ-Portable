@@ -7,4 +7,7 @@
 	<String id="FUMESHROOM_GROUP_TOOLTIP">由大喷菇升级而成的三头菌落：中间一只大喷菇喷烟雾，左右两只小喷菇各自喷孢子，三头独立攻击。</String>
 	<String id="TRAVEL_PLANT_NAME">大喷菇群</String>
 	<String id="TRAVEL_PLANT_DESC">由大喷菇升级而成的三头菌落：中间一只大喷菇喷烟雾，左右两只小喷菇各自喷孢子，三头独立攻击。</String>
+	<String id="GIANT_WALLNUT">巨大坚果</String>
+	<String id="GIANT_WALLNUT_TOOLTIP">由两颗紧邻的坚果融合而成的巨型坚果：32000 生命。撑杆跳僵尸与跳跳僵尸都无法跳过它，只能老老实实啃。</String>
+	<String id="TRAVEL_NEED_TWO_WALLNUTS">需要同一行有两颗紧邻的坚果作为底座才能融合出巨大坚果。</String>
 </Properties>

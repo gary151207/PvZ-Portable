@@ -3076,8 +3076,18 @@ void Plant::UpdateReanim()
     {
         aScaleX = 2.0f;
         aScaleY = 2.0f;
-        aOffsetX -= 76.0f;
-        aOffsetY -= 64.0f;
+        if (mApp->IsWallnutBowlingLevel())
+        {
+            // 保龄球滚球：按原偏移居中于所在格
+            aOffsetX -= 76.0f;
+            aOffsetY -= 64.0f;
+        }
+        else
+        {
+            // 种植形态：占两格、锚定左格；相对原偏移整体再左移一格(80px)，使贴图盖住锚点起的两格
+            aOffsetX -= 156.0f;
+            aOffsetY -= 64.0f;
+        }
     }
     if (mSeedType == SeedType::SEED_INSTANT_COFFEE)
     {

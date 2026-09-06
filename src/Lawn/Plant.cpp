@@ -3183,6 +3183,25 @@ void Plant::Update()
 
     if (doUpdate)
     {
+        // 巨大坚果（旅行红卡）：每 5 秒自动回血 200（上限为满血），受伤间隙持续生效
+        if (mSeedType == SeedType::SEED_GIANT_WALLNUT && mPlantHealth > 0)
+        {
+            if (mGiantRegenCountdown <= 0)
+            {
+                mGiantRegenCountdown = 500;   // 5 秒
+                if (mPlantHealth < mPlantMaxHealth)
+                {
+                    mPlantHealth += 200;
+                    if (mPlantHealth > mPlantMaxHealth)
+                        mPlantHealth = mPlantMaxHealth;
+                }
+            }
+            else
+            {
+                mGiantRegenCountdown--;
+            }
+        }
+
         UpdateAbilities();
         Animate();
 

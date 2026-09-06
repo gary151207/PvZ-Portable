@@ -10059,10 +10059,47 @@ bool Board::IterateReanimations(Reanimation*& theReanimation)
 
 void Board::KillAllPlantsInRadius(int theX, int theY, int theRadius)
 {
+	// 巨大坚果（旅行红卡）：免疫爆炸（小丑僵尸/毁灭菇头）秒杀——爆炸圈内只要有巨大坚果，
+	// 全场合计 2000 伤害由所有在场巨大坚果分摊（圈外的巨大坚果也参与分担）
+	int aGiantTotal = 0;
+	int aHitGiants = 0;
 	Plant* aPlant = nullptr;
 	while (IteratePlants(aPlant))
 	{
-		if (GetCircleRectOverlap(theX, theY, theRadius, aPlant->GetPlantRect()))
+		if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
+		{
+			aGiantTotal++;
+			if (GetCircleRectOverlap(theX, theY, theRadius, aPlant->GetPlantRect()))
+			{
+				aHitGiants++;
+			}
+		}
+	}
+	if (aHitGiants > 0)
+	{
+		int aShare = 2000 / aGiantTotal;
+		aPlant = nullptr;
+		while (IteratePlants(aPlant))
+		{
+			if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
+			{
+				aPlant->mPlantHealth -= aShare;
+				aPlant->mEatenFlashCountdown = 25;
+				if (aPlant->mPlantHealth <= 0)
+				{
+					mPlantsEaten++;
+					aPlant->Die();
+				}
+			}
+		}
+	}
+
+	// 爆炸圈内其余植物照旧被秒杀
+	aPlant = nullptr;
+	while (IteratePlants(aPlant))
+	{
+		if (aPlant->mSeedType != SeedType::SEED_GIANT_WALLNUT &&
+			GetCircleRectOverlap(theX, theY, theRadius, aPlant->GetPlantRect()))
 		{
 			mPlantsEaten++;
 			aPlant->Die();

@@ -6650,6 +6650,32 @@ void Zombie::SquishAllInSquare(int theX, int theY, ZombieAttackType theAttackTyp
                 continue;
             }
 
+            if (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT)
+            {
+                // 巨大坚果免疫碾压/砸击秒杀：改为扣 500 血；若碾压来自车类僵尸（铲雪车/投石车）则将其向后击退一格
+                if (aPlant->mPlantHealth > 0)
+                {
+                    aPlant->mPlantHealth -= 500;
+                    aPlant->mRecentlyEatenCountdown = 50;
+                    aPlant->mEatenFlashCountdown = 25;
+                    mApp->PlayFoley(FoleyType::FOLEY_SQUISH);
+                    if (aPlant->mPlantHealth <= 0)
+                    {
+                        mBoard->mPlantsEaten++;
+                        aPlant->Die();
+                        mBoard->mChallenge->ZombieAtePlant(aPlant);
+                    }
+                    else if (mZombieType == ZombieType::ZOMBIE_ZAMBONI || mZombieType == ZombieType::ZOMBIE_CATAPULT)
+                    {
+                        // 车类僵尸被击退一格（约 80px，向右退）——需要退出受击矩形避免每帧重复触发
+                        mPosX += 80.0f;
+                        mX += 80;
+                        mApp->PlayFoley(FoleyType::FOLEY_BONK);
+                    }
+                }
+                continue;
+            }
+
             if (aPlant->mSeedType != SeedType::SEED_SPIKEROCK)
             {
                 mBoard->mPlantsEaten++;

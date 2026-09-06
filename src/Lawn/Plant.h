@@ -213,6 +213,7 @@ public:
     int32_t                 mTallnutCounterCooldown;
     int32_t                 mEatenFlashCountdown;
     int32_t                 mBeghouledFlashCountdown;
+    int32_t                 mGiantRegenCountdown = 500;     // 巨大坚果：回血计时（500 tick = 5 秒，每次 +200）
     float                   mShakeOffsetX;
     float                   mShakeOffsetY;
     MagnetItem              mMagnetItems[MAX_MAGNET_ITEMS];

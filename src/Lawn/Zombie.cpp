@@ -76,7 +76,6 @@ ZombieDefinition gZombieDefs[NUM_ZOMBIE_TYPES] = {
     { ZOMBIE_TALLNUT_HEAD,      REANIM_ZOMBIE,              4,      99,     10,     2000,   "TALLNUT_HEAD_ZOMBIE" },
     { ZOMBIE_REDEYE_GARGANTUAR, REANIM_GARGANTUAR,          10,     48,     15,     6000,   "REDEYED_GARGANTUAR" },
     { ZOMBIE_DOOMSHROOM_HEAD,   REANIM_JACKINTHEBOX,        3,      31,     10,     1000,   "DOOMSHROOM_HEAD_ZOMBIE" },
-    { ZOMBIE_BOSS_CONHEAD_PEA,  REANIM_ZOMBIE,              10,     99,     1,      3000,   "BOSS_CONHEAD_PEA_ZOMBIE" },
 };
 
 static ZombieType gBossZombieList[] = {
@@ -184,7 +183,6 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mIsFireBall = false;
     mMoweredReanimID = ReanimationID::REANIMATIONID_NULL;
     mLastPortalX = -1;
-    mConheadPatrolState = 0;
     for (int i = 0; i < MAX_ZOMBIE_FOLLOWERS; i++)
     {
         mFollowerZombieID[i] = ZombieID::ZOMBIEID_NULL;
@@ -788,47 +786,6 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
             mHelmType = HelmType::HELMTYPE_TRAFFIC_CONE;
             mHelmHealth = 370;
         }
-        break;
-    }
-
-    case ZombieType::ZOMBIE_BOSS_CONHEAD_PEA:
-    {
-        // 路障射手僵尸（BOSS）：复用路障盔 + 豌豆射手头的豌豆喷射逻辑，
-        // 作为 BOSS 拥有更高血量、更大体型，并周期性向该行植物喷射豌豆。
-        LoadPlainZombieReanim();
-        ReanimShowPrefix("anim_hair", RENDER_GROUP_HIDDEN);
-        ReanimShowPrefix("anim_head2", RENDER_GROUP_HIDDEN);
-
-        Reanimation* aBodyReanim = mApp->ReanimationGet(mBodyReanimID);
-        if (IsOnBoard())
-        {
-            aBodyReanim->SetFramesForLayer("anim_walk2");
-        }
-
-        ReanimatorTrackInstance* aTrackInstance = aBodyReanim->GetTrackInstanceByName("anim_head1");
-        aTrackInstance->mImageOverride = IMAGE_BLANK;
-        Reanimation* aHeadReanim = mApp->AddReanimation(0.0f, 0.0f, 0, ReanimationType::REANIM_PEASHOOTER);
-        aHeadReanim->PlayReanim("anim_head_idle", ReanimLoopType::REANIM_LOOP, 0, 15.0f);
-        mSpecialHeadReanimID = mApp->ReanimationGetID(aHeadReanim);
-        AttachEffect* aAttachEffect = AttachReanim(aTrackInstance->mAttachmentID, aHeadReanim, 0.0f, 0.0f);
-        aBodyReanim->mFrameBasePose = 0;
-        TodScaleRotateTransformMatrix(aAttachEffect->mOffset, 65.0f, -5.0f, 0.2f, -1.0f, 1.0f);
-
-        // BOSS 属性：更大体型（2 倍）+ 高血量（本体 5400 + 路障一类防具 7400）
-        mScaleZombie = 2.0f;
-        mWidth = 120;
-        mHeight = 120;
-        mZombieRect = Rect(20, 0, 70, 115);
-        mZombieAttackRect = Rect(55, 0, 30, 115);
-        mBodyHealth = 5400;
-        mHelmType = HelmType::HELMTYPE_TRAFFIC_CONE;
-        mHelmHealth = 7400;
-        ReanimShowPrefix("anim_cone", RENDER_GROUP_NORMAL);
-
-        // 巡逻状态：初始从右侧（往第 8 列外）向左走到第 2 列，到达后折返回第 8 列并随机换行，循环往复
-        mConheadPatrolState = 0;      // 0=向左（朝第 2 列）  1=向右（朝第 8 列）
-        mPhaseCounter = 150;          // 豌豆发射计时（走 UpdateZombieBossConheadPea）
-        mVariant = false;
         break;
     }
 
@@ -2558,124 +2515,6 @@ void Zombie::UpdateZombiePeaHead()
     }
 }
 
-void Zombie::UpdateZombieBossConheadPea()
-{
-    if (!mHasHead)
-        return;
-
-    // ---- 巡逻移动：在第 2 列与第 8 列之间往返，到左端（第 2 列）折返时随机换行 ----
-    int aCol2X = mBoard->GridToPixelX(2, mRow);   // 第 2 列的像素 X
-    int aCol8X = mBoard->GridToPixelX(8, mRow);   // 第 8 列的像素 X
-    if (!mIsEating && !IsImmobilizied() && mZombiePhase == ZombiePhase::PHASE_ZOMBIE_NORMAL)
-    {
-        // 向左巡逻（朝第 2 列）
-        if (mConheadPatrolState == 0)
-        {
-            if (mPosX <= aCol2X)
-            {
-                mConheadPatrolState = 1;
-                // 到第 2 列折返时随机换行：只在当前地图有效（非 DIRT）且不同于当前行的行中选
-                int aNewRow = mRow;
-                for (int i = 0; i < MAX_GRID_SIZE_Y; i++)
-                {
-                    int aCandidate = Rand(MAX_GRID_SIZE_Y);
-                    if (aCandidate != mRow && mBoard->RowCanHaveZombies(aCandidate))
-                    {
-                        aNewRow = aCandidate;
-                        break;
-                    }
-                }
-                SetRow(aNewRow);
-                mPosY = GetPosYBasedOnRow(aNewRow);
-                mX = static_cast<int>(mPosX);
-                mY = static_cast<int>(mPosY);
-                StartWalkAnim(20);
-            }
-        }
-        // 向右巡逻（朝第 8 列）
-        else
-        {
-            if (mPosX >= aCol8X)
-            {
-                mConheadPatrolState = 0;
-                StartWalkAnim(20);
-            }
-        }
-
-        // 将移动限制在巡逻范围内（mPosX 会由 UpdateZombieWalking 双向移动）
-        if (mConheadPatrolState == 0 && mPosX < aCol2X)
-        {
-            mPosX = aCol2X;
-        }
-        else if (mConheadPatrolState == 1 && mPosX > aCol8X)
-        {
-            mPosX = aCol8X;
-        }
-    }
-
-    // ---- 豌豆发射：每隔 150 帧射一枚向植物喷射的豌豆，发射后回血 40 点 ----
-    Reanimation* aHeadReanim = mApp->ReanimationTryToGet(mSpecialHeadReanimID);
-    if (mPhaseCounter == 35)
-    {
-        if (aHeadReanim)
-        {
-            aHeadReanim->PlayReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 35.0f);
-        }
-    }
-    else if (mPhaseCounter == 0)
-    {
-        if (aHeadReanim)
-        {
-            aHeadReanim->PlayReanim("anim_head_idle", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 15.0f);
-        }
-        mApp->PlayFoley(FoleyType::FOLEY_THROW);
-
-        Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
-        float aHeadingX = mPosX;
-        float aHeadingY = mPosY + 40.0f * mScaleZombie;
-        if (aBodyReanim)
-        {
-            int aTrackIndex = aBodyReanim->FindTrackIndex("anim_head1");
-            ReanimatorTransform aTransform;
-            aBodyReanim->GetCurrentTransform(aTrackIndex, &aTransform);
-            // BOSS 体型被放大（mScaleZombie > 1），头部轨道位移按同一比例放大以贴合实际渲染位置
-            aHeadingX = mPosX + aTransform.mTransX * mScaleZombie;
-            aHeadingY = mPosY + aTransform.mTransY * mScaleZombie + 6.0f * mScaleZombie - mAltitude;
-        }
-
-        float aScale = mScaleZombie;
-        // 向左侧植物喷射一枚豌豆；魅惑状态下改为对僵尸有效的友好豌豆
-        ProjectileType aPeaType = mMindControlled ? ProjectileType::PROJECTILE_PEA : ProjectileType::PROJECTILE_ZOMBIE_PEA;
-        int aOriginX = static_cast<int>(aHeadingX + 30.0f * aScale);
-        int aOriginY = static_cast<int>(aHeadingY + 10.0f * aScale);
-        Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder, mRow, aPeaType);
-        if (aProjectile)
-        {
-            if (mMindControlled)
-            {
-                aProjectile->mDamageRangeFlags = 1;
-            }
-            else
-            {
-                aProjectile->mMotionType = ProjectileMotion::MOTION_BACKWARDS;
-            }
-        }
-
-        // 发射一颗豌豆回血 40 点（优先回复本体，本体满血则回复头盔）
-        if (mBodyHealth < mBodyMaxHealth)
-        {
-            Heal(40);
-        }
-        else if (mHelmHealth > 0 && mHelmHealth < mHelmMaxHealth)
-        {
-            mHelmHealth = std::min(mHelmMaxHealth, mHelmHealth + 40);
-        }
-
-        mPhaseCounter = 150;
-    }
-}
-
-
 void Zombie::BurnRow(int theRow)  // 此函数专用于在定义了 DO_FIX_BUGS 时修复火爆辣椒僵尸的 Bug
 {
     Zombie* aZombie = nullptr;
@@ -3772,7 +3611,6 @@ bool Zombie::CanLoseBodyParts()
         mZombieType != ZombieType::ZOMBIE_GARGANTUAR && 
         mZombieType != ZombieType::ZOMBIE_REDEYE_GARGANTUAR && 
         mZombieType != ZombieType::ZOMBIE_BOSS && 
-        mZombieType != ZombieType::ZOMBIE_BOSS_CONHEAD_PEA && 
         mZombieHeight != ZombieHeight::HEIGHT_ZOMBIQUARIUM && 
         !IsFlying() && 
         !IsBobsledTeamWithSled();
@@ -4829,10 +4667,6 @@ void Zombie::UpdateActions()
     {
         UpdateZombieSquashHead();
     }
-    if (mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA)
-    {
-        UpdateZombieBossConheadPea();
-    }
 }
 
 void Zombie::CheckForBoardEdge()
@@ -4859,9 +4693,8 @@ void Zombie::CheckForBoardEdge()
 
     if (mX <= aEdgeX && mHasHead)
     {
-        if (mApp->IsIZombieLevel() || mBoard->IsIceSandboxLevel())
+        if (mApp->IsIZombieLevel())
         {
-            // 我是僵尸 / 冰冻沙盒：僵尸走到最左边后安静退场，不判负
             DieNoLoot();
         }
         else
@@ -5270,7 +5103,7 @@ void Zombie::Animate()
     }
 
     // 路障僵尸啃咬时持续回复血量（优先回复身体，身体满血则回复头盔）
-    if (mIsEating && (mZombieType == ZombieType::ZOMBIE_TRAFFIC_CONE || mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA))
+    if (mIsEating && mZombieType == ZombieType::ZOMBIE_TRAFFIC_CONE)
     {
         if (mBodyHealth < mBodyMaxHealth)
         {
@@ -5415,12 +5248,6 @@ bool Zombie::IsWalkingBackwards()
 {
     if (mMindControlled)
         return true;
-
-    // 路障射手僵尸：向右巡逻（朝第 8 列）时视作“往回走”，翻转身形并向右移动
-    if (mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA)
-    {
-        return mConheadPatrolState == 1;
-    }
 
     if (mZombieHeight == ZombieHeight::HEIGHT_ZOMBIQUARIUM)
     {
@@ -7405,10 +7232,6 @@ void Zombie::CheckForHighGround()
 
 void Zombie::StartMindControlled()
 {
-    // 路障射手僵尸免疫魅惑（不吃魅惑菇/火炬召唤变身）
-    if (mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA)
-        return;
-
     mApp->PlaySample(SOUND_MINDCONTROLLED);
     mMindControlled = true;
     mLastPortalX = -1;
@@ -7558,24 +7381,6 @@ void Zombie::EatPlant(Plant* thePlant)
         mBoard->mPlantsEaten++;
         thePlant->Die();
         mBoard->mChallenge->ZombieAtePlant(thePlant);
-
-        // 路障射手僵尸击败植物时，将该植物原地转化为一只新的路障射手僵尸（BOSS）
-        if (mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA)
-        {
-            int aPlantRow = thePlant->mRow;
-            int aPlantCol = thePlant->mPlantCol;
-            Zombie* aNewBoss = mBoard->AddZombieInRow(ZombieType::ZOMBIE_BOSS_CONHEAD_PEA, aPlantRow, Zombie::ZOMBIE_WAVE_DEBUG);
-            if (aNewBoss)
-            {
-                aNewBoss->mPosX = mBoard->GridToPixelX(aPlantCol, aPlantRow);
-                aNewBoss->mPosY = aNewBoss->GetPosYBasedOnRow(aPlantRow);
-                aNewBoss->mX = static_cast<int>(aNewBoss->mPosX);
-                aNewBoss->mY = static_cast<int>(aNewBoss->mPosY);
-                int aNewRow = aPlantRow;
-                aNewBoss->SetRow(aNewRow);
-                aNewBoss->mPhaseCounter = 150;
-            }
-        }
 
         if (mBoard->mLevel >= 2 && mBoard->mLevel <= 4 && mApp->IsFirstTimeAdventureMode())
         {
@@ -8515,12 +8320,6 @@ void Zombie::TakeDamage(int theDamage, unsigned int theDamageFlags)
 
     int aDamageRemaining = theDamage;
 
-    // 路障射手僵尸：单次受伤不会超过 2000 点（所有来源，含压扁/大招/爆炸等）
-    if (mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA && aDamageRemaining > 2000)
-    {
-        aDamageRemaining = 2000;
-    }
-
     // Boss aura: 60% damage reduction for all zombies when Boss is on the field
     if (mZombieType != ZombieType::ZOMBIE_BOSS)
     {
@@ -8551,11 +8350,6 @@ void Zombie::TakeDamage(int theDamage, unsigned int theDamageFlags)
         if (TestBit(theDamageFlags, static_cast<int>(DamageFlags::DAMAGE_HITS_SHIELD_AND_BODY)))
         {
             aDamageRemaining = theDamage;
-            // 路障射手僵尸：避免 DAMAGE_HITS_SHIELD_AND_BODY 把伤害重置回原始值而绕过 2000 上限
-            if (mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA && aDamageRemaining > 2000)
-            {
-                aDamageRemaining = 2000;
-            }
         }
     }
     if (aDamageRemaining > 0 && mHelmType != HelmType::HELMTYPE_NONE)
@@ -9129,7 +8923,7 @@ void Zombie::ApplyButter()
 
 void Zombie::MowDown()
 {
-    if (mDead || mZombiePhase == ZombiePhase::PHASE_ZOMBIE_MOWERED || mZombieType == ZombieType::ZOMBIE_BOSS || mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA)
+    if (mDead || mZombiePhase == ZombiePhase::PHASE_ZOMBIE_MOWERED || mZombieType == ZombieType::ZOMBIE_BOSS)
         return;
 
     if (mZombieType == ZombieType::ZOMBIE_CATAPULT)
@@ -9238,7 +9032,7 @@ void Zombie::ApplyBurn()
     if (mDead || mZombiePhase == ZombiePhase::PHASE_ZOMBIE_BURNED)
         return;
 
-    if (mBodyHealth >= 3600 || mZombieType == ZombieType::ZOMBIE_BOSS || mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA)
+    if (mBodyHealth >= 3600 || mZombieType == ZombieType::ZOMBIE_BOSS)
     {
         TakeDamage(3600, 18U);
         return;

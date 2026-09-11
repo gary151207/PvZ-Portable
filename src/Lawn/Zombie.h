@@ -188,6 +188,7 @@ public:
     bool                            mIsFireBall;
     ReanimationID                   mMoweredReanimID;
     int32_t                         mLastPortalX;
+    int32_t                         mConheadPatrolState;   // 路障射手僵尸：0=向左(朝第2列) 1=向右(朝第8列)
 
 public:
     Zombie();
@@ -397,6 +398,7 @@ public:
     void                            BossHeadSpitEffect();
     void                            DrawBossFireBall(Graphics* g);
     void                            UpdateZombiePeaHead();
+    void                            UpdateZombieBossConheadPea();
     void                            UpdateZombieJalapenoHead();
     void                            ApplyBossSmokeParticles(bool theEnable);
     void                            UpdateZombiquarium();

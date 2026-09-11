@@ -1384,6 +1384,7 @@ enum ZombieType : int32_t
     ZOMBIE_TALLNUT_HEAD,
     ZOMBIE_REDEYE_GARGANTUAR,
     ZOMBIE_DOOMSHROOM_HEAD,              // 毁灭菇头小丑僵尸（小丑僵尸 10% 概率转化）
+    ZOMBIE_BOSS_CONHEAD_PEA,            // 路障射手僵尸（BOSS：路障盔+豌豆射手头，向植物喷射豌豆）
     NUM_ZOMBIE_TYPES,
     ZOMBIE_CACHED_POLEVAULTER_WITH_POLE, 
     NUM_CACHED_ZOMBIE_TYPES

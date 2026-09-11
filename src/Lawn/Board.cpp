@@ -1613,7 +1613,7 @@ namespace
 		ZombieType::ZOMBIE_BALLOON, ZombieType::ZOMBIE_DIGGER, ZombieType::ZOMBIE_POGO,
 		ZombieType::ZOMBIE_LADDER, ZombieType::ZOMBIE_CATAPULT, ZombieType::ZOMBIE_GARGANTUAR,
 		ZombieType::ZOMBIE_IMP, ZombieType::ZOMBIE_ZAMBONI, ZombieType::ZOMBIE_REDEYE_GARGANTUAR,
-		ZombieType::ZOMBIE_FLAG,
+		ZombieType::ZOMBIE_FLAG, ZombieType::ZOMBIE_BOSS_CONHEAD_PEA,
 	};
 	// 旅行页：只有旅行模式（GAMEMODE_CHALLENGE_TRAVEL_*）才能拥有/使用的专属植物
 	constexpr SeedType gIceSandboxTravelSeeds[] = {
@@ -9780,6 +9780,11 @@ void Board::KeyChar(char theChar)
 	if (theChar == 'J')
 	{
 		AddZombie(ZombieType::ZOMBIE_DOOMSHROOM_HEAD, Zombie::ZOMBIE_WAVE_DEBUG);
+		return;
+	}
+	if (theChar == 'P')
+	{
+		AddZombie(ZombieType::ZOMBIE_BOSS_CONHEAD_PEA, Zombie::ZOMBIE_WAVE_DEBUG);
 		return;
 	}
 	if (theChar == 'g')

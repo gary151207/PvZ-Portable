@@ -11,4 +11,5 @@
 	<String id="GIANT_WALLNUT">Giant Wall-nut</String>
 	<String id="GIANT_WALLNUT_TOOLTIP">A colossal nut grown by fusing two Wall-nuts side by side. 32000 toughness. Jumping zombies (pole vaulters, pogo zombies) cannot leap over it.</String>
 	<String id="TRAVEL_NEED_TWO_WALLNUTS">You need two Wall-nuts side by side in the same row to fuse them.</String>
+	<String id="BOSS_CONHEAD_PEA_ZOMBIE">Conehead Pea Zombie</String>
 </Properties>

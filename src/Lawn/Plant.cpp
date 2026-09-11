@@ -1291,6 +1291,11 @@ void Plant::UpdateTanglekelp()
     if (mState != PlantState::STATE_TANGLEKELP_GRABBING)
     {
         Zombie* aZombie = FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY);
+        // 路障射手僵尸免疫吞噬：巨型 BOSS 不会被水草拖入水下
+        if (aZombie && aZombie->mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA)
+        {
+            return;
+        }
         if (aZombie)
         {
             mApp->PlayFoley(FoleyType::FOLEY_FLOOP);
@@ -1998,7 +2003,7 @@ void Plant::UpdateChomper()
             if (aZombie)
             {
                 if (aZombie->mZombieType == ZombieType::ZOMBIE_GARGANTUAR || aZombie->mZombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR || 
-                    aZombie->mZombieType == ZombieType::ZOMBIE_BOSS)
+                    aZombie->mZombieType == ZombieType::ZOMBIE_BOSS || aZombie->mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA)
                 {
                     doBite = true;
                 }

@@ -11,4 +11,5 @@
 	<String id="GIANT_WALLNUT">巨大坚果</String>
 	<String id="GIANT_WALLNUT_TOOLTIP">由两颗紧邻的坚果融合而成的巨型坚果：32000 生命。撑杆跳僵尸与跳跳僵尸都无法跳过它，只能老老实实啃。</String>
 	<String id="TRAVEL_NEED_TWO_WALLNUTS">需要同一行有两颗紧邻的坚果作为底座才能融合出巨大坚果。</String>
+	<String id="BOSS_CONHEAD_PEA_ZOMBIE">路障射手僵尸</String>
 </Properties>

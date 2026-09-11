@@ -28,6 +28,7 @@
 #include "System/Music.h"
 #include "System/SaveGame.h"
 #include "System/EndlessSlot.h"
+#include "System/ReanimationLawn.h"
 #include "Widget/LawnDialog.h"
 #include "System/PlayerInfo.h"
 #include "System/PoolEffect.h"
@@ -228,6 +229,12 @@ Board::Board(LawnApp* theApp)
 	mMenuButton->mDrawStoneButton = true;
 	mStoreButton = nullptr;
 	mIgnoreMouseUp = false;
+	mIceBagPage = 0;
+	mIceBagHover = -1;
+	mIceBagOpen = false;
+	mIceArmKind = 0;
+	mIceArmedSeed = SeedType::SEED_NONE;
+	mIceArmedZombie = ZombieType::ZOMBIE_INVALID;
 
 	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN || mApp->mGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM)
 	{
@@ -1546,6 +1553,456 @@ void Board::GetZenButtonRect(GameObjectType theObjectType, Rect& theRect)
 	//return theRect;
 }
 
+bool Board::IsIceSandboxLevel()
+{
+	// 只有“冰冻关卡”隐藏小游戏在正常游玩（SCENE_PLAYING）时启用沙盒玩法。
+	return mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ICE;
+}
+
+void Board::IceBagOpenToggle()
+{
+	ClearCursor(); // 打开背包时先放下手里已有的铲子/工具
+	mIceBagOpen = !mIceBagOpen;
+	if (mIceBagOpen)
+	{
+		// 打开背包时先放下当前手中卡牌，避免误操作
+		mIceArmKind = 0;
+		mIceArmedSeed = SeedType::SEED_NONE;
+		mIceArmedZombie = ZombieType::ZOMBIE_INVALID;
+	}
+}
+
+Rect Board::GetIceBagButtonRect()
+{
+	// 放在顶部工具条的铲子按钮与暂停菜单按钮之间（仅冰冻沙盒关使用）
+	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ICE && mApp->mGameScene == GameScenes::SCENE_PLAYING)
+	{
+		return Rect(556, 4, 112, 40);
+	}
+	Rect aRect(GetSeedBankExtraWidth() + 530, 0, 130, IMAGE_SHOVELBANK->GetHeight() + 20);
+	return aRect;
+}
+
+// =============================================================================================
+// ▲ 冰冻关卡（CHALLENGE_ICE）沙盒：背包自选植物/僵尸/橡皮擦，并放到任意格子
+// =============================================================================================
+
+namespace
+{
+	// 植物页固定收录 41 种能在草地上正常使用的植物
+	//（排除只适用于水塘/屋顶/加农炮等特殊种子；蘑菇类沙盒会自动唤醒，故咖啡豆无意义不入卡）
+	constexpr SeedType gIceSandboxPlantSeeds[] = {
+		SeedType::SEED_PEASHOOTER, SeedType::SEED_SUNFLOWER, SeedType::SEED_CHERRYBOMB, SeedType::SEED_WALLNUT,
+		SeedType::SEED_POTATOMINE, SeedType::SEED_SNOWPEA, SeedType::SEED_CHOMPER, SeedType::SEED_REPEATER,
+		SeedType::SEED_PUFFSHROOM, SeedType::SEED_SUNSHROOM, SeedType::SEED_FUMESHROOM, SeedType::SEED_GRAVEBUSTER,
+		SeedType::SEED_HYPNOSHROOM, SeedType::SEED_SCAREDYSHROOM, SeedType::SEED_ICESHROOM, SeedType::SEED_DOOMSHROOM,
+		SeedType::SEED_SQUASH, SeedType::SEED_THREEPEATER, SeedType::SEED_JALAPENO, SeedType::SEED_SPIKEWEED,
+		SeedType::SEED_TORCHWOOD, SeedType::SEED_TALLNUT, SeedType::SEED_PLANTERN, SeedType::SEED_CACTUS,
+		SeedType::SEED_BLOVER, SeedType::SEED_SPLITPEA, SeedType::SEED_STARFRUIT, SeedType::SEED_PUMPKINSHELL,
+		SeedType::SEED_MAGNETSHROOM, SeedType::SEED_CABBAGEPULT, SeedType::SEED_KERNELPULT,
+		SeedType::SEED_GARLIC, SeedType::SEED_UMBRELLA, SeedType::SEED_MARIGOLD, SeedType::SEED_MELONPULT,
+		SeedType::SEED_GATLINGPEA, SeedType::SEED_TWINSUNFLOWER, SeedType::SEED_GLOOMSHROOM, SeedType::SEED_WINTERMELON,
+		SeedType::SEED_GOLD_MAGNET, SeedType::SEED_SPIKEROCK,
+	};
+	// 僵尸页：收录可以作为敌方放到草地战斗的常规僵尸
+	//（排除 BOSS/伴舞/雪橇/潜水/海豚/雪人/僵尸植物头/毁灭菇头等特殊生成类型）
+	constexpr ZombieType gIceSandboxZombieTypes[] = {
+		ZombieType::ZOMBIE_NORMAL, ZombieType::ZOMBIE_TRAFFIC_CONE, ZombieType::ZOMBIE_POLEVAULTER,
+		ZombieType::ZOMBIE_PAIL, ZombieType::ZOMBIE_NEWSPAPER, ZombieType::ZOMBIE_DOOR,
+		ZombieType::ZOMBIE_FOOTBALL, ZombieType::ZOMBIE_DANCER, ZombieType::ZOMBIE_JACK_IN_THE_BOX,
+		ZombieType::ZOMBIE_BALLOON, ZombieType::ZOMBIE_DIGGER, ZombieType::ZOMBIE_POGO,
+		ZombieType::ZOMBIE_LADDER, ZombieType::ZOMBIE_CATAPULT, ZombieType::ZOMBIE_GARGANTUAR,
+		ZombieType::ZOMBIE_IMP, ZombieType::ZOMBIE_ZAMBONI, ZombieType::ZOMBIE_REDEYE_GARGANTUAR,
+		ZombieType::ZOMBIE_FLAG,
+	};
+	// 旅行页：只有旅行模式（GAMEMODE_CHALLENGE_TRAVEL_*）才能拥有/使用的专属植物
+	constexpr SeedType gIceSandboxTravelSeeds[] = {
+		SeedType::SEED_GIANT_WALLNUT,     // 巨大坚果（旅行红卡：占两格，沙盒内直接种，点击格作为左锚）
+		SeedType::SEED_FUMESHROOM_GROUP,  // 大喷菇群（旅行紫卡：大喷菇升级体，沙盒内可单独成株）
+	};
+	constexpr int ICE_PLANT_COUNT = sizeof(gIceSandboxPlantSeeds) / sizeof(gIceSandboxPlantSeeds[0]);
+	constexpr int ICE_ZOMBIE_COUNT = sizeof(gIceSandboxZombieTypes) / sizeof(gIceSandboxZombieTypes[0]);
+	constexpr int ICE_TRAVEL_COUNT = sizeof(gIceSandboxTravelSeeds) / sizeof(gIceSandboxTravelSeeds[0]);
+
+	// 橡皮擦（工具页）
+	constexpr int ICE_BAG_TOOLS_COUNT = 1;
+	// 分页：0=植物  1=僵尸  2=旅行  3=工具
+	constexpr int ICE_BAG_PAGE_COUNT = 4;
+
+	// 背包面板布局（棋盘本地坐标，800x600）
+	constexpr int ICE_PANEL_LEFT = 60;
+	constexpr int ICE_PANEL_TOP = 20;
+	constexpr int ICE_PANEL_W = 680;
+	constexpr int ICE_PANEL_H = 560;
+	constexpr int ICE_GRID_COLS = 7;   // 7 列网格：植物页(41)占 6 行，僵尸页(19)占 3 行
+	constexpr int ICE_CELL_W = 92;     // 每格宽
+	constexpr int ICE_CELL_H = 72;     // 每格高（可容纳 50x70 卡面）
+	constexpr int ICE_GRID_LEFT = ICE_PANEL_LEFT + 24;
+	constexpr int ICE_GRID_TOP = ICE_PANEL_TOP + 92;
+	constexpr int ICE_PAGE_BUTTONS_TOP = ICE_PANEL_TOP + 44;
+	constexpr int ICE_CLOSE_TOP = ICE_PANEL_TOP + 38;
+
+	// 把“第 n 张卡”换算成屏幕格子位置
+	void IceBagCardPos(int theIndex, int& x, int& y)
+	{
+		x = ICE_GRID_LEFT + (theIndex % ICE_GRID_COLS) * ICE_CELL_W;
+		y = ICE_GRID_TOP + (theIndex / ICE_GRID_COLS) * ICE_CELL_H;
+	}
+
+	bool IceBagCardHit(int x, int y, int& theIndex)
+	{
+		if (x < ICE_GRID_LEFT || y < ICE_GRID_TOP)
+			return false;
+		int aCol = (x - ICE_GRID_LEFT) / ICE_CELL_W;
+		int aRow = (y - ICE_GRID_TOP) / ICE_CELL_H;
+		if (aCol < 0 || aCol >= ICE_GRID_COLS || aRow < 0)
+			return false;
+		theIndex = aRow * ICE_GRID_COLS + aCol;
+		return true;
+	}
+
+	int IcePageItemCount(int thePage)
+	{
+		if (thePage == 0) return ICE_PLANT_COUNT;
+		if (thePage == 1) return ICE_ZOMBIE_COUNT;
+		if (thePage == 2) return ICE_TRAVEL_COUNT;
+		return ICE_BAG_TOOLS_COUNT;
+	}
+
+	std::string IceSandboxZombieCardName(ZombieType theZombie)
+	{
+		if (theZombie < 0 || theZombie >= ZombieType::NUM_ZOMBIE_TYPES)
+			return "???";
+		return StrFormat("[%s]", GetZombieDefinition(theZombie).mZombieName);
+	}
+}
+
+void Board::IceSandboxArmPlant(SeedType theSeed)
+{
+	ClearCursor(); // 放下手里已有的铲子/其他工具
+	mIceArmKind = 1;
+	mIceArmedSeed = theSeed;
+	mIceArmedZombie = ZombieType::ZOMBIE_INVALID;
+	mIceBagOpen = false;
+}
+
+void Board::IceSandboxArmZombie(ZombieType theZombieType)
+{
+	ClearCursor(); // 放下手里已有的铲子/其他工具
+	mIceArmKind = 2;
+	mIceArmedSeed = SeedType::SEED_NONE;
+	mIceArmedZombie = theZombieType;
+	mIceBagOpen = false;
+}
+
+void Board::IceSandboxArmEraser()
+{
+	ClearCursor(); // 放下手里已有的铲子/其他工具
+	mIceArmKind = 3;
+	mIceArmedSeed = SeedType::SEED_NONE;
+	mIceArmedZombie = ZombieType::ZOMBIE_INVALID;
+	mIceBagOpen = false;
+}
+
+void Board::IceSandboxDisarm()
+{
+	mIceArmKind = 0;
+	mIceArmedSeed = SeedType::SEED_NONE;
+	mIceArmedZombie = ZombieType::ZOMBIE_INVALID;
+	mApp->PlayFoley(FoleyType::FOLEY_DROP);
+}
+
+bool Board::IceSandboxPlaceArmedAt(int x, int y)
+{
+	if (mIceArmKind == 0)
+		return false;
+
+	int aGridX = PixelToGridX(x, y);
+	int aGridY = PixelToGridY(x, y);
+	if (aGridX < 0 || aGridX >= MAX_GRID_SIZE_X || aGridY < 0 || aGridY >= MAX_GRID_SIZE_Y)
+		return false;
+	if (mPlantRow[aGridY] == PlantRowType::PLANTROW_DIRT)
+		return false;
+
+	if (mIceArmKind == 3) // 橡皮擦：删除该格植物（含占两格的巨大坚果）+ 行内身体与该格重叠的僵尸
+	{
+		Plant* aPlant = nullptr;
+		while (IteratePlants(aPlant))
+		{
+			if (!aPlant->mDead && aPlant->mRow == aGridY &&
+				(aPlant->mPlantCol == aGridX ||
+				 (aPlant->mSeedType == SeedType::SEED_GIANT_WALLNUT && aPlant->mPlantCol == aGridX - 1)))
+			{
+				aPlant->Die();
+			}
+		}
+		int aCellLeft = GridToPixelX(aGridX, aGridY);
+		Rect aKillRect(aCellLeft - 25, 0, 130, BOARD_HEIGHT);
+		Zombie* aZombie = nullptr;
+		while (IterateZombies(aZombie))
+		{
+			if (!aZombie->IsDeadOrDying() && aZombie->mRow == aGridY &&
+				aZombie->GetZombieRect().Intersects(aKillRect))
+			{
+				aZombie->DieNoLoot();
+			}
+		}
+		return true;
+	}
+
+	if (mIceArmKind == 1) // 植物：无视地形/升级要求直接放（替换该格已有植物）
+	{
+		// 巨大坚果（旅行红卡）占两格：落点即左锚，整段两格替换后单株种下
+		if (mIceArmedSeed == SeedType::SEED_GIANT_WALLNUT)
+		{
+			int aAnchorCol = std::min(aGridX, MAX_GRID_SIZE_X - 2);   // 最右列自动回退到 7，保证覆盖 7~8 两格
+			for (int aCoverCol = aAnchorCol; aCoverCol <= aAnchorCol + 1; aCoverCol++)
+			{
+				Plant* aPlant = nullptr;
+				while (IteratePlants(aPlant))
+				{
+					if (!aPlant->mDead && aPlant->mPlantCol == aCoverCol && aPlant->mRow == aGridY)
+					{
+						aPlant->Die();
+					}
+				}
+			}
+			AddPlant(aAnchorCol, aGridY, SeedType::SEED_GIANT_WALLNUT, SeedType::SEED_NONE);
+			return true;
+		}
+
+		Plant* aPlant = nullptr;
+		while (IteratePlants(aPlant))
+		{
+			if (!aPlant->mDead && aPlant->mPlantCol == aGridX && aPlant->mRow == aGridY)
+			{
+				aPlant->Die();
+			}
+		}
+		Plant* aNewPlant = AddPlant(aGridX, aGridY, mIceArmedSeed, SeedType::SEED_NONE);
+		if (aNewPlant && Plant::IsNocturnal(mIceArmedSeed) && aNewPlant->mIsAsleep)
+		{
+			// 冰冻关是白天草坪，蘑菇类会睡着；沙盒直接唤醒，方便当作夜战使用（含旅行大喷菇群）
+			aNewPlant->SetSleeping(false);
+		}
+		return true;
+	}
+
+	if (mIceArmKind == 2) // 僵尸：放到任意格，从该处往左进攻
+	{
+		Zombie* aZombie = AddZombieInRow(mIceArmedZombie, aGridY, Zombie::ZOMBIE_WAVE_DEBUG);
+		if (aZombie)
+		{
+			aZombie->mPosX = GridToPixelX(aGridX, aGridY) - 30.0f;
+			aZombie->mPosY = aZombie->GetPosYBasedOnRow(aGridY);
+			if (mIceArmedZombie == ZombieType::ZOMBIE_BUNGEE)
+			{
+				aZombie->mTargetCol = aGridX;
+				aZombie->SetRow(aGridY);
+				aZombie->mPosX = GridToPixelX(aGridX, aGridY);
+			}
+		}
+		return true;
+	}
+
+	return false;
+}
+
+void Board::IceSandboxBagDraw(Graphics* g)
+{
+	// 全屏半透明背景
+	g->SetColor(Color(0, 0, 0, 170));
+	g->FillRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
+
+	// 面板底色
+	g->SetColor(Color(30, 52, 42, 235));
+	g->FillRect(ICE_PANEL_LEFT, ICE_PANEL_TOP, ICE_PANEL_W, ICE_PANEL_H);
+	g->SetColor(Color(120, 200, 120, 255));
+	g->DrawRect(ICE_PANEL_LEFT, ICE_PANEL_TOP, ICE_PANEL_W, ICE_PANEL_H);
+
+	TodDrawString(g, "冰冻关卡 · 沙盒背包", 400, ICE_PANEL_TOP + 26, Sexy::FONT_DWARVENTODCRAFT18YELLOW, Color::White, DrawStringJustification::DS_ALIGN_CENTER);
+
+	// 顶部分页按钮
+	const char* aPageLabels[ICE_BAG_PAGE_COUNT] = { "植物", "僵尸", "旅行", "工具" };
+	for (int i = 0; i < ICE_BAG_PAGE_COUNT; i++)
+	{
+		int aX = ICE_GRID_LEFT + i * 120;
+		DrawStoneButton(g, aX, ICE_PAGE_BUTTONS_TOP, 110, 34, mIceBagPage == i, mIceBagPage == i, aPageLabels[i]);
+	}
+
+	// 关闭按钮
+	DrawStoneButton(g, ICE_PANEL_LEFT + ICE_PANEL_W - 90, ICE_CLOSE_TOP, 70, 30, false, false, "关闭");
+
+	// 卡牌网格
+	int aCount = IcePageItemCount(mIceBagPage);
+	for (int i = 0; i < aCount; i++)
+	{
+		int x, y;
+		IceBagCardPos(i, x, y);
+		if (y + ICE_CELL_H > ICE_PANEL_TOP + ICE_PANEL_H - 12)   // 越界保护（未来加卡也不会画出面板）
+			break;
+
+		if (mIceBagPage == 0 || mIceBagPage == 2)   // 植物页 / 旅行页：都是可种的卡
+		{
+			SeedType aSeed = (mIceBagPage == 2) ? gIceSandboxTravelSeeds[i] : gIceSandboxPlantSeeds[i];
+			// 原版 50x70 卡面居中放在 92x72 格内
+			DrawSeedPacket(g, x + (ICE_CELL_W - SEED_PACKET_WIDTH) / 2, y + 1, aSeed, SeedType::SEED_NONE, 0, 255, false, false);
+		}
+		else if (mIceBagPage == 1)
+		{
+			ZombieType aZombie = gIceSandboxZombieTypes[i];
+			// 简单灰卡 + 名字（不依赖卡面贴图，任意僵尸类型都能用）
+			g->SetColor(Color(70, 70, 80, 230));
+			g->FillRect(x + 16, y + 4, 60, 44);
+			g->SetColor(Color(255, 220, 90, 255));
+			g->DrawRect(x + 16, y + 4, 60, 44);
+			TodDrawString(g, IceSandboxZombieCardName(aZombie), x + 46, y + 66, Sexy::FONT_BRIANNETOD12, Color::White, DrawStringJustification::DS_ALIGN_CENTER);
+		}
+		else
+		{
+			// 工具页：橡皮擦
+			g->SetColor(Color(140, 90, 90, 230));
+			g->FillRect(x + 16, y + 4, 60, 44);
+			g->SetColor(Color(255, 220, 90, 255));
+			g->DrawRect(x + 16, y + 4, 60, 44);
+			TodDrawString(g, "橡皮擦", x + 46, y + 34, Sexy::FONT_BRIANNETOD12, Color::White, DrawStringJustification::DS_ALIGN_CENTER);
+		}
+	}
+
+	// 底部操作提示
+	TodDrawString(g, "「旅行」页为旅行模式专属：巨大坚果占两格（落点为左格） / 大喷菇群可直接成株", 400, ICE_PANEL_TOP + ICE_PANEL_H - 32, Sexy::FONT_BRIANNETOD12, Color(200, 230, 200), DrawStringJustification::DS_ALIGN_CENTER);
+	TodDrawString(g, "左键选卡后点草地放置（可任意格/可重叠）  右键或点空地放下  铲子挖植物  橡皮擦删任何单位  空格=暂停", 400, ICE_PANEL_TOP + ICE_PANEL_H - 12, Sexy::FONT_BRIANNETOD12, Color(220, 220, 220), DrawStringJustification::DS_ALIGN_CENTER);
+}
+
+void Board::DrawIceSandboxUI(Graphics* g)
+{
+	if (!IsIceSandboxLevel() || mApp->mGameScene != GameScenes::SCENE_PLAYING)
+		return;
+
+	if (mIceBagOpen)
+	{
+		IceSandboxBagDraw(g);
+		return;
+	}
+
+	// 未打开背包：画“背包”按钮 + 已装备提示
+	Rect aBagRect = GetIceBagButtonRect();
+	DrawStoneButton(g, aBagRect.mX, aBagRect.mY, aBagRect.mWidth, aBagRect.mHeight, false, false, "背包");
+
+	if (mIceArmKind != 0)
+	{
+		std::string aArmName;
+		if (mIceArmKind == 1)
+			aArmName = Plant::GetNameString(mIceArmedSeed);
+		else if (mIceArmKind == 2)
+			aArmName = IceSandboxZombieCardName(mIceArmedZombie); // "[ZOMBIE_XX]" 交给 TodDrawString 翻译
+		else
+			aArmName = "橡皮擦";
+
+		std::string aHint = StrFormat("已选：%s", aArmName.c_str());
+		// 提示放在草地上方，避免遮挡顶部工具条
+		TodDrawString(g, aHint, 400, 98, Sexy::FONT_DWARVENTODCRAFT18YELLOW, Color::White, DrawStringJustification::DS_ALIGN_CENTER);
+		TodDrawString(g, "点击草地任意格放置（植物替换该格，僵尸可重叠）  右键或点空地放下  按 Esc 取消", 400, 118, Sexy::FONT_BRIANNETOD12, Color(230, 230, 230), DrawStringJustification::DS_ALIGN_CENTER);
+	}
+}
+
+bool Board::IceSandboxBagMouseDown(int x, int y, int theClickCount)
+{
+	if (theClickCount < 0)
+	{
+		mIceBagOpen = false;
+		return true;
+	}
+
+	// 关闭按钮
+	Rect aCloseRect(ICE_PANEL_LEFT + ICE_PANEL_W - 90, ICE_CLOSE_TOP, 70, 30);
+	if (aCloseRect.Contains(x, y))
+	{
+		mIceBagOpen = false;
+		return true;
+	}
+
+	// 分页按钮
+	for (int i = 0; i < ICE_BAG_PAGE_COUNT; i++)
+	{
+		Rect aPageRect(ICE_GRID_LEFT + i * 120, ICE_PAGE_BUTTONS_TOP, 110, 34);
+		if (aPageRect.Contains(x, y))
+		{
+			mIceBagPage = i;
+			mApp->PlaySample(Sexy::SOUND_TAP);
+			return true;
+		}
+	}
+
+	int aCount = IcePageItemCount(mIceBagPage);
+	int aIndex;
+	if (IceBagCardHit(x, y, aIndex) && aIndex < aCount)
+	{
+		if (mIceBagPage == 0 || mIceBagPage == 2)   // 植物页 / 旅行页
+			IceSandboxArmPlant((mIceBagPage == 2) ? gIceSandboxTravelSeeds[aIndex] : gIceSandboxPlantSeeds[aIndex]);
+		else if (mIceBagPage == 1)
+			IceSandboxArmZombie(gIceSandboxZombieTypes[aIndex]);
+		else
+			IceSandboxArmEraser();
+		mApp->PlaySample(Sexy::SOUND_TAP);
+		return true;
+	}
+
+	// 面板外点击 = 关闭背包
+	if (!Rect(ICE_PANEL_LEFT, ICE_PANEL_TOP, ICE_PANEL_W, ICE_PANEL_H).Contains(x, y))
+	{
+		mIceBagOpen = false;
+		return true;
+	}
+
+	return true;
+}
+
+bool Board::IceSandboxHandleMouseDown(int x, int y, int theClickCount)
+{
+	if (!IsIceSandboxLevel() || mApp->mGameScene != GameScenes::SCENE_PLAYING)
+		return false;
+
+	if (mIceBagOpen)
+	{
+		IceSandboxBagMouseDown(x, y, theClickCount);
+		mIgnoreMouseUp = true;
+		return true;
+	}
+
+	// 背包按钮（未打开时）：打开背包并放下手里卡牌
+	if (GetIceBagButtonRect().Contains(x, y) && theClickCount >= 0)
+	{
+		IceBagOpenToggle();
+		mIceBagPage = 0;
+		mApp->PlaySample(Sexy::SOUND_TAP);
+		mIgnoreMouseUp = true;
+		return true;
+	}
+
+	if (mIceArmKind == 0)
+		return false;
+
+	// 已装备卡：右键放下
+	if (theClickCount < 0)
+	{
+		IceSandboxDisarm();
+		mIgnoreMouseUp = true;
+		return true;
+	}
+
+	// 左键：点在草地上则放置；点在草地外则放下卡牌并交给默认处理（菜单/铲子等）
+	if (IceSandboxPlaceArmedAt(x, y))
+	{
+		mApp->PlaySample(Sexy::SOUND_PLANT);
+		mIgnoreMouseUp = true;
+		return true;
+	}
+
+	IceSandboxDisarm();
+	return false;
+}
+
 // GOTY @Patoke: 0x40D840
 void Board::InitLevel()
 {
@@ -1632,13 +2089,18 @@ void Board::InitLevel()
 	}
 	else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_ICE)
 	{
-		TOD_ASSERT(mSeedBank->mNumPackets == 6);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_PEASHOOTER);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_CHERRYBOMB);
-		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_WALLNUT);
-		mSeedBank->mSeedPackets[3].SetPacketType(SeedType::SEED_REPEATER);
-		mSeedBank->mSeedPackets[4].SetPacketType(SeedType::SEED_SNOWPEA);
-		mSeedBank->mSeedPackets[5].SetPacketType(SeedType::SEED_CHOMPER);
+		// 冰冻关卡 = 沙盒排演场：不发放固定卡牌（上方卡槽留空，改由“背包”按钮在关内自选）
+		// 注意：SeedBank::UpdateWidth() 会把卡槽数按 GetNumSeedsInBank() 复位为 6，
+		// 因此这里仅需保证各卡槽 mPacketType 均为 SEED_NONE（上文初始化循环已置空），
+		// 空槽不可拾取、不可点击，不会与背包卡冲突。
+		mSunMoney = 5000;   // 无限阳光（放置不扣费）
+		mShowShovel = true; // 保留铲子挖除植物
+		mIceBagPage = 0;
+		mIceBagHover = -1;
+		mIceBagOpen = false;
+		mIceArmKind = 0;
+		mIceArmedSeed = SeedType::SEED_NONE;
+		mIceArmedZombie = ZombieType::ZOMBIE_INVALID;
 	}
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_1)
 	{
@@ -1880,6 +2342,7 @@ void Board::InitLawnMowers()
 	if (aGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || aGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST ||
 		aGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN || aGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM ||
 		aGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || aGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM ||
+		aGameMode == GameMode::GAMEMODE_CHALLENGE_ICE ||   // 冰冻沙盒：无小推车（沙盒不判负，僵尸走到最左边直接退场）
 		mApp->IsSquirrelLevel() || mApp->IsIZombieLevel() || (StageHasRoof() && !mApp->mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_ROOF_CLEANER]))
 		return;
 
@@ -5092,6 +5555,13 @@ void Board::MouseDown(int x, int y, int theClickCount)
 	mIgnoreMouseUp = !CanInteractWithBoardButtons();
 	if (mTimeStopCounter > 0)
 		return;
+
+	// 冰冻沙盒关：先处理背包按钮/卡牌点击与放置（可抢在普通鼠标逻辑前消费掉）
+	if (IsIceSandboxLevel() && mApp->mGameScene == GameScenes::SCENE_PLAYING &&
+		IceSandboxHandleMouseDown(x, y, theClickCount))
+	{
+		return;
+	}
 
 	HitResult aHitResult;
 	MouseHitTest(x, y, &aHitResult);
@@ -8375,6 +8845,7 @@ void Board::Draw(Graphics* g)
 	mDrawCount++;
 	DrawGameObjects(g);
 	DrawCricketStatsPanel(g);
+	DrawIceSandboxUI(g);
 }
 
 // GOTY @Patoke: 0x41D910
@@ -8579,6 +9050,11 @@ void Board::KeyDown(KeyCode theKey)
 		if (mShowShovel && mCursorObject->mCursorType == CursorType::CURSOR_TYPE_NORMAL && 
 			mApp->mGameScene == GameScenes::SCENE_PLAYING && !IsScaryPotterDaveTalking())
 		{
+			// 冰冻沙盒：拿铲子前先放下手中卡牌
+			if (IsIceSandboxLevel() && mIceArmKind != 0)
+			{
+				IceSandboxDisarm();
+			}
 			PickUpTool(GameObjectType::OBJECT_TYPE_SHOVEL);
 		}
 	}
@@ -8607,8 +9083,37 @@ void Board::KeyDown(KeyCode theKey)
 		if (mCricketStatsScroll < 0)
 			mCricketStatsScroll = 0;
 	}
+	else if (IsIceSandboxLevel() && mApp->mGameScene == GameScenes::SCENE_PLAYING &&
+		(theKey == KeyCode('B') || theKey == KeyCode('b')))
+	{
+		// 冰冻沙盒：B 键开关背包
+		IceBagOpenToggle();
+		mApp->PlaySample(Sexy::SOUND_TAP);
+	}
 	else if (theKey == KeyCode::KEYCODE_ESCAPE)
 	{
+		if (IsIceSandboxLevel() && mApp->mGameScene == GameScenes::SCENE_PLAYING)
+		{
+			// 冰冻沙盒：先关背包，再放下手中卡牌，最后才弹暂停菜单
+			if (mIceBagOpen)
+			{
+				mIceBagOpen = false;
+				mApp->PlaySample(Sexy::SOUND_TAP);
+			}
+			else if (mIceArmKind != 0)
+			{
+				IceSandboxDisarm();
+			}
+			else if (mCursorObject->mCursorType != CursorType::CURSOR_TYPE_NORMAL)
+			{
+				RefreshSeedPacketFromCursor();
+			}
+			else
+			{
+				mApp->DoNewOptions(false);
+			}
+			return;
+		}
 		if (mCursorObject->mCursorType != CursorType::CURSOR_TYPE_NORMAL)
 		{
 			RefreshSeedPacketFromCursor();

@@ -357,6 +357,30 @@ public:
 	/*inline*/ ZombieID				ZombieGetID(Zombie* theZombie);
 	/*inline*/ Zombie*				ZombieGet(ZombieID theZombieID);
 	/*inline*/ Zombie*				ZombieTryToGet(ZombieID theZombieID);
+
+	// ============================================================
+	// 冰冻关卡（GAMEMODE_CHALLENGE_ICE）沙盒玩法
+	// 进关后通过“背包”按钮在关内自选任意植物/任意僵尸放到任意格，
+	// 无限阳光、免费放置、不判定输赢；铲子挖植物、橡皮擦卡删除任意单位。
+	// ============================================================
+	/*inline*/ bool					IsIceSandboxLevel();
+	Rect							GetIceBagButtonRect();
+	/*inline*/ void					IceBagOpenToggle();
+	void							DrawIceSandboxUI(Graphics* g);
+	bool							IceSandboxHandleMouseDown(int x, int y, int theClickCount);
+	void							IceSandboxArmPlant(SeedType theSeed);
+	void							IceSandboxArmZombie(ZombieType theZombieType);
+	void							IceSandboxArmEraser();
+	void							IceSandboxDisarm();
+	bool							IceSandboxPlaceArmedAt(int x, int y);
+	bool							IceSandboxBagMouseDown(int x, int y, int theClickCount);
+	void							IceSandboxBagDraw(Graphics* g);
+	int								mIceBagPage;        // 0=植物页  1=僵尸页  2=旅行页  3=工具页
+	int								mIceBagHover;       // 悬停卡槽（调试可选）
+	bool							mIceBagOpen;
+	int								mIceArmKind;        // 0=无 1=植物 2=僵尸 3=橡皮擦
+	SeedType						mIceArmedSeed;
+	ZombieType						mIceArmedZombie;
 	void							DrawDebugObjectRects(Graphics* g);
 	void							UpdateIce();
 	/*inline*/ int					GetIceZPos(int theRow);

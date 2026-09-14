@@ -92,6 +92,7 @@ enum AdviceType : int32_t
     ADVICE_SURVIVE_FLAGS,
     ADVICE_UNLOCKED_MODE,
     ADVICE_NEED_WHEELBARROW,
+    ADVICE_PLANT_NEEDS_GATLINGPEA,   // 究极电能机枪射手：需要先种下机枪射手
     NUM_ADVICE_TYPES
 };
 enum AlmanacPage : int32_t
@@ -454,6 +455,7 @@ enum GameMode : int32_t
     GAMEMODE_CHALLENGE_CRICKET,                     // 斗蛐蛐：5 随机植物 vs 6 随机僵尸
     GAMEMODE_CHALLENGE_TRAVEL_1,                    // 旅行模式体验关（大喷菇群）
     GAMEMODE_CHALLENGE_TRAVEL_2,                    // 旅行模式体验关（巨大坚果）
+    GAMEMODE_CHALLENGE_TRAVEL_JOURNEY,               // 旅行模式：11 轮完整路线
     GAMEMODE_UPSELL,
     GAMEMODE_INTRO,
     NUM_GAME_MODES
@@ -970,6 +972,8 @@ enum ReanimationType : uint32_t {
     REANIM_CREDITS_WEARETHEUNDEAD,
     REANIM_CREDITS_DISCOLIGHTS,
     REANIM_FLAG,
+    REANIM_ELECTRIC_GATLINGPEA,     // 究极电能机枪射手：与 REANIM_GATLINGPEA 同一个 reanim 文件，
+                                    // 但装载后用 reanim/ElectricGatling_*.png 专用贴图逐帧替换（见 Plant.cpp）
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1097,6 +1101,8 @@ enum SeedType : int32_t
     SEED_SPROUT,
     SEED_LEFTPEATER,
     SEED_FUMESHROOM_GROUP,                          // 大喷菇群（紫卡升级：大喷菇 → 三头）
+    SEED_PEATER_1_5,                                // 1.5 发射手（旅行红卡：每次攻击 50% 一发 / 50% 两发）
+    SEED_ELECTRIC_GATLING_PEA,                      // 究极电能机枪射手（旅行红卡：由机枪射手升级，200 阳光，100% 电能豌豆）
     NUM_SEED_TYPES,
     SEED_BEGHOULED_BUTTON_SHUFFLE,
     SEED_BEGHOULED_BUTTON_CRATER,

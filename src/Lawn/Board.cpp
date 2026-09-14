@@ -774,7 +774,13 @@ void Board::PickZombieWaves()
 		// ------------------------------------------------------------------------------------------------
 		int& aZombiePoints = aZombiePicker.mZombiePoints;
 		// 根据关卡计算本波的基础僵尸点数
-		if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
+		if (IsTravelJourneyLevel(mApp->mGameMode))
+		{
+			// 旅行模式：出怪参考无尽模式的波内增长曲线（无尽模式为 (阶段*20 + 波)*2/5 + 1），
+			// 本模式的"阶段增长"改由下方每轮翻倍承担。
+			aZombiePoints = aWave * 2 / 5 + 1;
+		}
+		else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 		{
 			aZombiePoints = (mChallenge->mSurvivalStage * GetNumWavesPerSurvivalStage() + aWave + 10) * 2 / 5 + 1;
 		}
@@ -923,12 +929,28 @@ void Board::PickZombieWaves()
 			}
 		}
 		
+		// 旅行模式：第 11 轮的第一大波与第二大波各固定刷新一支 BOSS 路障射手僵尸
+		if (IsTravelJourneyLevel(mApp->mGameMode))
+		{
+			int aRound = TravelJourneyRound(mChallenge->mSurvivalStage);
+			if (TravelJourneyIsBossRound(aRound) && aIsFlagWave &&
+				TravelJourneyIsBossFlagWave(aWave, GetNumWavesPerFlag(), mNumWaves))
+			{
+				PutZombieInWave(ZombieType::ZOMBIE_BOSS_CONHEAD_PEA, aWave, &aZombiePicker);
+			}
+		}
+		
 		// ------------------------------------------------------------------------------------------------
 		// △ 倍率应用于剩余点数
 		// ------------------------------------------------------------------------------------------------
 		if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2)
 		{
 			aZombiePoints *= 100;   // 巨大坚果体验关：自带 100 倍出怪（不依赖 CLI 参数）
+		}
+		else if (IsTravelJourneyLevel(mApp->mGameMode))
+		{
+			// 旅行模式：每过一轮出怪量翻倍（第 1 轮 ×1 …… 第 11 轮 ×1024），并叠加常规出怪倍率
+			aZombiePoints *= TravelJourneySpawnMultiplier(TravelJourneyRound(mChallenge->mSurvivalStage)) * mZombieMultiplier;
 		}
 		else
 		{
@@ -1146,6 +1168,12 @@ void Board::PickBackground()
 	case GameMode::GAMEMODE_CHALLENGE_TRAVEL_2:
 		// 巨大坚果体验关：普通白天（5 行、无池）
 		mBackground = BackgroundType::BACKGROUND_1_DAY;
+		break;
+
+	case GameMode::GAMEMODE_CHALLENGE_TRAVEL_JOURNEY:
+		// 11 轮旅行模式：前 5 轮泳池 → 第 6-10 轮迷雾 → 第 11 轮回到泳池
+		mBackground = TravelJourneyMapForRound(TravelJourneyRound(mChallenge->mSurvivalStage)) == TravelJourneyMap::TRAVEL_JOURNEY_MAP_FOG
+			? BackgroundType::BACKGROUND_4_FOG : BackgroundType::BACKGROUND_3_POOL;
 		break;
 
 	case GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_3:
@@ -1421,9 +1449,9 @@ void Board::InitZombieWaves()
 	{
 		mZombieCountDown = ZOMBIE_COUNTDOWN * 4;
 	}
-	else if (mApp->IsSurvivalMode() && mChallenge->mSurvivalStage > 0)
+	else if ((mApp->IsSurvivalMode() || IsTravelJourneyLevel(mApp->mGameMode)) && mChallenge->mSurvivalStage > 0)
 	{
-		mZombieCountDown = ZOMBIE_COUNTDOWN_RANGE * 2;
+		mZombieCountDown = ZOMBIE_COUNTDOWN_RANGE * 2;   // 换关后的生存/旅行模式：缩短首波等待
 	}
 	else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 	{
@@ -1498,6 +1526,40 @@ void Board::InitSurvivalStage()
 	for (int j = 0; j < MAX_GRID_SIZE_Y; j++)
 	{
 		mWaveRowGotLawnMowered[j] = -100;
+	}
+}
+
+// 旅行模式：换轮时把场地切到本轮的泳池/迷雾。
+// 两套地形完全相同（都是 NORMAL/NORMAL/POOL/POOL/NORMAL/NORMAL 六行），因此已种下的植物不会受影响，
+// 只有背景图、雾、昼夜与音乐变化。
+void Board::InitTravelJourneyRound()
+{
+	// 释放上一轮的背景资源，再按新轮次重新加载（沿用 ZenGarden 的换背景写法）
+	mApp->mResourceManager->ReleaseTrackedResources(mLoadedResourceNames);
+	PickBackground();
+
+	if (StageHasFog())
+	{
+		mFogBlownCountDown = FOG_BLOW_RETURN_TIME;
+		mFogOffset = 1065 - LeftFogColumn() * 80;
+	}
+	else
+	{
+		mFogBlownCountDown = 0;
+		mFogOffset = 0.0f;
+	}
+
+	if (!StageIsNight())
+	{
+		mNumSunsFallen = 0;
+		mSunCountDown = RandRangeInt(425, 700);
+	}
+
+	// 清掉上一轮冰车留下的冰面
+	for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+	{
+		mIceTimer[aRow] = 0;
+		mIceMinX[aRow] = BOARD_ICE_START;
 	}
 }
 
@@ -1619,6 +1681,8 @@ namespace
 	constexpr SeedType gIceSandboxTravelSeeds[] = {
 		SeedType::SEED_GIANT_WALLNUT,     // 巨大坚果（旅行红卡：占两格，沙盒内直接种，点击格作为左锚）
 		SeedType::SEED_FUMESHROOM_GROUP,  // 大喷菇群（旅行紫卡：大喷菇升级体，沙盒内可单独成株）
+		SeedType::SEED_PEATER_1_5,        // 1.5 发射手（旅行红卡：去眉毛双发射手，直接种下）
+		SeedType::SEED_ELECTRIC_GATLING_PEA, // 究极电能机枪射手（旅行红卡升级卡：沙盒内需先有机枪射手）
 	};
 	constexpr int ICE_PLANT_COUNT = sizeof(gIceSandboxPlantSeeds) / sizeof(gIceSandboxPlantSeeds[0]);
 	constexpr int ICE_ZOMBIE_COUNT = sizeof(gIceSandboxZombieTypes) / sizeof(gIceSandboxZombieTypes[0]);
@@ -2508,7 +2572,7 @@ void Board::StartLevel()
 		}
 	}
 
-	if (mApp->IsSurvivalMode() && mChallenge->mSurvivalStage > 0)
+	if ((mApp->IsSurvivalMode() || IsTravelJourneyLevel(mApp->mGameMode)) && mChallenge->mSurvivalStage > 0)
 	{
 		FreezeEffectsForCutscene(false);
 		mApp->mSoundSystem->GamePause(false);
@@ -2783,7 +2847,7 @@ void Board::FadeOutLevel()
 	}
 	else
 	{
-		TOD_ASSERT(mApp->IsSurvivalMode());
+		TOD_ASSERT(mApp->IsSurvivalMode() || IsTravelJourneyLevel(mApp->mGameMode));
 		mNextSurvivalStageCounter = 500;
 		DisplayAdvice("[ADVICE_MORE_ZOMBIES]", MessageStyle::MESSAGE_STYLE_BIG_MIDDLE, AdviceType::ADVICE_NONE);
 		mApp->mMusic->FadeOut(500);
@@ -3217,6 +3281,11 @@ Projectile* Board::AddProjectile(int theX, int theY, int theRenderOrder, int the
 
 bool Board::CanZombieSpawnOnLevel(ZombieType theZombieType, int theLevel)
 {
+	if (IsTravelJourneyLevel(gLawnApp->mGameMode))
+	{
+		// 旅行模式：出怪池由 Challenge::InitZombieWaves 按轮次解锁，不在此处限制
+		return theZombieType != ZombieType::ZOMBIE_INVALID;
+	}
 	if (gLawnApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2)
 	{
 		// 巨大坚果体验关出怪：普通/路障/铁桶/小丑/巨人/冰车
@@ -3354,8 +3423,8 @@ ZombieType Board::PickZombieType(int theZombiePoints, int theWaveIndex, ZombiePi
 		// ▲ 将不符合出怪限制或超出剩余点数的僵尸类型排除
 		// ================================================================================================
 		GameMode aGameMode = mApp->mGameMode;
-		// 蹦极僵尸在无尽模式中仅在旗帜波出现
-		if (aZombieType == ZombieType::ZOMBIE_BUNGEE && mApp->IsSurvivalEndless(aGameMode))
+		// 蹦极僵尸在无尽模式与旅行模式中仅在旗帜波出现
+		if (aZombieType == ZombieType::ZOMBIE_BUNGEE && (mApp->IsSurvivalEndless(aGameMode) || IsTravelJourneyLevel(aGameMode)))
 		{
 			if (!IsFlagWave(theWaveIndex))
 			{
@@ -3365,8 +3434,8 @@ ZombieType Board::PickZombieType(int theZombiePoints, int theWaveIndex, ZombiePi
 		// 僵尸最早出现的波数的限制（出怪限制）
 		else if (aGameMode != GameMode::GAMEMODE_CHALLENGE_POGO_PARTY && aGameMode != GameMode::GAMEMODE_CHALLENGE_BOBSLED_BONANZA && aGameMode != GameMode::GAMEMODE_CHALLENGE_AIR_RAID)
 		{
-			// 巨大坚果体验关：所有僵尸不受默认"最早波数"限制，任何波都可能出现
-			int aFirstAllowedWave = (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2) ? 1 : aZombieDef.mFirstAllowedWave;
+			// 巨大坚果体验关 / 旅行模式：出怪池已按关卡或轮次解锁，不再叠加"最早波数"限制
+			int aFirstAllowedWave = (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2 || IsTravelJourneyLevel(aGameMode)) ? 1 : aZombieDef.mFirstAllowedWave;
 			// 无尽模式中，僵尸最早可出现的波数逐渐前移
 			if (mApp->IsSurvivalEndless(aGameMode))
 			{
@@ -3384,7 +3453,7 @@ ZombieType Board::PickZombieType(int theZombiePoints, int theWaveIndex, ZombiePi
 		// ▲ 生存模式中，根据当前旗帜数等重新计算僵尸的权重
 		// ================================================================================================
 		int aPickWeight = aZombieDef.mPickWeight;
-		if (mApp->IsSurvivalMode())
+		if (mApp->IsSurvivalMode() || IsTravelJourneyLevel(aGameMode))
 		{
 			int aFlags = GetSurvivalFlagsCompleted();
 			// 伽刚特尔和雪橇车僵尸的每波出怪上限
@@ -4402,7 +4471,7 @@ void Board::UpdateToolTip()
 	{
 		mToolTip->SetTitle(Plant::GetNameString(aPlant->mSeedType, aPlant->mImitaterType));
 		std::string aHPLabel = StrFormat("HP: %d/%d", aPlant->mPlantHealth, aPlant->mPlantMaxHealth);
-		if (aPlant->mSeedType == SeedType::SEED_GATLINGPEA)
+		if (aPlant->mSeedType == SeedType::SEED_GATLINGPEA || aPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
 		{
 			if (aPlant->mGatlingScatterCountdown > 0)
 			{
@@ -4644,6 +4713,13 @@ void Board::UpdateToolTip()
 			mToolTip->SetWarningText("[REQUIRES_REPEATER]");
 		}
 	}
+	else if (aUseSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
+	{
+		if (!PlantingRequirementsMet(aUseSeedType))
+		{
+			mToolTip->SetWarningText("[REQUIRES_GATLINGPEA]");
+		}
+	}
 	else if (aUseSeedType == SeedType::SEED_WINTERMELON)
 	{
 		if (!PlantingRequirementsMet(aUseSeedType))
@@ -4793,6 +4869,10 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 			{
 			case SeedType::SEED_GATLINGPEA:
 				DisplayAdvice("[ADVICE_ONLY_ON_REPEATERS]", MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_PLANT_ONLY_ON_REPEATERS);
+				break;
+
+			case SeedType::SEED_ELECTRIC_GATLING_PEA:
+				DisplayAdvice("[ADVICE_ONLY_ON_GATLINGPEA]", MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_PLANT_NEEDS_GATLINGPEA);
 				break;
 
 			case SeedType::SEED_TWINSUNFLOWER:
@@ -6364,6 +6444,12 @@ bool Board::IsFinalScaryPotterStage()
 
 bool Board::IsFinalSurvivalStage()
 {
+	if (IsTravelJourneyLevel(mApp->mGameMode))
+	{
+		// 旅行模式：只有第 11 轮是最终轮（前 10 轮清空后保留植物进入下一轮）
+		return TravelJourneyRound(mChallenge->mSurvivalStage) >= TRAVEL_JOURNEY_ROUNDS;
+	}
+
 	if (!mApp->IsSurvivalMode())
 		return false;
 
@@ -6387,7 +6473,8 @@ bool Board::IsLastStandFinalStage()
 
 bool Board::IsSurvivalStageWithRepick()
 {
-	return mApp->IsSurvivalMode() && !IsFinalSurvivalStage();
+	// 旅行模式复用生存模式的换关保留流程：植物/阳光/小推车留到下一轮，只重掷出怪并重新选卡
+	return (mApp->IsSurvivalMode() || IsTravelJourneyLevel(mApp->mGameMode)) && !IsFinalSurvivalStage();
 }
 
 bool Board::IsLastStandStageWithRepick()
@@ -6559,14 +6646,14 @@ void Board::UpdateZombieSpawning()
 		{
 			return;
 		}
-		if (!mApp->IsSurvivalMode() && !mApp->IsContinuousChallenge() && !IsSnowyDayFinalStage())
+		if (!mApp->IsSurvivalMode() && !mApp->IsContinuousChallenge() && !IsSnowyDayFinalStage() && !IsTravelJourneyLevel(mApp->mGameMode))
 		{
 			return;
 		}
 	}
 
 	mZombieCountDown--;
-	if (mCurrentWave == mNumWaves && (mApp->IsSurvivalMode() || IsSnowyDayFinalStage()))
+	if (mCurrentWave == mNumWaves && (mApp->IsSurvivalMode() || IsSnowyDayFinalStage() || IsTravelJourneyLevel(mApp->mGameMode)))
 	{
 		if (mZombieCountDown == 0)
 		{
@@ -7941,6 +8028,12 @@ void Board::DrawLevel(Graphics* g)
 				std::string aStreakStr = TodReplaceNumberString("[ENDLESS_STREAK]", "{STREAK}", aStreak);
 				aLevelStr = StrFormat("%s - %s", TodStringTranslate(aLevelStr).c_str(), aStreakStr.c_str());
 			}
+		}
+		else if (IsTravelJourneyLevel(mApp->mGameMode))
+		{
+			// 旅行模式：关卡名后附当前轮次进度（第 X/11 轮）
+			std::string aRoundStr = TodReplaceNumberString("[TRAVEL_JOURNEY_PROGRESS]", "{ROUND}", TravelJourneyRound(mChallenge->mSurvivalStage));
+			aLevelStr = StrFormat("%s - %s", TodStringTranslate(aLevelStr).c_str(), aRoundStr.c_str());
 		}
 	}
 	
@@ -10167,7 +10260,9 @@ bool Board::StageHasZombieWalkInFromRight()
 
 bool Board::StageHasFog()
 {
-	return !mApp->IsStormyNightLevel() && mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_INVISIGHOUL && mBackground == BackgroundType::BACKGROUND_4_FOG && !IsTravelLevel(mApp->mGameMode);
+	// 旅行体验关用 FOG 背景冒充"夜间泳池"故不开雾；11 轮旅行模式的迷雾轮则是真迷雾
+	bool aTravelSuppressesFog = IsTravelLevel(mApp->mGameMode) && !IsTravelJourneyLevel(mApp->mGameMode);
+	return !mApp->IsStormyNightLevel() && mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_INVISIGHOUL && mBackground == BackgroundType::BACKGROUND_4_FOG && !aTravelSuppressesFog;
 }
 
 // GOTY @Patoke: inlined 0x41E669
@@ -11050,6 +11145,7 @@ bool Board::PlantingRequirementsMet(SeedType theSeedType)
 	switch (theSeedType)
 	{
 	case SeedType::SEED_GATLINGPEA:			return CountPlantByType(SeedType::SEED_REPEATER);
+	case SeedType::SEED_ELECTRIC_GATLING_PEA:	return CountPlantByType(SeedType::SEED_GATLINGPEA);
 	case SeedType::SEED_TWINSUNFLOWER:		return CountPlantByType(SeedType::SEED_SUNFLOWER);
 	case SeedType::SEED_GLOOMSHROOM:		return CountPlantByType(SeedType::SEED_FUMESHROOM);
 	case SeedType::SEED_CATTAIL:			return CountEmptyPotsOrLilies(SeedType::SEED_LILYPAD);
@@ -11112,6 +11208,10 @@ int Board::KillAllZombiesInRadius(int theRow, int theX, int theY, int theRadius,
 
 int Board::GetNumWavesPerSurvivalStage()
 {
+	if (IsTravelJourneyLevel(mApp->mGameMode))
+	{
+		return TRAVEL_JOURNEY_WAVES_PER_ROUND;   // 旅行模式：一轮 = 一个"阶段"
+	}
 	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || mApp->IsSurvivalNormal(mApp->mGameMode))
 	{
 		return 10;

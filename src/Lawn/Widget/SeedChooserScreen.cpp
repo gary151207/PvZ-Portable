@@ -647,7 +647,7 @@ bool SeedChooserScreen::FlyProtectionCurrentlyPlanted()
 
 bool SeedChooserScreen::CheckSeedUpgrade(SeedType theSeedTypeTo, SeedType theSeedTypeFrom)
 {
-	if (mApp->IsSurvivalMode() || !PickedPlantType(theSeedTypeTo) || PickedPlantType(theSeedTypeFrom))
+	if (mApp->IsSurvivalMode() || mBoard->mCutScene->IsSurvivalRepick() || !PickedPlantType(theSeedTypeTo) || PickedPlantType(theSeedTypeFrom))
 		return true;
 
 	std::string aWarning = TodStringTranslate("[SEED_CHOOSER_UPGRADE_WARNING]");
@@ -742,6 +742,7 @@ void SeedChooserScreen::OnStartButton()
 		!CheckSeedUpgrade(SEED_GOLD_MAGNET, SEED_MAGNETSHROOM) || 
 		!CheckSeedUpgrade(SEED_GLOOMSHROOM, SEED_FUMESHROOM) || 
 		!CheckSeedUpgrade(SEED_FUMESHROOM_GROUP, SEED_FUMESHROOM) || 
+		!CheckSeedUpgrade(SEED_ELECTRIC_GATLING_PEA, SEED_GATLINGPEA) || 
 		!CheckSeedUpgrade(SEED_CATTAIL, SEED_LILYPAD))
 		return;
 

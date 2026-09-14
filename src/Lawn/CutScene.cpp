@@ -25,6 +25,7 @@
 #include "GridItem.h"
 #include "Cutscene.h"
 #include "Challenge.h"
+#include "Travel.h"
 #include "LawnMower.h"
 #include "SeedPacket.h"
 #include "../LawnApp.h"
@@ -628,7 +629,8 @@ void CutScene::PlaceLawnItems()
 
 bool CutScene::IsSurvivalRepick()
 {
-	return (mApp->IsSurvivalMode() && mBoard->mChallenge->mSurvivalStage > 0 && mApp->mGameScene == GameScenes::SCENE_LEVEL_INTRO); 
+	// 旅行模式换轮同样属于"保留植物的重选卡"过场（否则小推车/花盆会被重复摆放）
+	return ((mApp->IsSurvivalMode() || IsTravelJourneyLevel(mApp->mGameMode)) && mBoard->mChallenge->mSurvivalStage > 0 && mApp->mGameScene == GameScenes::SCENE_LEVEL_INTRO); 
 }
 
 bool CutScene::IsNonScrollingCutscene()
@@ -649,8 +651,8 @@ bool CutScene::IsNonScrollingCutscene()
 
 bool CutScene::IsScrolledLeftAtStart()
 {
-	if (mBoard->mChallenge->mSurvivalStage > 0 && mApp->IsSurvivalMode())
-		return false;  // 非首轮的生存模式的过场，屏幕滚动从屏幕中央开始
+	if (mBoard->mChallenge->mSurvivalStage > 0 && (mApp->IsSurvivalMode() || IsTravelJourneyLevel(mApp->mGameMode)))
+		return false;  // 非首轮的生存/旅行模式的过场，屏幕滚动从屏幕中央开始
 
 	return !IsNonScrollingCutscene();
 }
@@ -1561,6 +1563,14 @@ void CutScene::UpdateZombiesWon()
 			int aFlagsCompleted = mBoard->GetSurvivalFlagsCompleted();
 			std::string aFlagsStr = mApp->Pluralize(aFlagsCompleted, "[ONE_FLAG]", "[COUNT_FLAGS]");
 			std::string aStr = TodReplaceString("[SURVIVAL_DEATH_MESSAGE]", "{FLAGS}", aFlagsStr);
+			GameOverDialog* aDialog = new GameOverDialog(aStr, true);
+			mApp->AddDialog(Dialogs::DIALOG_GAME_OVER, aDialog);
+		}
+		else if (IsTravelJourneyLevel(mApp->mGameMode))
+		{
+			// 旅行模式：失败时告诉玩家坚持到了第几轮
+			int aRound = TravelJourneyRound(mBoard->mChallenge->mSurvivalStage);
+			std::string aStr = TodReplaceNumberString("[TRAVEL_JOURNEY_LOST]", "{ROUND}", aRound);
 			GameOverDialog* aDialog = new GameOverDialog(aStr, true);
 			mApp->AddDialog(Dialogs::DIALOG_GAME_OVER, aDialog);
 		}

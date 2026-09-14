@@ -181,6 +181,11 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	{ ReanimationType::REANIM_CREDITS_WEARETHEUNDEAD,               "reanim/Credits_WeAreTheUndead.reanim",            1 },
 	{ ReanimationType::REANIM_CREDITS_DISCOLIGHTS,                  "reanim/Credits_DiscoLights.reanim",               1 },
 	{ ReanimationType::REANIM_FLAG,                                 "reanim/Zombie_FlagPole.reanim",                   0 },
+	// 与 REANIM_GATLINGPEA 同一个文件，但 Plant.cpp 会把它的贴图换成究极电能机枪射手专用贴图。
+	// 标志用 REANIM_NO_ATLAS：本类型不建自己的 Atlas，于是定义里的 mImage 始终是真实指针，
+	// 换贴图不再需要"赶在建 Atlas 之前"（那是这条路径最容易出错的地方），
+	// 也不会和 REANIM_GATLINGPEA 的 Atlas 共用同一批源贴图。
+	{ ReanimationType::REANIM_ELECTRIC_GATLINGPEA,                  "reanim/GatlingPea.reanim",                        1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :
@@ -299,6 +304,7 @@ ReanimatorTrackInstance::ReanimatorTrackInstance()
 	mTrackColor = Color::White;
 	mIgnoreColorOverride = false;
 	mIgnoreExtraAdditiveColor = false;
+	mIgnoreExtraOverlayColor = false;
 }
 
 Reanimation::Reanimation()
@@ -764,7 +770,7 @@ bool Reanimation::DrawTrack(Graphics* g, int theTrackIndex, int theRenderGroup, 
 		{
 			theTriangleGroup->AddTriangle(g, aImage, aMatrix, aClipRect, aExtraAdditiveColor, Graphics::DRAWMODE_ADDITIVE, aSrcRect);
 		}
-		if (mEnableExtraOverlayDraw)
+		if (mEnableExtraOverlayDraw && !aTrackInstance->mIgnoreExtraOverlayColor)
 		{
 			theTriangleGroup->AddTriangle(
 				g, FilterEffectGetImage(aImage, FilterEffect::FILTER_EFFECT_WHITE), aMatrix, aClipRect, aExtraOverlayColor, Graphics::DRAWMODE_NORMAL, aSrcRect);
@@ -789,7 +795,7 @@ bool Reanimation::DrawTrack(Graphics* g, int theTrackIndex, int theRenderGroup, 
 		{
 			ReanimBltMatrix(g, aImage, aMatrix, aClipRect, aExtraAdditiveColor, Graphics::DRAWMODE_ADDITIVE, aSrcRect);
 		}
-		if (mEnableExtraOverlayDraw)
+		if (mEnableExtraOverlayDraw && !aTrackInstance->mIgnoreExtraOverlayColor)
 		{
 			Image* aOverlayImage = FilterEffectGetImage(aImage, FilterEffect::FILTER_EFFECT_WHITE);
 			ReanimBltMatrix(g, aOverlayImage, aMatrix, aClipRect, aExtraOverlayColor, Graphics::DRAWMODE_NORMAL, aSrcRect);

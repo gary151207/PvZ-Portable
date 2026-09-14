@@ -22,6 +22,7 @@
 #include "Board.h"
 #include "Cutscene.h"
 #include "Challenge.h"
+#include "Travel.h"
 #include "SeedPacket.h"
 #include "../LawnApp.h"
 #include "CursorObject.h"
@@ -454,6 +455,7 @@ void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedTyp
 		break;
 
 	case SeedType::SEED_GATLINGPEA:
+	case SeedType::SEED_ELECTRIC_GATLING_PEA:
 		aScale = 0.5f;
 		aOffsetX = 2.0f;
 		aOffsetY = 8.0f;
@@ -788,6 +790,9 @@ void SeedPacket::MouseDown(int x, int y, int theClickCount)
 			{
 			case SeedType::SEED_GATLINGPEA:
 				mBoard->DisplayAdvice("[ADVICE_PLANT_NEEDS_REPEATER]", MessageStyle::MESSAGE_STYLE_HINT_LONG, AdviceType::ADVICE_PLANT_NEEDS_REPEATER);
+				break;
+			case SeedType::SEED_ELECTRIC_GATLING_PEA:
+				mBoard->DisplayAdvice("[ADVICE_PLANT_NEEDS_GATLINGPEA]", MessageStyle::MESSAGE_STYLE_HINT_LONG, AdviceType::ADVICE_PLANT_NEEDS_GATLINGPEA);
 				break;
 			case SeedType::SEED_WINTERMELON:
 				mBoard->DisplayAdvice("[ADVICE_PLANT_NEEDS_MELONPULT]", MessageStyle::MESSAGE_STYLE_HINT_LONG, AdviceType::ADVICE_PLANT_NEEDS_MELONPULT);
@@ -1132,12 +1137,15 @@ void SeedPacket::SetPacketType(SeedType theSeedType, SeedType theImitaterType)
 
 	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST || 
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || 
-		mApp->IsIZombieLevel() || mApp->IsScaryPotterLevel() || mApp->IsWhackAZombieLevel() || (mApp->IsSurvivalMode() && mBoard->mChallenge->mSurvivalStage > 0))
+		mApp->IsIZombieLevel() || mApp->IsScaryPotterLevel() || mApp->IsWhackAZombieLevel() ||
+		((mApp->IsSurvivalMode() || IsTravelJourneyLevel(mApp->mGameMode)) && mBoard->mChallenge->mSurvivalStage > 0))
 		return;
 
-	if (aUseSeedType == SeedType::SEED_GATLINGPEA || aUseSeedType == SeedType::SEED_GIANT_WALLNUT)
+	if (aUseSeedType == SeedType::SEED_GATLINGPEA || aUseSeedType == SeedType::SEED_GIANT_WALLNUT ||
+		aUseSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
 	{
 		// Gatling Pea / Giant Wall-nut use their own base cooldown (30.01 s / 50 s); do not apply the generic upgrade overrides.
+		// 究极电能机枪射手同样沿用机枪射手的 30.01 s 档位。
 	}
 	else if ((Plant::IsUpgrade(aUseSeedType) && !gLawnApp->IsSurvivalMode()) || Plant::GetRefreshTime(mPacketType, mImitaterType) == 5000)
 	{

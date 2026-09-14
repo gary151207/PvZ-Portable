@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- PvZ-Portable 旅行模式字符串（中文备用）。使用中文资源包时，请用本文件内容替换 pvzp-strings.xml -->
+<!-- PvZ-Portable 旅行模式字符串（中文）。内容与 pvzp-strings.xml 相同，保留此文件作为中文参考 -->
 <Properties>
 	<String id="TRAVEL_EXPERIENCE">旅行体验：大喷菇群！</String>
 	<String id="TRAVEL_EXPERIENCE_GIANT">旅行体验：巨大坚果！</String>
+	<String id="TRAVEL_JOURNEY">旅行：无尽旅程</String>
+	<String id="TRAVEL_JOURNEY_ROUND">旅行第 {ROUND}/11 轮 - {MAP}</String>
+	<String id="TRAVEL_JOURNEY_PROGRESS">第 {ROUND}/11 轮</String>
+	<String id="TRAVEL_JOURNEY_LOST">旅程到此为止——你坚持到了第 {ROUND}/11 轮。</String>
+	<String id="TRAVEL_MAP_POOL">泳池</String>
+	<String id="TRAVEL_MAP_FOG">迷雾</String>
 	<String id="TRAVEL_NEED_FUMESHROOM">你的卡组需要包含大喷菇才能升级。</String>
 	<String id="FUMESHROOM_GROUP">大喷菇群</String>
 	<String id="FUMESHROOM_GROUP_TOOLTIP">由大喷菇升级而成的三头菌落：中间一只大喷菇喷烟雾，左右两只小喷菇各自喷孢子，三头独立攻击。</String>
@@ -11,5 +17,14 @@
 	<String id="GIANT_WALLNUT">巨大坚果</String>
 	<String id="GIANT_WALLNUT_TOOLTIP">由两颗紧邻的坚果融合而成的巨型坚果：32000 生命。撑杆跳僵尸与跳跳僵尸都无法跳过它，只能老老实实啃。</String>
 	<String id="TRAVEL_NEED_TWO_WALLNUTS">需要同一行有两颗紧邻的坚果作为底座才能融合出巨大坚果。</String>
+	<String id="PEATER_1_5">1.5发射手</String>
+	<String id="PEATER_1_5_TOOLTIP">去掉眉毛的双发射手：每次攻击有 50% 的概率发射一发豌豆，50% 的概率发射两发。种下 15 秒后可点击它免费升级为双发射手。</String>
+	<String id="PEATER_1_5_UPGRADE_READY">1.5发射手已就绪——点击它即可免费升级为双发射手！</String>
+	<String id="PEATER_1_5_UPGRADE_WAIT">还没到时间——还差 {TIME} 秒才能升级。</String>
 	<String id="BOSS_CONHEAD_PEA_ZOMBIE">路障射手僵尸</String>
+	<String id="ELECTRIC_GATLING_PEA">究极电能机枪射手</String>
+	<String id="ELECTRIC_GATLING_PEA_TOOLTIP">由机枪射手升级而成的究极形态：每一发都是电能豌豆（接触持续伤害、无限穿透）。其余机制与机枪射手完全一致。</String>
+	<String id="REQUIRES_GATLINGPEA">需要先种下机枪射手</String>
+	<String id="ADVICE_PLANT_NEEDS_GATLINGPEA">需要先种下机枪射手，才能把它升级成究极电能机枪射手。</String>
+	<String id="ADVICE_ONLY_ON_GATLINGPEA">究极电能机枪射手只能种在机枪射手上面。</String>
 </Properties>

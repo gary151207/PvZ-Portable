@@ -44,6 +44,27 @@ constexpr const int   UMBRELLA_REGEN_AMOUNT      = 25;     // HP recovered per r
 constexpr const int   UMBRELLA_REGEN_COOLDOWN    = 500;    // frames between regen ticks (~5s @ 100fps)
 constexpr const int   PUMPKIN_HEAL_AMOUNT        = 45;     // HP recovered per inner-plant heal tick
 constexpr const int   PUMPKIN_HEAL_COOLDOWN      = 200;    // frames between heal ticks (~2s @ 100fps)
+constexpr const int   PEATER_1_5_UPGRADE_SECONDS = 15;     // 1.5 发射手：种下后多少秒可手动点击升级为双发射手
+constexpr const int   PEATER_1_5_UPGRADE_FPS     = 100;    // 逻辑帧率（Sexy.TodLib/Reanimator.h: SECONDS_PER_UPDATE = 0.01）
+constexpr const int   PEATER_1_5_UPGRADE_DELAY   = PEATER_1_5_UPGRADE_FPS * PEATER_1_5_UPGRADE_SECONDS;
+// 电能蓝：究极电能机枪射手（头部实例）与电能豌豆**共用同一个颜色**，保证两者看起来一致。
+//   - 植物走"白色滤镜叠加绘制"：最终色 = 本颜色 * A/255 + 原色 * (1 - A/255)
+//     （A=245 → 约等于本颜色，只掺进 4% 原色以保留极淡的五官与描边）。
+//     必须用叠加而不是"额外加色绘制"：加色按原图像素成比例相加，头部贴图蓝通道只有 ~36，
+//     再加也压不掉绿色（之前几版一直偏黄绿的根因）。
+//   - 豌豆走"白色滤镜剪影 + 正常绘制上色"：最终色 = 本颜色（alpha 255），所以两者色调一致。
+// 头盔轨道同时豁免加色与叠加 → 保持原色；底部叶/茎所在的 body 实例完全不着色。
+// 调色只看这三个数：整体越接近 255,255,255 越白，压低 R/G 越蓝。
+constexpr const int   ELECTRIC_BLUE_R = 200;
+constexpr const int   ELECTRIC_BLUE_G = 240;
+constexpr const int   ELECTRIC_BLUE_B = 255;
+// 只影响植物的叠加强度（越小越能看见原本的明暗/五官，越大越接近纯色）。
+constexpr const int   ELECTRIC_GATLING_TINT_A = 245;
+// 究极电能机枪射手专用贴图（reanim/ElectricGatling_*.png）接入开关。
+// 启用条件：这六张图必须是**带透明通道**的 PNG（背景不能烘焙成白底），且尺寸与机枪射手同名贴图一致
+// （reanim 按帧索引，尺寸不一致会串帧）。程序里仍有兜底校验：任何一张不合格就整体回退到
+// "机枪射手贴图 + 电能蓝叠加"。
+constexpr const bool  ELECTRIC_GATLING_USE_CUSTOM_ART = true;
 constexpr const int HIGH_GROUND_HEIGHT = 30;
 
 constexpr const int SEEDBANK_MAX = 10;

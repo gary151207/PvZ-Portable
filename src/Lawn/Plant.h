@@ -232,6 +232,8 @@ public:
     bool                    mHighlighted;
     bool                    mIsElite;
     bool                    mHasFiredFirstPea = false;
+    bool                    mPeater15DoubleShot = false;   // 1.5 发射手：本轮攻击是否发射第二发（每轮开始时掷骰）
+    int32_t                 mPeater15UpgradeCountdown = 0; // 1.5 发射手：距可点击免费升级为双发射手还剩多少帧（0 = 已可升级）
 
 public:
     Plant();
@@ -259,7 +261,7 @@ public:
     static /*inline*/ bool  IsAquatic(SeedType theSeedType);
     static /*inline*/ bool  IsFlying(SeedType theSeedtype);
     static /*inline*/ bool  IsUpgrade(SeedType theSeedtype);
-    static /*inline*/ bool  IsRedCard(SeedType theSeedtype);   // 红卡（旅行高阶卡面；当前唯一：巨大坚果）
+    static /*inline*/ bool  IsRedCard(SeedType theSeedtype);   // 红卡（旅行高阶卡面；当前：巨大坚果、1.5 发射手）
     void                    UpdateAbilities();
     void                    Squish();
     void                    DoRowAreaDamage(int theDamage, unsigned int theDamageFlags);
@@ -354,6 +356,20 @@ public:
 
 float                       PlantDrawHeightOffset(Board* theBoard, Plant* thePlant, SeedType theSeedType, int theCol, int theRow);
 float                       PlantFlowerPotHeightOffset(SeedType theSeedType, float theFlowerPotScale);
+
+// 究极电能机枪射手专用贴图（打包在 main.pak 的 reanim/ 下：ElectricGatling_head/mouth/mouth_overlay/barrel、
+// EletricGatling_blink1/blink2）。首次调用时把它们替换进 REANIM_ELECTRIC_GATLINGPEA 的定义里。
+// 返回 false 表示贴图缺失、或没有真正的透明通道（背景被烘焙成白色，直接用会画成白方块），
+// 此时调用方应回退到"机枪射手贴图 + 电能蓝叠加"。幂等，可随时调用。
+bool                        ElectricGatlingHasCustomArt();
+
+// 专用贴图是否真正启用（= 开关打开 且 贴图可用）。染色兜底与 reanim 类型选择都以它为准。
+bool                        ElectricGatlingUsesCustomArt();
+
+// 究极电能机枪射手实际使用的 reanim 类型：专用贴图可用时用 REANIM_ELECTRIC_GATLINGPEA（并换好贴图），
+// 否则退回 REANIM_GATLINGPEA —— 与"机枪射手贴图 + 电能蓝叠加"的兜底方案完全一致，
+// 同时避免为同一套贴图多建一份 Atlas。
+ReanimationType             ElectricGatlingReanimType();
 
 class PlantDefinition
 {

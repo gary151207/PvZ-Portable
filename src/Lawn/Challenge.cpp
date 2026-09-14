@@ -491,6 +491,16 @@ void Challenge::StartLevel()
 			"[ADVICE_SURVIVE_ENDLESS]";
 		mBoard->DisplayAdvice(aMessage, MESSAGE_STYLE_HINT_FAST, ADVICE_SURVIVE_FLAGS);
 	}
+	if (IsTravelJourneyLevel(aGameMode))
+	{
+		// 旅行模式：每轮开始时提示"第 X / 11 轮 · 本轮地图"
+		int aRound = TravelJourneyRound(mSurvivalStage);
+		std::string aMap = TravelJourneyMapForRound(aRound) == TravelJourneyMap::TRAVEL_JOURNEY_MAP_FOG
+			? TodStringTranslate("[TRAVEL_MAP_FOG]") : TodStringTranslate("[TRAVEL_MAP_POOL]");
+		std::string aMessage = TodReplaceString("[TRAVEL_JOURNEY_ROUND]", "{MAP}", aMap);
+		aMessage = TodReplaceNumberString(aMessage, "{ROUND}", aRound);
+		mBoard->DisplayAdvice(aMessage, MESSAGE_STYLE_HINT_FAST, ADVICE_NONE);
+	}
 	if (aGameMode == GAMEMODE_CHALLENGE_LAST_STAND && mSurvivalStage == 0)
 	{
 		mBoard->DisplayAdvice(TodReplaceNumberString("[ADVICE_SURVIVE_FLAGS]", "{FLAGS}", LAST_STAND_FLAGS), MESSAGE_STYLE_BIG_MIDDLE_FAST, ADVICE_SURVIVE_FLAGS);
@@ -1853,18 +1863,22 @@ void Challenge::UpdateConveyorBelt()
 	}
 	else if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2)
 	{
-		// 巨大坚果体验关传送带：双发射手/机枪射手/坚果/巨大坚果/樱桃炸弹
-		aSeedPickCount = 5;
+		// 巨大坚果体验关传送带：双发射手/1.5发射手/机枪射手/究极电能机枪射手/坚果/巨大坚果/樱桃炸弹
+		aSeedPickCount = 7;
 		aSeedPickArray[0].mItem = SeedType::SEED_REPEATER;   // 双发射手
-		aSeedPickArray[0].mWeight = 22;
-		aSeedPickArray[1].mItem = SeedType::SEED_GATLINGPEA;   // 机枪射手（升级自双发射手）
-		aSeedPickArray[1].mWeight = 12;
-		aSeedPickArray[2].mItem = SeedType::SEED_WALLNUT;   // 坚果（巨大坚果的双坚果底座）
-		aSeedPickArray[2].mWeight = 24;
-		aSeedPickArray[3].mItem = SeedType::SEED_GIANT_WALLNUT;   // 红卡：拖到两颗紧邻坚果上融合
+		aSeedPickArray[0].mWeight = 20;
+		aSeedPickArray[1].mItem = SeedType::SEED_PEATER_1_5;   // 1.5发射手（旅行红卡）
+		aSeedPickArray[1].mWeight = 18;
+		aSeedPickArray[2].mItem = SeedType::SEED_GATLINGPEA;   // 机枪射手（升级自双发射手）
+		aSeedPickArray[2].mWeight = 12;
+		aSeedPickArray[3].mItem = SeedType::SEED_ELECTRIC_GATLING_PEA;   // 究极电能机枪射手（红卡：升级自机枪射手）
 		aSeedPickArray[3].mWeight = 10;
-		aSeedPickArray[4].mItem = SeedType::SEED_CHERRYBOMB;   // 樱桃炸弹
-		aSeedPickArray[4].mWeight = 14;
+		aSeedPickArray[4].mItem = SeedType::SEED_WALLNUT;   // 坚果（巨大坚果的双坚果底座）
+		aSeedPickArray[4].mWeight = 22;
+		aSeedPickArray[5].mItem = SeedType::SEED_GIANT_WALLNUT;   // 红卡：拖到两颗紧邻坚果上融合
+		aSeedPickArray[5].mWeight = 10;
+		aSeedPickArray[6].mItem = SeedType::SEED_CHERRYBOMB;   // 樱桃炸弹
+		aSeedPickArray[6].mWeight = 14;
 	}
 	else if (IsTravelLevel(mApp->mGameMode))
 	{
@@ -2548,11 +2562,37 @@ void Challenge::InitZombieWavesSurvival()
 		if (mBoard->GetSurvivalFlagsCompleted() < 10 && aRandZombie == ZOMBIE_REDEYE_GARGANTUAR)								continue;
 		if (mApp->IsSurvivalNormal(mApp->mGameMode) && aRandZombie > ZOMBIE_SNORKEL)								continue;
 		if (mBoard->IsZombieTypeSpawnedOnly(aRandZombie) || Zombie::IsZombotany(aRandZombie) ||
-			aRandZombie == ZOMBIE_DUCKY_TUBE || aRandZombie == ZOMBIE_YETI || aRandZombie == ZOMBIE_DOOMSHROOM_HEAD)										continue;
+			aRandZombie == ZOMBIE_DUCKY_TUBE || aRandZombie == ZOMBIE_YETI || aRandZombie == ZOMBIE_DOOMSHROOM_HEAD ||
+			aRandZombie == ZOMBIE_BOSS_CONHEAD_PEA)										continue;
 
 		mBoard->mZombieAllowed[aRandZombie] = true;
 		aCapacity--;
 	}
+}
+
+// 旅行模式（11 轮）的出怪池：参考无尽模式的"随阶段扩张"，但改成确定性的按轮解锁，
+// 避免第 1 轮就随机出伽刚特尔。第 11 轮解锁红眼伽刚特尔，与 BOSS 固定出怪共同构成终局压力。
+void Challenge::InitZombieWavesTravelJourney()
+{
+	int aRound = TravelJourneyRound(mSurvivalStage);
+	bool* aList = mBoard->mZombieAllowed;
+
+	aList[ZOMBIE_NORMAL] = true;
+	aList[ZOMBIE_TRAFFIC_CONE] = true;
+
+	if (aRound >= 2)  aList[ZOMBIE_PAIL] = true;
+	if (aRound >= 3)  aList[ZOMBIE_NEWSPAPER] = true;
+	if (aRound >= 4)  aList[ZOMBIE_DOLPHIN_RIDER] = true;
+	if (aRound >= 5)  aList[ZOMBIE_SNORKEL] = true;
+	if (aRound >= 5)  aList[ZOMBIE_FOOTBALL] = true;
+	if (aRound >= 6)  aList[ZOMBIE_JACK_IN_THE_BOX] = true;
+	if (aRound >= 7)  aList[ZOMBIE_LADDER] = true;
+	if (aRound >= 8)  aList[ZOMBIE_ZAMBONI] = true;
+	if (aRound >= 9)  aList[ZOMBIE_CATAPULT] = true;
+	if (aRound >= 9)  aList[ZOMBIE_BUNGEE] = true;      // 旗帜波限定（见 Board::PickZombieType）
+	if (aRound >= 10) aList[ZOMBIE_DANCER] = true;
+	if (aRound >= 10) aList[ZOMBIE_GARGANTUAR] = true;
+	if (aRound >= 11) aList[ZOMBIE_REDEYE_GARGANTUAR] = true;
 }
 
 void Challenge::InitZombieWavesFromList(ZombieType* theZombieList, int theListLength)
@@ -2584,6 +2624,10 @@ void Challenge::InitZombieWaves()
 			}
 		}
 		else InitZombieWavesSurvival();
+	}
+	else if (IsTravelJourneyLevel(aGameMode))
+	{
+		InitZombieWavesTravelJourney();
 	}
 	else if (mApp->IsCricketFightLevel())
 	{

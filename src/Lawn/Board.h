@@ -424,6 +424,7 @@ public:
 	void							PickBackground();
 	void							InitZombieWaves();
 	void							InitSurvivalStage();
+	void							InitTravelJourneyRound();   // 旅行模式：切换本轮的泳池/迷雾背景
 	static /*inline*/ int			MakeRenderOrder(RenderLayer theRenderLayer, int theRow, int theLayerOffset);
 	void							UpdateGame();
 	void							InitZombieWavesForLevel(int theForLevel);

@@ -132,6 +132,7 @@ public:
     int                    BeghouledCheckForPossibleMoves(BeghouledBoardState* theBoardState);
     void                    BeghouledCheckStuckState();
     void                    InitZombieWavesSurvival();
+    void                    InitZombieWavesTravelJourney();
     /*inline*/ void         InitZombieWavesFromList(ZombieType* theZombieList, int theListLength);
     void                    InitZombieWaves();
     /*inline*/ Rect         SlotMachineGetHandleRect();

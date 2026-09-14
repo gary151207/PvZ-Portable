@@ -113,7 +113,7 @@ Board/LawnApp/SeedChooserScreen 只通过查询取参，不为每个旅行关卡
 由 `TravelLevelDef` 表（`gTravelLevelDefs`）驱动的关卡；当前两条体验关：
 - `GAMEMODE_CHALLENGE_TRAVEL_1`：夜间泳池、2 旗帜、6 波（大喷菇群主题，传送带）
 - `GAMEMODE_CHALLENGE_TRAVEL_2`：**普通白天**、3 旗帜、6 波（巨大坚果主题，传送带；
-  传送带=双发射手/机枪射手/坚果/巨大坚果/樱桃炸弹；出怪=普通/路障/铁桶/小丑/巨人/冰车
+  传送带=双发射手/1.5发射手/机枪射手/究极电能机枪射手/坚果/巨大坚果/樱桃炸弹；出怪=普通/路障/铁桶/小丑/巨人/冰车
   （**6 种僵尸任何波都可能出现**，随机不受波次限制；另第 5 波固定小丑+冰车、末波固定巨人保底；
   本关**自带 100 倍出怪**，不依赖 `--zombie-multiplier`）；
   使用传送带关音乐 `MUSIC_TUNE_CONVEYER`）
@@ -140,7 +140,8 @@ _避免_：喷菇群、三头喷菇、Fume 群
 
 **红卡 (Red Card)**：
 卡包底色渲染为红色系的旅行高阶卡级（对标紫卡升级卡）。由 `Plant::IsRedCard` 判定；
-当前唯一一张 = **巨大坚果**（`SEED_GIANT_WALLNUT`）。
+当前三张 = **巨大坚果**（`SEED_GIANT_WALLNUT`）、**1.5 发射手**（`SEED_PEATER_1_5`）
+与 **究极电能机枪射手**（`SEED_ELECTRIC_GATLING_PEA`）。
 _避免_：红卡植物、稀有卡
 
 **巨大坚果 (Giant Wall-nut)**：
@@ -160,13 +161,133 @@ _避免_：巨型坚果、大坚果
 （锚定两格中的左格，右格连带清空/禁种）。
 _避免_：合体、坚果升级
 
+**1.5 发射手 (1.5 Peater)**：
+旅行专属红卡（`SEED_PEATER_1_5`）：150 阳光、普通短冷却（`mRefreshTime=750`）、300 生命。
+**贴图 = 去掉眉毛的双发射手**（复用 `REANIM_REPEATER`，隐藏其 `PeaShooter_eyebrow` 轨道；
+场上植物、卡面/图鉴/光标预览都去眉毛）。**可直接种下**（普通射手，无底座/升级前提）。
+攻击特性：每轮攻击开始时掷骰，**50% 本轮一发 / 50% 本轮两发**（第二发复用双发射手的
+`mLaunchCounter == 25` 补射点，见 `Plant::UpdateShooter`，平均 1.5 发/轮）。
+**种下满 15 秒后可点击它免费升级为双发射手**（`Plant::MouseDown` → `Die()` + 同格 `AddPlant`，
+不花阳光、不用升级卡、不走冷却；未到点点击会提示还差几秒）。
+_避免_：一点五发射手、半发射手
+
+**点击升级 (Click Upgrade)**：
+1.5 发射手专属的原地升阶：种下满 `PEATER_1_5_UPGRADE_DELAY`（15 秒 = 1500 帧，常量在
+`src/GameConstants.h`）后，**左键点击该植物**即免费换成双发射手。倒计时在 `Plant::Update`
+里按帧递减（暂停/未开局不走），到点那一帧提示一次 `[PEATER_1_5_UPGRADE_READY]` 并让植物**闪白**
+（与"手持升级卡时目标植物闪白"同一套视觉语言）。被蹦极抓取中不可升级。
+_避免_：免费升级卡、自动升级
+
+**究极电能机枪射手 (Electric Gatling Pea)**：
+旅行专属**红卡 + 升级卡**（`SEED_ELECTRIC_GATLING_PEA`）：200 阳光、30.01 秒冷却（`mRefreshTime=3000`）、
+300 生命。只能拖到已种的**机枪射手**上升级（`IsUpgrade` + `IsUpgradableTo`）。
+**100% 发射电能豌豆** = 现有 `PROJECTILE_FIREPEA_RED`（**电能蓝**闪电豌豆：贴图过白色滤镜取剪影后按
+共用的 `ELECTRIC_BLUE_R/G/B` 上色，与究极电能机枪射手同色；接触每 tick 30 点伤害、无限穿透、出屏才消失），
+故不新增弹丸类型。其余机制与**机枪射手**完全一致：
+每轮 4 连发、**开大（散射大招）**触发/时长/扇形/概率成长全部复用同一分支。
+**贴图**：优先用玩家自备的**专用部位贴图**（`reanim/ElectricGatling_head/mouth/mouth_overlay/barrel`、
+`reanim/EletricGatling_blink1/blink2`，注意 blink 两张在 pak 里拼作 `Eletric`）。
+接入方式是新增 `ReanimationType::REANIM_ELECTRIC_GATLINGPEA`：与机枪射手**同一个 reanim 文件**、
+**独立的定义槽**，装载后由 `ElectricGatlingHasCustomArt()` 把定义里的贴图**逐帧按原图指针**换成专用贴图
+（`anim_blink` / `idle_shoot_blink` 各引用两张 blink 图，所以不能按轨道挂 `mImageOverride`）。
+该类型用 **`REANIM_NO_ATLAS`**：不建自己的 Atlas，定义里始终是真实贴图指针，换图不必再抢在
+Atlas 建立之前，也不与机枪射手共用同一批源贴图。专用贴图**必须自带透明通道、且尺寸与原贴图一致**
+（reanim 按帧号索引贴图列），任何一张不合格就整体回退。开关见
+`src/GameConstants.h` 的 `ELECTRIC_GATLING_USE_CUSTOM_ART`（当前 `true`）。
+**兜底**：专用贴图缺失或不可用时，改为"机枪射手贴图 + 电能蓝染色"——只作用于 head 实例的
+**白色滤镜叠加绘制**（`mExtraOverlayColor` + 共用的 `ELECTRIC_BLUE_R/G/B` 与叠加强度
+`ELECTRIC_GATLING_TINT_A`，`src/GameConstants.h`）——**不能**用加色（`mExtraAdditiveColor`），
+因为加色按原图像素成比例相加，绿贴图的绿色通道压不下去、永远调不出蓝/白；头盔轨道用
+`mIgnoreExtraAdditiveColor` + 新增的 `mIgnoreExtraOverlayColor` 双重豁免，body 实例（叶/茎）完全不着色。
+_避免_：电能机枪、雷电机枪、电豌豆射手
+
 ### 关系
 
-- **旅行关卡** 的选卡器可**翻页**；**翻页**第 1 页放**旅行专属植物**（当前：**大喷菇群**、**巨大坚果**）
+- **旅行关卡** 的选卡器可**翻页**；**翻页**第 1 页放**旅行专属植物**（当前：**大喷菇群**、**巨大坚果**、
+  **1.5 发射手**、**究极电能机枪射手**）
 - **大喷菇群** = 紫卡升级卡：拖到已种**大喷菇**格执行升级；选卡时必须同选**大喷菇**（否则开始被拦）
 - **大喷菇群**三个头各喷各的：中间**大喷菇**烟雾（本行 3×3 穿透），两侧**小喷菇**孢子（单体、微斜、340px 内命中邻行边缘）
 - **巨大坚果** = **红卡** = **双坚果底座**产物：只出现在旅行关（传送带/页 1）；占两格、挡跳跃、
   32000 生命；普通模式不可选/不可拥有（`HasSeedType` 旅行特判）
-- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]` 标准键）
+- **1.5 发射手** = **红卡**：只出现在旅行关（传送带/页 1/沙盒旅行页）；**可直接种下**、
+  150 阳光；每轮 50% 一发 / 50% 两发（去眉毛双发射手贴图）；普通模式不可选/不可拥有（`HasSeedType` 旅行特判）
+- **1.5 发射手** 种下满 15 秒后可通过**点击升级**免费变成**双发射手**（`SEED_REPEATER`）：
+  升级后它不再是旅行专属、也不再掷骰，行为与普通双发射手完全一致
+- **究极电能机枪射手** = **红卡 + 升级卡**：拖到已种的**机枪射手**上，花 **200 阳光**升级
+  （走引擎既有升级卡路径，下层睡莲/花盆/南瓜不受影响）；升级后每发都是**电能豌豆**，
+  其余（4 连发、**开大**散射大招）与**机枪射手**完全一致
+- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]` 标准键）
+  - **必须把该文件复制到当前 `-resdir` 的 `properties/` 里**，否则所有 mod 字符串都显示成
+    `<Missing [XXX]>`。`run-pvz.bat` 的 `RESDIR` 就是"当前资源目录"——它换一次，这里就要跟着装一次。
+  - 加载顺序（`LawnApp::LoadingThreadProc`）：`TodStringListLoad(LawnStrings.txt)` → `LoadProperties(pvzp-strings.xml)`，
+    但 `SexyAppBase::SetString` 用的是 `mStringProperties.insert()`（**不覆盖**已有键），
+    所以 mod 键必须与 `LawnStrings.txt` **不重名**才生效（pak 里没有这些键，故均为新增）。
+  - 只加载 `pvzp-strings.xml` 这一个名字，**没有**语言后缀机制；`pvzp-strings.zh-CN.xml` 只是译文备份。
+  - `properties/pvzp-strings.xml` 是"游戏实际加载的那个"，改了它**无需重新编译**（纯数据文件）。
 - 卡面观感：紫卡（`Plant::IsUpgrade`）/ 红卡（`Plant::IsRedCard`）都是**种子本身的属性**
   （保龄球 2 的巨型滚球卡同样显示红卡）；"是否旅行专属"由 `gTravelPlantDefs` + `HasSeedType` 决定
+
+## 旅行模式（11 轮路线）
+
+旅行模式的**完整形态**：一条 11 轮的连续路线，轮与轮之间**保留场上植物**。数据仍在
+`src/Lawn/Travel.h/.cpp`，模式为 `GAMEMODE_CHALLENGE_TRAVEL_JOURNEY`。
+
+### 语言
+
+**旅行轮 (Travel Round)**：
+11 轮路线中的一轮，**轮次存在 `Challenge::mSurvivalStage`**（0..10 ↔ 第 1..11 轮，查询走
+`TravelJourneyRound()`）。每轮固定 **10 波 / 2 面旗帜**（`TRAVEL_JOURNEY_WAVES_PER_ROUND` /
+`TRAVEL_JOURNEY_FLAGS_PER_ROUND`），大波落在波号 4 与 9（0 起）。
+_避免_：旅行阶段、旅行关
+
+**轮次地图 (Round Map)**：
+每轮的场地，由 `TravelJourneyMapForRound()` 决定：第 **1-5 轮泳池**（`BACKGROUND_3_POOL`，白天）、
+第 **6-10 轮迷雾**（`BACKGROUND_4_FOG`，夜晚 + 浓雾）、第 **11 轮回到泳池**。
+两套地形完全相同（`NORMAL/NORMAL/POOL/POOL/NORMAL/NORMAL` 六行），换轮只换背景图/雾/昼夜/音乐，
+所以**换轮不需要重建 Board**，已种植物原地保留。
+_避免_：地图切换、场景轮换
+
+**出怪翻倍 (Spawn Doubling)**：
+每过一轮**出怪点数** ×2（`TravelJourneySpawnMultiplier()` = `2^(轮次-1)`，第 1 轮 ×1 … 第 11 轮 ×1024），
+再叠加常规**僵尸倍率**。基准点数走**无尽模式**的波内增长项 `波号*2/5+1`（无尽模式本为
+`(阶段*20+波)*2/5+1`，本模式的"阶段增长"由翻倍承担）。
+_避免_：出怪指数、波数翻倍
+
+**随轮解锁出怪池 (Per-Round Roster)**：
+参考无尽模式"池随阶段扩张"的做法，改成**确定性解锁表**（`Challenge::InitZombieWavesTravelJourney()`）：
+第 1 轮普通/路障 → 第 2 铁桶 → 第 3 读报 → 第 4 海豚 → 第 5 潜水+橄榄球 → 第 6 玩偶匣 → 第 7 扶梯 →
+第 8 冰车 → 第 9 投石车+蹦极（旗帜波限定）→ 第 10 舞王+伽刚特尔 → 第 11 红眼伽刚特尔。
+同时沿用无尽模式的**出怪权重曲线**与伽刚特尔/红眼每波上限。
+_避免_：出怪表、僵尸池
+
+**换轮保留 (Round Carry-Over)**：
+复用生存模式的 *repick* 流程（`Board::IsSurvivalStageWithRepick()` 纳入本模式）：
+
+1. 本轮最后一波清空 → `FadeOutLevel()` 走"更多僵尸"分支（`mNextSurvivalStageCounter = 500`）；
+2. 计数归零 → `mLevelComplete = true` → `LawnApp::CheckForGameEnd()`；
+3. `mSurvivalStage++` → `Board::InitTravelJourneyRound()` 切到本轮地图 → `Board::InitSurvivalStage()`
+   （重掷出怪、回选卡界面、过场）。
+
+**植物、阳光、小推车、场上状态全部原样留到下一轮**；小推车不会重复摆放（`CutScene::IsSurvivalRepick()`）。
+_避免_：继承植物、关卡继承
+
+**BOSS 大波 (Boss Flag Wave)**：
+第 **11 轮**的**第一大波**与**第二大波**各**固定出怪**一支**路障射手僵尸**
+（`ZOMBIE_BOSS_CONHEAD_PEA`，见 `2026-09-10-boss-conhead-pea-design.md`）。
+固定出怪绕过点数与出怪池，故 BOSS 不进 `mZombieAllowed`；`InitZombieWavesSurvival()` 同时排除该类型，
+避免它在生存/旅行模式里被随机抽中。
+_避免_：BOSS 波、首领波
+
+### 关系
+
+- **旅行轮** 共 11 轮；**轮次地图** 由轮次决定（1-5 泳池 / 6-10 迷雾 / 11 泳池）
+- **出怪翻倍** 作用于**出怪点数**；因 `MAX_ZOMBIES_IN_WAVE = 300` 是引擎硬上限，
+  第 6 轮以后每波**出怪列表**已吃满 300 只，继续翻倍只体现在点数上（与"巨大坚果体验关 100 倍出怪"同样的饱和行为）
+- **随轮解锁出怪池** 与**出怪翻倍**共同决定难度：前者决定"出什么"，后者决定"出多少"
+- **换轮保留** 让**旅行专属植物**（尤其需要底座的**巨大坚果**/**大蘑菇群**/**究极电能机枪射手**）
+  可以跨轮复用，不必每轮重新种
+- 只有打穿**第 11 轮**才计入通关记录（`LawnApp::UpdatePlayerProfileForFinishingLevel()` 特判），
+  中途清空一轮不算通关；失败提示会告知坚持到第几轮（`[TRAVEL_JOURNEY_LOST]`）
+- 中途存档沿用普通挑战档（`mSurvivalStage`/`mBackground`/`mZombiesInWave` 均在 `.v4` 内存档），
+  换轮后读档可继续
+

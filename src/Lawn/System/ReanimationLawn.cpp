@@ -27,6 +27,7 @@
 #include "graphics/Color.h"
 #include "../../Sexy.TodLib/Reanimator.h"
 #include "graphics/MemoryImage.h"
+#include "../../GameConstants.h"
 
 void ReanimatorCache::UpdateReanimationForVariation(Reanimation* theReanim, DrawVariation theDrawVariation)
 {
@@ -79,10 +80,40 @@ void ReanimatorCache::UpdateReanimationForVariation(Reanimation* theReanim, Draw
 	}
 }
 
-void ReanimatorCache::DrawReanimatorFrame(Graphics* g, float thePosX, float thePosY, ReanimationType theReanimationType, const char* theTrackName, DrawVariation theDrawVariation)
+void ReanimatorCache::DrawReanimatorFrame(Graphics* g, float thePosX, float thePosY, ReanimationType theReanimationType, const char* theTrackName, DrawVariation theDrawVariation, SeedType theSeedType)
 {
+	// 究极电能机枪射手：必须在创建临时动画之前把专用贴图换进定义里，
+	// 否则 Atlas 会按旧贴图建好，之后再换就看不到效果了。
+	if (theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA && ELECTRIC_GATLING_USE_CUSTOM_ART)
+	{
+		ElectricGatlingHasCustomArt();
+	}
+
 	Reanimation aReanim;
 	aReanim.ReanimationInitializeType(thePosX, thePosY, theReanimationType);
+
+	// 1.5 发射手：卡面/图鉴/光标预览同样使用去掉眉毛的双发射手贴图
+	if (theSeedType == SeedType::SEED_PEATER_1_5 && aReanim.TrackExists("PeaShooter_eyebrow"))
+	{
+		aReanim.AssignRenderGroupToTrack("PeaShooter_eyebrow", RENDER_GROUP_HIDDEN);
+	}
+
+	// 究极电能机枪射手：只有在**没有**可用专用贴图时才靠染色兜底（专用贴图自带电能配色，
+	// 再叠一层蓝会把美术洗掉）。卡面是 body 层（anim_idle，叶/茎）与 head 层
+	// （anim_head_idle，头/脸/枪管）两次绘制的叠加，只对 head 层着色；
+	// 头盔轨道用豁免标志保持原色（与场上植物同一套观感）。
+	if (theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA && !ElectricGatlingUsesCustomArt() && theTrackName != nullptr &&
+		(strcmp(theTrackName, "anim_head_idle") == 0 || strcmp(theTrackName, "anim_shooting") == 0 || strcmp(theTrackName, "anim_face") == 0))
+	{
+		aReanim.mExtraOverlayColor = Color(ELECTRIC_BLUE_R, ELECTRIC_BLUE_G, ELECTRIC_BLUE_B, ELECTRIC_GATLING_TINT_A);
+		aReanim.mEnableExtraOverlayDraw = true;
+		if (aReanim.TrackExists("GatlingPea_helmet"))
+		{
+			ReanimatorTrackInstance* aHelmetTrack = aReanim.GetTrackInstanceByName("GatlingPea_helmet");
+			aHelmetTrack->mIgnoreExtraAdditiveColor = true;
+			aHelmetTrack->mIgnoreExtraOverlayColor = true;
+		}
+	}
 
 	if (theTrackName != nullptr && aReanim.TrackExists(theTrackName))
 	{
@@ -215,32 +246,39 @@ MemoryImage* ReanimatorCache::MakeCachedPlantFrame(SeedType theSeedType, DrawVar
 	PlantDefinition& aPlantDef = GetPlantDefinition(theSeedType);
 	//TOD_ASSERT(aPlantDef.mReanimationType != ReanimationType::REANIM_NONE);
 
+	// 究极电能机枪射手：只有专用贴图可用时才用独立 reanim 类型（并先换好贴图），
+	// 否则用普通机枪射手的类型 —— 与"兜底染色"原本的行为完全一致，也少建一份 Atlas。
+	ReanimationType aReanimType = aPlantDef.mReanimationType;
+	if (theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
+		aReanimType = ElectricGatlingReanimType();
+
 	if (theSeedType == SeedType::SEED_POTATOMINE)
 	{
 		aMemoryGraphics.mScaleX = 0.85f;
 		aMemoryGraphics.mScaleY = 0.85f;
-		DrawReanimatorFrame(&aMemoryGraphics, -static_cast<int>(aOffsetX - 12.0f), -static_cast<int>(aOffsetY - 12.0f), aPlantDef.mReanimationType, "anim_armed", theDrawVariation);
+		DrawReanimatorFrame(&aMemoryGraphics, -static_cast<int>(aOffsetX - 12.0f), -static_cast<int>(aOffsetY - 12.0f), aReanimType, "anim_armed", theDrawVariation);
 	}
 	else if (theSeedType == SeedType::SEED_INSTANT_COFFEE)
 	{
 		aMemoryGraphics.mScaleX = 0.8f;
 		aMemoryGraphics.mScaleY = 0.8f;
-		DrawReanimatorFrame(&aMemoryGraphics, -static_cast<int>(aOffsetX - 12.0f), -static_cast<int>(aOffsetY - 12.0f), aPlantDef.mReanimationType, "anim_idle", theDrawVariation);
+		DrawReanimatorFrame(&aMemoryGraphics, -static_cast<int>(aOffsetX - 12.0f), -static_cast<int>(aOffsetY - 12.0f), aReanimType, "anim_idle", theDrawVariation);
 	}
 	else if (theSeedType == SeedType::SEED_EXPLODE_O_NUT)
 	{
 		aMemoryGraphics.SetColorizeImages(true);
 		aMemoryGraphics.SetColor(Color(255, 64, 64));
-		DrawReanimatorFrame(&aMemoryGraphics, -aOffsetX, -aOffsetY, aPlantDef.mReanimationType, "anim_idle", theDrawVariation);
+		DrawReanimatorFrame(&aMemoryGraphics, -aOffsetX, -aOffsetY, aReanimType, "anim_idle", theDrawVariation);
 	}
 	else
 	{
-		DrawReanimatorFrame(&aMemoryGraphics, -aOffsetX, -aOffsetY, aPlantDef.mReanimationType, "anim_idle", theDrawVariation);
+		DrawReanimatorFrame(&aMemoryGraphics, -aOffsetX, -aOffsetY, aReanimType, "anim_idle", theDrawVariation, theSeedType);
 
 		if (theSeedType == SeedType::SEED_PEASHOOTER || theSeedType == SeedType::SEED_SNOWPEA || theSeedType == SeedType::SEED_REPEATER ||
-			theSeedType == SeedType::SEED_LEFTPEATER || theSeedType == SeedType::SEED_GATLINGPEA)
+			theSeedType == SeedType::SEED_LEFTPEATER || theSeedType == SeedType::SEED_GATLINGPEA || theSeedType == SeedType::SEED_PEATER_1_5 ||
+			theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
 		{
-			DrawReanimatorFrame(&aMemoryGraphics, -aOffsetX, -aOffsetY, aPlantDef.mReanimationType, "anim_head_idle", theDrawVariation);
+			DrawReanimatorFrame(&aMemoryGraphics, -aOffsetX, -aOffsetY, aReanimType, "anim_head_idle", theDrawVariation, theSeedType);
 		}
 		else if (theSeedType == SeedType::SEED_SPLITPEA)
 		{

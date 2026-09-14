@@ -196,6 +196,7 @@ public:
     bool                            mTruncateDisappearingFrames;
     bool                            mIgnoreColorOverride;
     bool                            mIgnoreExtraAdditiveColor;
+    bool                            mIgnoreExtraOverlayColor;   // 该轨道豁免"白色滤镜叠加绘制"（逐轨道豁免是逐帧设置的，不写入存档）
 
 public:
     ReanimatorTrackInstance();

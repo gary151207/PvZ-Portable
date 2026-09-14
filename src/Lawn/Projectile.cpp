@@ -31,6 +31,7 @@
 #include <climits>
 #include "../Sexy.TodLib/TodDebug.h"
 #include "../Sexy.TodLib/Reanimator.h"
+#include "../Sexy.TodLib/FilterEffect.h"
 #include "../Sexy.TodLib/Attachment.h"
 #include "Widget/AchievementsScreen.h"
 
@@ -1280,15 +1281,18 @@ void Projectile::Draw(Graphics* g)
 		Rect aSrcRect(aCelWidth * mFrame, aCelHeight * aProjectileDef.mImageRow, aCelWidth, aCelHeight);
 		if (mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 		{
-			// 纯白闪电豌豆：绿色豌豆贴图白色加色叠加 4 次，通道饱和到 255 呈纯白（引擎乘色无替换模式，加色堆叠是唯一纯白方案）
+			// 电能豌豆（蓝）：先把绿色豌豆贴图过白色滤镜取剪影（RGB=255、alpha 不变），
+			// 再用正常绘制按 ELECTRIC_BLUE_* 上色 —— 只有"换颜色"能得到干净的蓝。
+			// 这里用的就是植物那套电能蓝，保证豌豆与究极电能机枪射手同色。
+			// 不能用加色叠加：加色按原图像素成比例相加，绿色通道永远压不下去
+			// （旧版用 4 次白色加色堆出"纯白"，实际暗边仍是绿的）。
 			float aOffsetX = mPosX + aCelWidth * 0.5f;
 			float aOffsetY = mPosZ + mPosY + aCelHeight * 0.5f;
 			SexyTransform2D aTransform;
 			TodScaleRotateTransformMatrix(aTransform, aOffsetX + mBoard->mX, aOffsetY + mBoard->mY, mRotation, aScale, aScale);
-			for (int i = 0; i < 4; i++)
-			{
-				TodBltMatrix(g, aImage, aTransform, g->mClipRect, Color::White, Graphics::DRAWMODE_ADDITIVE, aSrcRect);
-			}
+			Image* aSilhouette = FilterEffectGetImage(aImage, FilterEffect::FILTER_EFFECT_WHITE);
+			TodBltMatrix(g, aSilhouette, aTransform, g->mClipRect,
+				Color(ELECTRIC_BLUE_R, ELECTRIC_BLUE_G, ELECTRIC_BLUE_B, 255), g->mDrawMode, aSrcRect);
 		}
 		else if (FloatApproxEqual(mRotation, 0.0f) && FloatApproxEqual(aScale, 1.0f))
 		{

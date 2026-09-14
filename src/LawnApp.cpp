@@ -1617,8 +1617,13 @@ bool LawnApp::UpdatePlayerProfileForFinishingLevel()
 	}
 	else
 	{
-		aUnlockedNewChallenge = !HasBeatenChallenge(mGameMode);
-		mPlayerInfo->mChallengeRecords[GetCurrentChallengeIndex()]++;
+		// 旅行模式：只有打穿第 11 轮才计入通关记录（中途清空一轮不算通关）
+		bool aRecordCompletion = !IsTravelJourneyLevel(mGameMode) || mBoard->IsFinalSurvivalStage();
+		aUnlockedNewChallenge = aRecordCompletion && !HasBeatenChallenge(mGameMode);
+		if (aRecordCompletion)
+		{
+			mPlayerInfo->mChallengeRecords[GetCurrentChallengeIndex()]++;
+		}
 
 		if (aUnlockedNewChallenge && HasFinishedAdventure())
 		{
@@ -1740,6 +1745,35 @@ void LawnApp::CheckForGameEnd()
 	{
 		// 斗蛐蛐：胜利后直接进入下一场（就地重开，不返回菜单）
 		mBoard->RestartCricketMatch();
+	}
+	else if (IsTravelJourneyLevel(mGameMode))
+	{
+		// 旅行模式：11 轮推进。前 10 轮清空后保留植物进入下一轮（复用生存模式的换关流程），
+		// 第 11 轮清空才是通关结算。
+		if (mBoard->IsFinalSurvivalStage())
+		{
+			KillBoard();
+
+			if (aUnlockedNewChallenge && HasFinishedAdventure())
+			{
+				ShowAwardScreen(AwardType::AWARD_FORLEVEL, true);
+			}
+			else if (HasUnshownAchievements(mPlayerInfo))
+			{
+				ShowAwardScreen(AwardType::AWARD_ACHIEVEMENTONLY, true);
+			}
+			else
+			{
+				ShowChallengeScreen(ChallengePage::CHALLENGE_PAGE_CHALLENGE);
+			}
+		}
+		else
+		{
+			mBoard->mChallenge->mSurvivalStage++;
+			mBoard->InitTravelJourneyRound();   // 先切到本轮地图（泳池/迷雾），再重掷出怪
+			KillGameSelector();
+			mBoard->InitSurvivalStage();
+		}
 	}
 	else
 	{
@@ -2693,6 +2727,10 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 		return IsTravelLevel(mGameMode);   // 旅行专属：仅旅行关可选/拥有
 	case SeedType::SEED_GIANT_WALLNUT:
 		return IsTravelLevel(mGameMode);   // 旅行专属红卡：仅旅行关可选/拥有
+	case SeedType::SEED_PEATER_1_5:
+		return IsTravelLevel(mGameMode);   // 旅行专属红卡：仅旅行关可选/拥有
+	case SeedType::SEED_ELECTRIC_GATLING_PEA:
+		return IsTravelLevel(mGameMode);   // 旅行专属红卡（升级卡）：仅旅行关可选/拥有
 	default:
 		return theSeedType < GetSeedsAvailable();
 	}

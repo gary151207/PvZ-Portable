@@ -419,3 +419,10 @@ build-*/
 run-pvz*
 
 dist/
+
+# Recoloured Plants vs. Zombies sprite derivatives — kept on disk but out of the
+# repo (AGENTS.md: "The repo contains no copyrighted game assets"). Repack these
+# into main.pak locally with any image tool; the plant falls back to a tinted
+# Gatling Pea when they are absent.
+docs/superpowers/specs/electric-gatling-art-fixed/
+docs/superpowers/specs/2026-09-12-electric-gatling-pea-tint.png

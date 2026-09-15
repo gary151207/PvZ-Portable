@@ -186,6 +186,10 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	// 换贴图不再需要"赶在建 Atlas 之前"（那是这条路径最容易出错的地方），
 	// 也不会和 REANIM_GATLINGPEA 的 Atlas 共用同一批源贴图。
 	{ ReanimationType::REANIM_ELECTRIC_GATLINGPEA,                  "reanim/GatlingPea.reanim",                        1 << ReanimFlags::REANIM_NO_ATLAS },
+	// 与 REANIM_STARFRUIT 同一个文件，但 Plant.cpp 会把它的 body/eyes 贴图换成究极电能杨桃专用贴图。
+	// 同样用 REANIM_NO_ATLAS：定义里的 mImage 始终是真实指针，换贴图在任何时机都安全，
+	// 也不会和 REANIM_STARFRUIT 的 Atlas 共用同一批源贴图。
+	{ ReanimationType::REANIM_ELECTRIC_STARFRUIT,                   "reanim/Starfruit.reanim",                         1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

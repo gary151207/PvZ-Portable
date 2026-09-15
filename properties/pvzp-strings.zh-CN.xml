@@ -24,6 +24,12 @@
 	<String id="BOSS_CONHEAD_PEA_ZOMBIE">路障射手僵尸</String>
 	<String id="ELECTRIC_GATLING_PEA">究极电能机枪射手</String>
 	<String id="ELECTRIC_GATLING_PEA_TOOLTIP">由机枪射手升级而成的究极形态：每一发都是电能豌豆（接触持续伤害、无限穿透）。其余机制与机枪射手完全一致。</String>
+	<String id="ELECTRIC_STARFRUIT">究极电能杨桃</String>
+	<String id="ELECTRIC_STARFRUIT_TOOLTIP">由杨桃升级而成的究极形态：每次发射 5 颗追踪僵尸的电能星星，命中后在僵尸那里停留 5 秒，期间每一游戏刻造成 30 点电能伤害。其余机制与杨桃完全一致。</String>
+	<String id="REQUIRES_STARFRUIT">需要先种下杨桃</String>
+	<String id="ADVICE_PLANT_NEEDS_STARFRUIT">需要先种下杨桃，才能把它升级成究极电能杨桃。</String>
+	<String id="ADVICE_ONLY_ON_STARFRUIT">究极电能杨桃只能种在杨桃上面。</String>
+	<String id="ULTIMATE_SWITCH_REFUND">究极形态已切换，返还 {SUN} 阳光！</String>
 	<String id="REQUIRES_GATLINGPEA">需要先种下机枪射手</String>
 	<String id="ADVICE_PLANT_NEEDS_GATLINGPEA">需要先种下机枪射手，才能把它升级成究极电能机枪射手。</String>
 	<String id="ADVICE_ONLY_ON_GATLINGPEA">究极电能机枪射手只能种在机枪射手上面。</String>

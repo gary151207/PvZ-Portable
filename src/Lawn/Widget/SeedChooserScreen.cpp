@@ -743,6 +743,7 @@ void SeedChooserScreen::OnStartButton()
 		!CheckSeedUpgrade(SEED_GLOOMSHROOM, SEED_FUMESHROOM) || 
 		!CheckSeedUpgrade(SEED_FUMESHROOM_GROUP, SEED_FUMESHROOM) || 
 		!CheckSeedUpgrade(SEED_ELECTRIC_GATLING_PEA, SEED_GATLINGPEA) || 
+		!CheckSeedUpgrade(SEED_ELECTRIC_STARFRUIT, SEED_STARFRUIT) || 
 		!CheckSeedUpgrade(SEED_CATTAIL, SEED_LILYPAD))
 		return;
 

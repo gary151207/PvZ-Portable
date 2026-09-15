@@ -2731,6 +2731,8 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 		return IsTravelLevel(mGameMode);   // 旅行专属红卡：仅旅行关可选/拥有
 	case SeedType::SEED_ELECTRIC_GATLING_PEA:
 		return IsTravelLevel(mGameMode);   // 旅行专属红卡（升级卡）：仅旅行关可选/拥有
+	case SeedType::SEED_ELECTRIC_STARFRUIT:
+		return IsTravelLevel(mGameMode);   // 旅行专属红卡（升级卡）：仅旅行关可选/拥有
 	default:
 		return theSeedType < GetSeedsAvailable();
 	}

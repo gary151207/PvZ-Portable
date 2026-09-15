@@ -1683,6 +1683,7 @@ namespace
 		SeedType::SEED_FUMESHROOM_GROUP,  // 大喷菇群（旅行紫卡：大喷菇升级体，沙盒内可单独成株）
 		SeedType::SEED_PEATER_1_5,        // 1.5 发射手（旅行红卡：去眉毛双发射手，直接种下）
 		SeedType::SEED_ELECTRIC_GATLING_PEA, // 究极电能机枪射手（旅行红卡升级卡：沙盒内需先有机枪射手）
+		SeedType::SEED_ELECTRIC_STARFRUIT,   // 究极电能杨桃（旅行红卡升级卡：沙盒内需先有杨桃）
 	};
 	constexpr int ICE_PLANT_COUNT = sizeof(gIceSandboxPlantSeeds) / sizeof(gIceSandboxPlantSeeds[0]);
 	constexpr int ICE_ZOMBIE_COUNT = sizeof(gIceSandboxZombieTypes) / sizeof(gIceSandboxZombieTypes[0]);
@@ -4720,6 +4721,13 @@ void Board::UpdateToolTip()
 			mToolTip->SetWarningText("[REQUIRES_GATLINGPEA]");
 		}
 	}
+	else if (aUseSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
+	{
+		if (!PlantingRequirementsMet(aUseSeedType))
+		{
+			mToolTip->SetWarningText("[REQUIRES_STARFRUIT]");
+		}
+	}
 	else if (aUseSeedType == SeedType::SEED_WINTERMELON)
 	{
 		if (!PlantingRequirementsMet(aUseSeedType))
@@ -4875,6 +4883,10 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 				DisplayAdvice("[ADVICE_ONLY_ON_GATLINGPEA]", MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_PLANT_NEEDS_GATLINGPEA);
 				break;
 
+			case SeedType::SEED_ELECTRIC_STARFRUIT:
+				DisplayAdvice("[ADVICE_ONLY_ON_STARFRUIT]", MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_PLANT_NEEDS_STARFRUIT);
+				break;
+
 			case SeedType::SEED_TWINSUNFLOWER:
 				DisplayAdvice("[ADVICE_ONLY_ON_SUNFLOWER]", MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_PLANT_ONLY_ON_SUNFLOWER);
 				break;
@@ -5018,6 +5030,31 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 	GetPlantsOnLawn(aGridX, aGridY, &aPlantOnLawn);
 	Plant* aNormalPlant = aPlantOnLawn.mNormalPlant;
 	Plant* aPumpkinPlant = aPlantOnLawn.mPumpkinPlant;
+
+	// 究极形态互换（旅行红卡）：把"另一种基础植物"种在究极形态上 = 原地变身，并返还阳光。
+	//   杨桃     @ 究极电能机枪射手 → 究极电能杨桃
+	//   机枪射手 @ 究极电能杨桃       → 究极电能机枪射手
+	// 阳光：种卡照常按原价扣（杨桃 125 / 机枪射手 250），随后返还 ELECTRIC_STARFRUIT_SWITCH_REFUND。
+	// 放行判定由 Plant::IsUpgradableTo 的两条互换规则给出（CanPlantAt 早已返回 PLANTING_OK）。
+	SeedType aPlantSeedType = mCursorObject->mType;
+	SeedType aPlantImitaterType = mCursorObject->mImitaterType;
+	bool aIsUltimateSwitch = false;
+	if (aNormalPlant)
+	{
+		if (aPlantingSeedType == SeedType::SEED_STARFRUIT && aNormalPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
+		{
+			aPlantSeedType = SeedType::SEED_ELECTRIC_STARFRUIT;
+			aPlantImitaterType = SeedType::SEED_NONE;
+			aIsUltimateSwitch = true;
+		}
+		else if (aPlantingSeedType == SeedType::SEED_GATLINGPEA && aNormalPlant->mSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
+		{
+			aPlantSeedType = SeedType::SEED_ELECTRIC_GATLING_PEA;
+			aPlantImitaterType = SeedType::SEED_NONE;
+			aIsUltimateSwitch = true;
+		}
+	}
+
 	if (aNormalPlant && aNormalPlant->IsUpgradableTo(aPlantingSeedType))
 	{
 		if (aPlantingSeedType == SeedType::SEED_GLOOMSHROOM)
@@ -5027,6 +5064,16 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 		}
 		aNormalPlant->Die();
 	}
+
+	if (aIsUltimateSwitch)
+	{
+		// 究极形态互换的返还阳光（在种卡已扣款、原植物已销毁之后给）
+		AddSunMoney(ELECTRIC_STARFRUIT_SWITCH_REFUND);
+		mApp->PlayFoley(FoleyType::FOLEY_SUN);
+		std::string aSwitchMessage = TodReplaceString("[ULTIMATE_SWITCH_REFUND]", "{SUN}", StrFormat("%d", ELECTRIC_STARFRUIT_SWITCH_REFUND));
+		DisplayAdvice(aSwitchMessage, MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_NONE);
+	}
+
 	if ((aPlantingSeedType == SeedType::SEED_WALLNUT || aPlantingSeedType == SeedType::SEED_TALLNUT) && aNormalPlant)
 	{
 		if (aNormalPlant->mSeedType == aPlantingSeedType)
@@ -5104,14 +5151,14 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 	}
 	else if (mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_USABLE_COIN)
 	{
-		AddPlant(aGridX, aGridY, mCursorObject->mType, mCursorObject->mImitaterType);
+		AddPlant(aGridX, aGridY, aPlantSeedType, aPlantImitaterType);
 		Coin* aCoin = mCoins.DataArrayTryToGet(mCursorObject->mCoinID);
 		mCursorObject->mCoinID = CoinID::COINID_NULL;
 		aCoin->Die();
 	}
 	else if (mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_BANK)
 	{
-		Plant* aPlant = AddPlant(aGridX, aGridY, mCursorObject->mType, mCursorObject->mImitaterType);
+		Plant* aPlant = AddPlant(aGridX, aGridY, aPlantSeedType, aPlantImitaterType);
 		if (aIsAwake)
 		{
 			aPlant->SetSleeping(false);
@@ -5152,7 +5199,7 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 					aPumpkinPlant->Die();
 				}
 			}
-			AddPlant(aGridX, aRow, mCursorObject->mType, mCursorObject->mImitaterType);
+			AddPlant(aGridX, aRow, aPlantSeedType, aPlantImitaterType);
 		}
 	}
 
@@ -11144,8 +11191,9 @@ bool Board::PlantingRequirementsMet(SeedType theSeedType)
 {
 	switch (theSeedType)
 	{
-	case SeedType::SEED_GATLINGPEA:			return CountPlantByType(SeedType::SEED_REPEATER);
+	case SeedType::SEED_GATLINGPEA:			return CountPlantByType(SeedType::SEED_REPEATER) || CountPlantByType(SeedType::SEED_ELECTRIC_STARFRUIT);
 	case SeedType::SEED_ELECTRIC_GATLING_PEA:	return CountPlantByType(SeedType::SEED_GATLINGPEA);
+	case SeedType::SEED_ELECTRIC_STARFRUIT:	return CountPlantByType(SeedType::SEED_STARFRUIT);
 	case SeedType::SEED_TWINSUNFLOWER:		return CountPlantByType(SeedType::SEED_SUNFLOWER);
 	case SeedType::SEED_GLOOMSHROOM:		return CountPlantByType(SeedType::SEED_FUMESHROOM);
 	case SeedType::SEED_CATTAIL:			return CountEmptyPotsOrLilies(SeedType::SEED_LILYPAD);

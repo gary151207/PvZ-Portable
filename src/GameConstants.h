@@ -65,6 +65,18 @@ constexpr const int   ELECTRIC_GATLING_TINT_A = 245;
 // （reanim 按帧索引，尺寸不一致会串帧）。程序里仍有兜底校验：任何一张不合格就整体回退到
 // "机枪射手贴图 + 电能蓝叠加"。
 constexpr const bool  ELECTRIC_GATLING_USE_CUSTOM_ART = true;
+// 究极电能杨桃（旅行红卡 + 升级卡：由杨桃升级，300 阳光 / 30.01s 冷却）：
+//   5 颗追踪的电能星星，命中后钉在该僵尸身上 5 秒，期间每游戏刻（10ms，与电能豌豆同一口径）
+//   造成 30 点伤害；其余机制与杨桃完全一致。
+constexpr const int   ELECTRIC_STAR_HIT_DAMAGE   = 30;    // 钉住期间每游戏刻的伤害
+constexpr const int   ELECTRIC_STAR_LINGER_TICKS = 500;   // 钉住时长（游戏刻；100fps → 5 秒）
+// 究极形态互换：把"另一种基础植物"种在究极形态上 = 原地变身，并返还这么多阳光。
+//   杨桃(125)@究极电能机枪射手 → 究极电能杨桃；机枪射手(250)@究极电能杨桃 → 究极电能机枪射手。
+constexpr const int   ELECTRIC_STARFRUIT_SWITCH_REFUND = 225;
+// 究极电能杨桃专用贴图（reanim/Electric_Starfruit_*.png）接入开关。
+// 与究极电能机枪射手同一套规则：三张图必须带透明通道且尺寸与同名原图一致，
+// 任何一张不合格就整体回退到"杨桃贴图 + 电能蓝叠加"。
+constexpr const bool  ELECTRIC_STARFRUIT_USE_CUSTOM_ART = true;
 constexpr const int HIGH_GROUND_HEIGHT = 30;
 
 constexpr const int SEEDBANK_MAX = 10;

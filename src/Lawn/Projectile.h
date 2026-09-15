@@ -78,6 +78,11 @@ public:
     float                   mRenderScale = 1.0f;
     int32_t                 mPenetrations = 0;
     ZombieID                mLastHitZombieID = ZombieID::ZOMBIEID_NULL;
+    // 究极电能杨桃的电能星星：命中后"钉"在该僵尸上的剩余游戏刻（0 = 尚未命中，正常飞行）。
+    // 追加在 SaveGame 的 SyncProjectileTailPortable 末尾，旧存档读不到时按 0 处理。
+    int32_t                 mLingerCountdown = 0;
+    // 电能星星当前是否正"钉"在僵尸身上（false 且 mLingerCountdown > 0 = 目标已死、正在改追下一个）
+    bool                    mElectricStarStuck = false;
 
 public:
     Projectile();
@@ -108,6 +113,10 @@ public:
     bool                    IsZombieHitBySplash(Zombie* theZombie);
     bool                    PeaAboutToHitTorchwood();
     void                    FindNewHomingTarget();
+    bool                    IsElectricStarStuck() const { return mElectricStarStuck; }
+    void                    StartElectricStarLinger(Zombie* theZombie);
+    void                    UpdateElectricStarLinger();
+    bool                    RetargetElectricStar();
 
 };
 

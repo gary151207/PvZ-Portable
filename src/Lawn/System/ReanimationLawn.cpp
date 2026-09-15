@@ -88,6 +88,11 @@ void ReanimatorCache::DrawReanimatorFrame(Graphics* g, float thePosX, float theP
 	{
 		ElectricGatlingHasCustomArt();
 	}
+	// 究极电能杨桃：同样要在建临时动画之前把专用贴图换进定义里
+	if (theSeedType == SeedType::SEED_ELECTRIC_STARFRUIT && ELECTRIC_STARFRUIT_USE_CUSTOM_ART)
+	{
+		ElectricStarfruitHasCustomArt();
+	}
 
 	Reanimation aReanim;
 	aReanim.ReanimationInitializeType(thePosX, thePosY, theReanimationType);
@@ -113,6 +118,14 @@ void ReanimatorCache::DrawReanimatorFrame(Graphics* g, float thePosX, float theP
 			aHelmetTrack->mIgnoreExtraAdditiveColor = true;
 			aHelmetTrack->mIgnoreExtraOverlayColor = true;
 		}
+	}
+
+	// 究极电能杨桃：同样只在没有专用贴图时兜底染色。杨桃只有一个实例（头/脸/眼/叶/茎同在一个
+	// reanim 里），卡面/图鉴就是这一层的绘制，所以整株上电能蓝叠加即可。
+	if (theSeedType == SeedType::SEED_ELECTRIC_STARFRUIT && !ElectricStarfruitUsesCustomArt())
+	{
+		aReanim.mExtraOverlayColor = Color(ELECTRIC_BLUE_R, ELECTRIC_BLUE_G, ELECTRIC_BLUE_B, ELECTRIC_GATLING_TINT_A);
+		aReanim.mEnableExtraOverlayDraw = true;
 	}
 
 	if (theTrackName != nullptr && aReanim.TrackExists(theTrackName))
@@ -251,6 +264,8 @@ MemoryImage* ReanimatorCache::MakeCachedPlantFrame(SeedType theSeedType, DrawVar
 	ReanimationType aReanimType = aPlantDef.mReanimationType;
 	if (theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
 		aReanimType = ElectricGatlingReanimType();
+	else if (theSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
+		aReanimType = ElectricStarfruitReanimType();
 
 	if (theSeedType == SeedType::SEED_POTATOMINE)
 	{

@@ -952,6 +952,10 @@ static void SyncProjectileTailPortable(PortableSaveContext& theContext, Projecti
 	theContext.SyncInt32(theProjectile.mCobTargetRow);
 	SyncEnumU32(theContext, theProjectile.mTargetZombieID);
 	theContext.SyncInt32(theProjectile.mLastPortalX);
+	// 究极电能杨桃的电能星星：钉住剩余刻数 + 是否正钉在僵尸上
+	//（追加在末尾，旧存档读不到时按 0/false = 未钉住处理）
+	theContext.SyncInt32(theProjectile.mLingerCountdown);
+	theContext.SyncBool(theProjectile.mElectricStarStuck);
 }
 
 static void SyncCoinTailPortable(PortableSaveContext& theContext, Coin& theCoin)

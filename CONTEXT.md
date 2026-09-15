@@ -140,8 +140,8 @@ _避免_：喷菇群、三头喷菇、Fume 群
 
 **红卡 (Red Card)**：
 卡包底色渲染为红色系的旅行高阶卡级（对标紫卡升级卡）。由 `Plant::IsRedCard` 判定；
-当前三张 = **巨大坚果**（`SEED_GIANT_WALLNUT`）、**1.5 发射手**（`SEED_PEATER_1_5`）
-与 **究极电能机枪射手**（`SEED_ELECTRIC_GATLING_PEA`）。
+当前四张 = **巨大坚果**（`SEED_GIANT_WALLNUT`）、**1.5 发射手**（`SEED_PEATER_1_5`）、
+**究极电能机枪射手**（`SEED_ELECTRIC_GATLING_PEA`）与 **究极电能杨桃**（`SEED_ELECTRIC_STARFRUIT`）。
 _避免_：红卡植物、稀有卡
 
 **巨大坚果 (Giant Wall-nut)**：
@@ -201,10 +201,44 @@ Atlas 建立之前，也不与机枪射手共用同一批源贴图。专用贴�
 `mIgnoreExtraAdditiveColor` + 新增的 `mIgnoreExtraOverlayColor` 双重豁免，body 实例（叶/茎）完全不着色。
 _避免_：电能机枪、雷电机枪、电豌豆射手
 
+**究极电能杨桃 (Electric Starfruit)**：
+旅行专属**红卡 + 升级卡**（`SEED_ELECTRIC_STARFRUIT`）：300 阳光、30 秒冷却（`mRefreshTime=3000`）、
+300 生命。只能拖到已种的**杨桃**上升级（`IsUpgrade` + `IsUpgradableTo`）。
+**发射 5 颗追踪的电能星星**（`PROJECTILE_ELECTRIC_STAR`）：米字方向与杨桃完全一致，
+飞行约 1 格后复用杨桃那套"锁定最靠左僵尸并重定向速度"的追踪；**命中后星星不消失**，
+而是**钉在该僵尸身上**，期间**每游戏刻（10 ms）造成 30 点电能伤害**（`ELECTRIC_STAR_HIT_DAMAGE = 30`，
+与电能豌豆同一 tick 口径），僵尸走动时星星跟着走。**钉住的僵尸一死就自动改追下一个目标**
+（`Projectile::RetargetElectricStar`：索敌规则同杨桃＝最靠左的可伤害僵尸；`Zombie::EffectedByDamage`
+本身就排除死亡/濒死僵尸，所以一进死亡动画就立刻换目标），改追飞行期间**总寿命照常流逝**——
+一颗星星从**首次命中**起总共只存活 `ELECTRIC_STAR_LINGER_TICKS = 500`（5 秒），时间到就消失
+（想让"每个新目标各自重新算 5 秒"，去掉 `StartElectricStarLinger` 里 `if (mLingerCountdown <= 0)`
+那层守卫即可）。其余机制与**杨桃**完全一致（攻击节奏、护盾穿透、无影子、+10 光照偏移）。
+**贴图**：优先用玩家自备的**专用部位贴图**（`reanim/Electric_Starfruit_body/eyes1/eyes2`）。
+接入方式是新增 `ReanimationType::REANIM_ELECTRIC_STARFRUIT`：与杨桃**同一个 reanim 文件**、
+**独立的定义槽**，装载后由 `ElectricStarfruitHasCustomArt()` 与机枪射手**共用同一个**
+`ApplyReanimArtSwaps()` 换图助手（逐帧按原图指针替换、必须带透明通道、尺寸必须与原图一致，
+任何一张不合格就整体回退），并用 `REANIM_NO_ATLAS`。开关见
+`src/GameConstants.h` 的 `ELECTRIC_STARFRUIT_USE_CUSTOM_ART`（当前 `true`）。
+**兜底**：专用贴图不可用时，整株（杨桃只有一个 reanim 实例）叠加电能蓝（`mExtraOverlayColor` +
+共用的 `ELECTRIC_BLUE_R/G/B` + `ELECTRIC_GATLING_TINT_A`）。
+_避免_：电能杨桃、雷电杨桃
+
+**究极形态互换 (Ultimate Switch)**：
+两只究极植物可以**原地互相变身**，并**返还 `ELECTRIC_STARFRUIT_SWITCH_REFUND`（225）阳光**：
+
+- **杨桃**卡（125）拖到 **究极电能机枪射手** → 变成 **究极电能杨桃**（净 +100 阳光）
+- **机枪射手**卡（250）拖到 **究极电能杨桃** → 变成 **究极电能机枪射手**（净 −25 阳光）
+
+实现：`Plant::IsUpgradableTo` 加两条互换规则（同时让手持卡片的目标高亮生效），
+`Board::MouseDownWithPlant` 在"原植物已销毁"之后**改写要种的种子**（`aPlantSeedType`）并
+`AddSunMoney(225)`；`Board::PlantingRequirementsMet` 里机枪射手放宽为"场上有双发射手**或**究极电能杨桃"，
+否则反向互换的卡面会被判灰而拿不起来。
+_避免_：转职、究极切换、形态转换
+
 ### 关系
 
 - **旅行关卡** 的选卡器可**翻页**；**翻页**第 1 页放**旅行专属植物**（当前：**大喷菇群**、**巨大坚果**、
-  **1.5 发射手**、**究极电能机枪射手**）
+  **1.5 发射手**、**究极电能机枪射手**、**究极电能杨桃**）
 - **大喷菇群** = 紫卡升级卡：拖到已种**大喷菇**格执行升级；选卡时必须同选**大喷菇**（否则开始被拦）
 - **大喷菇群**三个头各喷各的：中间**大喷菇**烟雾（本行 3×3 穿透），两侧**小喷菇**孢子（单体、微斜、340px 内命中邻行边缘）
 - **巨大坚果** = **红卡** = **双坚果底座**产物：只出现在旅行关（传送带/页 1）；占两格、挡跳跃、
@@ -216,7 +250,12 @@ _避免_：电能机枪、雷电机枪、电豌豆射手
 - **究极电能机枪射手** = **红卡 + 升级卡**：拖到已种的**机枪射手**上，花 **200 阳光**升级
   （走引擎既有升级卡路径，下层睡莲/花盆/南瓜不受影响）；升级后每发都是**电能豌豆**，
   其余（4 连发、**开大**散射大招）与**机枪射手**完全一致
-- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]` 标准键）
+- **究极电能杨桃** = **红卡 + 升级卡**：拖到已种的**杨桃**上，花 **300 阳光**升级；
+  发射 5 颗**追踪**电能星星，命中后钉在僵尸身上 **5 秒**、每游戏刻 **30 点**伤害，
+  其余与**杨桃**完全一致
+- **究极电能杨桃** 与 **究极电能机枪射手** 之间可通过**究极形态互换**互相变身（各返还 225 阳光）：
+  **杨桃**卡 → 究极电能杨桃、**机枪射手**卡 → 究极电能机枪射手
+- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]` 标准键）
   - **必须把该文件复制到当前 `-resdir` 的 `properties/` 里**，否则所有 mod 字符串都显示成
     `<Missing [XXX]>`。`run-pvz.bat` 的 `RESDIR` 就是"当前资源目录"——它换一次，这里就要跟着装一次。
   - 加载顺序（`LawnApp::LoadingThreadProc`）：`TodStringListLoad(LawnStrings.txt)` → `LoadProperties(pvzp-strings.xml)`，

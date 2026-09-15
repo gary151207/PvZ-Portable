@@ -38,6 +38,7 @@ const TravelPlantDef gTravelPlantDefs[] = {
     { SeedType::SEED_GIANT_WALLNUT,    false },   // 巨大坚果（红卡：双坚果底座融合，见 2026-09-06-giant-wallnut）
     { SeedType::SEED_PEATER_1_5,       false },   // 1.5 发射手（红卡：无眉毛双发射手，可直接种下）
     { SeedType::SEED_ELECTRIC_GATLING_PEA, true }, // 究极电能机枪射手（红卡 + 升级卡：由机枪射手升级，200 阳光，100% 电能豌豆）
+    { SeedType::SEED_ELECTRIC_STARFRUIT,   true }, // 究极电能杨桃（红卡 + 升级卡：由杨桃升级，300 阳光，5 颗追踪电能星星）
 };
 const int NUM_TRAVEL_PLANTS = sizeof(gTravelPlantDefs) / sizeof(gTravelPlantDefs[0]);
 

@@ -50,7 +50,8 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_COBBIG,        0,  300 },
 	{ ProjectileType::PROJECTILE_BUTTER,        0,  40  },
 	{ ProjectileType::PROJECTILE_ZOMBIE_PEA,    0,  20  },
-	{ ProjectileType::PROJECTILE_FIREPEA_RED,   0,  30  }
+	{ ProjectileType::PROJECTILE_FIREPEA_RED,   0,  30  },
+	{ ProjectileType::PROJECTILE_ELECTRIC_STAR, 0,  ELECTRIC_STAR_HIT_DAMAGE }
 };
 
 Projectile::Projectile()
@@ -104,6 +105,8 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 
 	mPenetrations = 0;
 	mLastHitZombieID = ZombieID::ZOMBIEID_NULL;
+	mLingerCountdown = 0;
+	mElectricStarStuck = false;
 	if (mProjectileType == ProjectileType::PROJECTILE_SPIKE)
 	{
 		mPenetrations = 2;
@@ -318,6 +321,88 @@ void Projectile::FindNewHomingTarget()
 	}
 }
 
+// 究极电能杨桃的电能星星：命中后不再消失，而是"钉"在该僵尸身上（总寿命见 UpdateElectricStarLinger）。
+void Projectile::StartElectricStarLinger(Zombie* theZombie)
+{
+	if (theZombie == nullptr)
+	{
+		Die();
+		return;
+	}
+
+	// 只有第一次命中才起算寿命（改追下一个目标后再次命中的不重新计时）
+	if (mLingerCountdown <= 0)
+	{
+		mLingerCountdown = ELECTRIC_STAR_LINGER_TICKS;
+	}
+
+	mElectricStarStuck = true;
+	mTargetZombieID = mBoard->ZombieGetID(theZombie);
+	mVelX = 0.0f;
+	mVelY = 0.0f;
+	mRotationSpeed = 0.15f;   // 原地缓慢旋转，读起来像"电光钉"
+	mRow = theZombie->mRow;
+	mShadowY = mPosY + 67.0f;
+}
+
+// 钉住期间：每游戏刻跟随目标僵尸 + 结算一次电能伤害；目标死亡则自动改追下一个。
+void Projectile::UpdateElectricStarLinger()
+{
+	Zombie* aZombie = mBoard->ZombieTryToGet(mTargetZombieID);
+	if (aZombie != nullptr && aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+	{
+		Rect aZombieRect = aZombie->GetZombieRect();
+		mPosX = aZombie->mX + aZombieRect.mWidth / 2.0f - mWidth / 2.0f;
+		mPosY = aZombieRect.mY + aZombieRect.mHeight / 2.0f - mHeight / 2.0f;
+		mRow = aZombie->mRow;
+		mShadowY = mPosY + 67.0f;
+		mX = static_cast<int>(mPosX);
+		mY = static_cast<int>(mPosY);
+
+		aZombie->TakeDamage(ELECTRIC_STAR_HIT_DAMAGE, GetDamageFlags(aZombie));
+	}
+	else if (RetargetElectricStar())
+	{
+		// 目标已死：已退出钉住状态，下一帧起由 MOTION_STAR 的追踪逻辑飞向新目标
+		return;
+	}
+	// 没有下一个目标时留在原地，等总寿命走完
+
+	if (--mLingerCountdown <= 0)
+	{
+		Die();
+	}
+}
+
+// 钉住的僵尸死亡（或不再可被伤害）后，改追下一个可被本星星伤害的僵尸
+// （索敌规则与普通杨桃一致：取最靠左的一只）。找到就退出钉住状态并交还给追踪飞行。
+bool Projectile::RetargetElectricStar()
+{
+	Zombie* aBestZombie = nullptr;
+	int aMinX = INT32_MAX;
+
+	Zombie* aZombie = nullptr;
+	while (mBoard->IterateZombies(aZombie))
+	{
+		if (!aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+			continue;   // 已含"死亡/濒死僵尸不算目标"
+		if (aZombie->mX < aMinX)
+		{
+			aMinX = aZombie->mX;
+			aBestZombie = aZombie;
+		}
+	}
+
+	if (aBestZombie == nullptr)
+	{
+		return false;   // 场上没有可追的目标
+	}
+
+	mElectricStarStuck = false;
+	mTargetZombieID = mBoard->ZombieGetID(aBestZombie);
+	return true;
+}
+
 void Projectile::CheckForCollision()
 {
 	if (mMotionType == ProjectileMotion::MOTION_PUFF && mProjectileAge >= 75)
@@ -358,9 +443,39 @@ void Projectile::CheckForCollision()
 		return;
 	}
 
-	if (mProjectileType == ProjectileType::PROJECTILE_STAR && (mPosY > 600.0f || mPosY < 0.0f))
+	if ((mProjectileType == ProjectileType::PROJECTILE_STAR || mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR) && (mPosY > 600.0f || mPosY < 0.0f))
 	{
 		Die();
+		return;
+	}
+
+	// 究极电能杨桃的电能星星：命中即"钉住"（见 StartElectricStarLinger），不在这里消失。
+	// 判定与普通杨桃星星一致（优先钉住当前追踪目标；目标失效时撞到谁就钉谁）。
+	if (mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR)
+	{
+		Zombie* aZombie = nullptr;
+		if (mTargetZombieID != ZombieID::ZOMBIEID_NULL)
+		{
+			Zombie* aTargetZombie = mBoard->ZombieTryToGet(mTargetZombieID);
+			if (aTargetZombie && aTargetZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+			{
+				Rect aProjectileRect = GetProjectileRect();
+				Rect aZombieRect = aTargetZombie->GetZombieRect();
+				if (GetRectOverlap(aProjectileRect, aZombieRect) >= 0 && mPosY > aZombieRect.mY && mPosY < aZombieRect.mY + aZombieRect.mHeight)
+				{
+					aZombie = aTargetZombie;
+				}
+			}
+		}
+		if (aZombie == nullptr)
+		{
+			aZombie = FindCollisionTarget();
+		}
+
+		if (aZombie)
+		{
+			StartElectricStarLinger(aZombie);
+		}
 		return;
 	}
 
@@ -832,7 +947,8 @@ void Projectile::UpdateNormalMotion()
 	}
 	else if (mMotionType == ProjectileMotion::MOTION_STAR)
 	{
-		if (mProjectileType == ProjectileType::PROJECTILE_STAR && mProjectileAge >= 24)
+		// 普通杨桃星星与究极电能杨桃的电能星星共用同一套"飞 1 格后追踪"逻辑
+		if ((mProjectileType == ProjectileType::PROJECTILE_STAR || mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR) && mProjectileAge >= 24)
 		{
 			bool aNeedNewTarget = (mTargetZombieID == ZombieID::ZOMBIEID_NULL);
 			if (!aNeedNewTarget)
@@ -1181,7 +1297,8 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_COBBIG || 
 		mProjectileType == ProjectileType::PROJECTILE_ZOMBIE_PEA || 
 		mProjectileType == ProjectileType::PROJECTILE_SPIKE || 
-		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
+		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED ||
+		mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR)
 	{
 		aTime = 0;
 	}
@@ -1195,6 +1312,27 @@ void Projectile::Update()
 		mClickBackoffCounter--;
 	}
 	mRotation += mRotationSpeed;
+
+	// 究极电能杨桃的电能星星：钉住时只跟随 + 每游戏刻结算伤害，不再走飞行/碰撞
+	if (mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR)
+	{
+		if (IsElectricStarStuck())
+		{
+			UpdateElectricStarLinger();
+			return;
+		}
+
+		// 未钉住（首次飞行，或"目标已死、正在飞向下一个目标"）：总寿命照常流逝
+		if (mLingerCountdown > 0)
+		{
+			mLingerCountdown--;
+			if (mLingerCountdown <= 0)
+			{
+				Die();
+				return;
+			}
+		}
+	}
 
 	UpdateMotion();
 	AttachmentUpdateAndMove(mAttachmentID, mPosX, mPosY + mPosZ);
@@ -1229,6 +1367,10 @@ void Projectile::Draw(Graphics* g)
 		aImage = IMAGE_PROJECTILECACTUS;
 		break;
 	case ProjectileType::PROJECTILE_STAR:
+		aImage = IMAGE_PROJECTILE_STAR;
+		break;
+	case ProjectileType::PROJECTILE_ELECTRIC_STAR:
+		// 究极电能杨桃的星星：同一张星星图，绘制时过白色滤镜剪影 + 电能蓝上色（见下）
 		aImage = IMAGE_PROJECTILE_STAR;
 		break;
 	case ProjectileType::PROJECTILE_PUFF:
@@ -1279,11 +1421,12 @@ void Projectile::Draw(Graphics* g)
 		int aCelWidth = aImage->GetCelWidth();
 		int aCelHeight = aImage->GetCelHeight();
 		Rect aSrcRect(aCelWidth * mFrame, aCelHeight * aProjectileDef.mImageRow, aCelWidth, aCelHeight);
-		if (mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
+		if (mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED || mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR)
 		{
 			// 电能豌豆（蓝）：先把绿色豌豆贴图过白色滤镜取剪影（RGB=255、alpha 不变），
 			// 再用正常绘制按 ELECTRIC_BLUE_* 上色 —— 只有"换颜色"能得到干净的蓝。
 			// 这里用的就是植物那套电能蓝，保证豌豆与究极电能机枪射手同色。
+			// 究极电能杨桃的电能星星走同一条路径（黄色星星图 → 电光蓝星星）。
 			// 不能用加色叠加：加色按原图像素成比例相加，绿色通道永远压不下去
 			// （旧版用 4 次白色加色堆出"纯白"，实际暗边仍是绿的）。
 			float aOffsetX = mPosX + aCelWidth * 0.5f;
@@ -1373,6 +1516,10 @@ void Projectile::DrawShadow(Graphics* g)
 		break;
 
 	case ProjectileType::PROJECTILE_PUFF:
+		return;
+
+	case ProjectileType::PROJECTILE_ELECTRIC_STAR:
+		// 钉在僵尸身上（或正在追踪）的电能星星不画地面影子
 		return;
 		
 	case ProjectileType::PROJECTILE_COBBIG:

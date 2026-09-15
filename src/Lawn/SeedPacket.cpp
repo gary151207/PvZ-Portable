@@ -443,6 +443,7 @@ void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedTyp
 		break;
 
 	case SeedType::SEED_STARFRUIT:
+	case SeedType::SEED_ELECTRIC_STARFRUIT:
 		aScale = 0.5f;
 		aOffsetX = 6.0f;
 		aOffsetY = 8.0f;
@@ -794,6 +795,9 @@ void SeedPacket::MouseDown(int x, int y, int theClickCount)
 			case SeedType::SEED_ELECTRIC_GATLING_PEA:
 				mBoard->DisplayAdvice("[ADVICE_PLANT_NEEDS_GATLINGPEA]", MessageStyle::MESSAGE_STYLE_HINT_LONG, AdviceType::ADVICE_PLANT_NEEDS_GATLINGPEA);
 				break;
+			case SeedType::SEED_ELECTRIC_STARFRUIT:
+				mBoard->DisplayAdvice("[ADVICE_PLANT_NEEDS_STARFRUIT]", MessageStyle::MESSAGE_STYLE_HINT_LONG, AdviceType::ADVICE_PLANT_NEEDS_STARFRUIT);
+				break;
 			case SeedType::SEED_WINTERMELON:
 				mBoard->DisplayAdvice("[ADVICE_PLANT_NEEDS_MELONPULT]", MessageStyle::MESSAGE_STYLE_HINT_LONG, AdviceType::ADVICE_PLANT_NEEDS_MELONPULT);
 				break;
@@ -1142,10 +1146,10 @@ void SeedPacket::SetPacketType(SeedType theSeedType, SeedType theImitaterType)
 		return;
 
 	if (aUseSeedType == SeedType::SEED_GATLINGPEA || aUseSeedType == SeedType::SEED_GIANT_WALLNUT ||
-		aUseSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
+		aUseSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || aUseSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
 	{
 		// Gatling Pea / Giant Wall-nut use their own base cooldown (30.01 s / 50 s); do not apply the generic upgrade overrides.
-		// 究极电能机枪射手同样沿用机枪射手的 30.01 s 档位。
+		// 究极电能机枪射手同样沿用机枪射手的 30.01 s 档位；究极电能杨桃也是 30 秒档。
 	}
 	else if ((Plant::IsUpgrade(aUseSeedType) && !gLawnApp->IsSurvivalMode()) || Plant::GetRefreshTime(mPacketType, mImitaterType) == 5000)
 	{

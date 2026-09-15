@@ -93,6 +93,7 @@ enum AdviceType : int32_t
     ADVICE_UNLOCKED_MODE,
     ADVICE_NEED_WHEELBARROW,
     ADVICE_PLANT_NEEDS_GATLINGPEA,   // 究极电能机枪射手：需要先种下机枪射手
+    ADVICE_PLANT_NEEDS_STARFRUIT,    // 究极电能杨桃：需要先种下杨桃
     NUM_ADVICE_TYPES
 };
 enum AlmanacPage : int32_t
@@ -825,7 +826,8 @@ enum ProjectileType : int32_t
     PROJECTILE_BUTTER = 12,  // 黄油
     PROJECTILE_ZOMBIE_PEA = 13,  // 僵尸豌豆
     PROJECTILE_FIREPEA_RED = 14,  // 电能豌豆（机枪射手 3% 概率，接触每 tick 30 伤害 + 无限穿透）
-    NUM_PROJECTILES = 15
+    PROJECTILE_ELECTRIC_STAR = 15,  // 电能星星（究极电能杨桃：追踪僵尸，命中后钉住 5 秒，每 tick 30 伤害）
+    NUM_PROJECTILES = 16
 };
 enum ReanimationType : uint32_t {
     REANIM_NONE = static_cast<uint32_t>(-1),
@@ -974,6 +976,8 @@ enum ReanimationType : uint32_t {
     REANIM_FLAG,
     REANIM_ELECTRIC_GATLINGPEA,     // 究极电能机枪射手：与 REANIM_GATLINGPEA 同一个 reanim 文件，
                                     // 但装载后用 reanim/ElectricGatling_*.png 专用贴图逐帧替换（见 Plant.cpp）
+    REANIM_ELECTRIC_STARFRUIT,      // 究极电能杨桃：与 REANIM_STARFRUIT 同一个 reanim 文件，
+                                    // 但装载后用 reanim/Electric_Starfruit_*.png 专用贴图逐帧替换（见 Plant.cpp）
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1103,6 +1107,7 @@ enum SeedType : int32_t
     SEED_FUMESHROOM_GROUP,                          // 大喷菇群（紫卡升级：大喷菇 → 三头）
     SEED_PEATER_1_5,                                // 1.5 发射手（旅行红卡：每次攻击 50% 一发 / 50% 两发）
     SEED_ELECTRIC_GATLING_PEA,                      // 究极电能机枪射手（旅行红卡：由机枪射手升级，200 阳光，100% 电能豌豆）
+    SEED_ELECTRIC_STARFRUIT,                        // 究极电能杨桃（旅行红卡：由杨桃升级，300 阳光，5 颗追踪电能星星）
     NUM_SEED_TYPES,
     SEED_BEGHOULED_BUTTON_SHUFFLE,
     SEED_BEGHOULED_BUTTON_CRATER,

@@ -318,6 +318,7 @@ public:
     void                    UpdateBlover();
     void                    UpdateCactus();
     void                    StarFruitFire();
+    void                    ElectricStarFruitFire();
     void                    UpdateTanglekelp();
     Reanimation*            AttachBlinkAnim(Reanimation* theReanimBody);
     void                    UpdateReanimColor();
@@ -370,6 +371,19 @@ bool                        ElectricGatlingUsesCustomArt();
 // 否则退回 REANIM_GATLINGPEA —— 与"机枪射手贴图 + 电能蓝叠加"的兜底方案完全一致，
 // 同时避免为同一套贴图多建一份 Atlas。
 ReanimationType             ElectricGatlingReanimType();
+
+// 究极电能杨桃专用贴图（打包在 main.pak 的 reanim/ 下：Electric_Starfruit_body/eyes1/eyes2）。
+// 与究极电能机枪射手同一套机制与同一套安全阀：首次调用时把三张图替换进
+// REANIM_ELECTRIC_STARFRUIT 的定义里；缺一张 / 无透明通道 / 尺寸不符都返回 false，
+// 此时调用方应回退到"杨桃贴图 + 电能蓝叠加"。幂等，可随时调用。
+bool                        ElectricStarfruitHasCustomArt();
+
+// 专用贴图是否真正启用（= 开关打开 且 贴图可用）。染色兜底与 reanim 类型选择都以它为准。
+bool                        ElectricStarfruitUsesCustomArt();
+
+// 究极电能杨桃实际使用的 reanim 类型：专用贴图可用时用 REANIM_ELECTRIC_STARFRUIT（并换好贴图），
+// 否则退回 REANIM_STARFRUIT。
+ReanimationType             ElectricStarfruitReanimType();
 
 class PlantDefinition
 {

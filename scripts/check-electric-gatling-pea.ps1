@@ -26,7 +26,9 @@ $plantCpp = Get-Content -Raw -LiteralPath $plantPath
 $plantLines = Get-Content -LiteralPath $plantPath
 
 # --- enum: inserted before NUM_SEED_TYPES, after the existing custom plants ---
-Assert-Source (P 'src/ConstEnums.h') 'SEED_PEATER_1_5,[\s\S]{0,200}SEED_ELECTRIC_GATLING_PEA,[\s\S]{0,200}NUM_SEED_TYPES' 'SEED_ELECTRIC_GATLING_PEA must be declared after SEED_PEATER_1_5 and just before NUM_SEED_TYPES.'
+# Window widened to 600 chars: the Electric Starfruit seed/reanim entries now sit between
+# this value and the NUM_* sentinels (they are appended, never reordered).
+Assert-Source (P 'src/ConstEnums.h') 'SEED_PEATER_1_5,[\s\S]{0,600}SEED_ELECTRIC_GATLING_PEA,[\s\S]{0,600}NUM_SEED_TYPES' 'SEED_ELECTRIC_GATLING_PEA must be declared after SEED_PEATER_1_5 and just before NUM_SEED_TYPES.'
 
 # --- plant definition: 200 sun, 30.01s cooldown, shooter, 100 launch rate.
 # The reanim type stays REANIM_GATLINGPEA here on purpose -- the electric type is only chosen at
@@ -34,7 +36,8 @@ Assert-Source (P 'src/ConstEnums.h') 'SEED_PEATER_1_5,[\s\S]{0,200}SEED_ELECTRIC
 Assert-Source $plantPath 'SeedType::SEED_ELECTRIC_GATLING_PEA,\s*nullptr,\s*ReanimationType::REANIM_GATLINGPEA,\s*5,\s*200,\s*3000,\s*PlantSubClass::SUBCLASS_SHOOTER,\s*100,\s*"ELECTRIC_GATLING_PEA"' 'gPlantDefs row must default to REANIM_GATLINGPEA / 200 sun / 3000 refresh / SHOOTER / 100 launch rate / "ELECTRIC_GATLING_PEA".'
 
 # --- dedicated reanim type: same file as the Gatling Pea, own definition slot ---
-Assert-Source (P 'src/ConstEnums.h') 'REANIM_FLAG,[\s\S]{0,400}REANIM_ELECTRIC_GATLINGPEA,[\s\S]{0,200}NUM_REANIMS' 'REANIM_ELECTRIC_GATLINGPEA must be declared after REANIM_FLAG and before NUM_REANIMS.'
+# Window widened to 900 chars for the same reason as the seed enum above.
+Assert-Source (P 'src/ConstEnums.h') 'REANIM_FLAG,[\s\S]{0,600}REANIM_ELECTRIC_GATLINGPEA,[\s\S]{0,900}NUM_REANIMS' 'REANIM_ELECTRIC_GATLINGPEA must be declared after REANIM_FLAG and before NUM_REANIMS.'
 Assert-Source (P 'src/Sexy.TodLib/Reanimator.cpp') 'REANIM_ELECTRIC_GATLINGPEA,\s*"reanim/GatlingPea\.reanim"' 'The electric type must load the same reanim file as the Gatling Pea (its images are patched afterwards).'
 
 # --- custom art: swapped per FRAME by original image pointer (blink tracks use two images) ---
@@ -43,10 +46,15 @@ if (-not $artBody.Success) { throw 'Could not find ElectricGatlingHasCustomArt()
 foreach ($art in @('ELECTRICGATLING_HEAD', 'ELECTRICGATLING_MOUTH', 'ELECTRICGATLING_MOUTH_OVERLAY', 'ELECTRICGATLING_BARREL', 'ELETRICGATLING_BLINK1', 'ELETRICGATLING_BLINK2')) {
     if ($artBody.Value -notmatch $art) { throw "ElectricGatlingHasCustomArt() must swap in $art (note the pak spelling 'Eletric' for the blink files)." }
 }
-if ($artBody.Value -notmatch 'aTransform\.mImage == aOldImage') { throw 'The art swap must match per-frame transforms by original image pointer, not per track: anim_blink / idle_shoot_blink each reference BOTH blink images.' }
+# The actual swap mechanics live in the shared ApplyReanimArtSwaps() helper (also used by the
+# Electric Starfruit): per-frame image-pointer matching, the transparency / size safety valves
+# and the overall bail-out.
+$swapHelper = [regex]::Match($plantCpp, 'static bool ApplyReanimArtSwaps\([\s\S]*?\n\}')
+if (-not $swapHelper.Success) { throw 'Could not find ApplyReanimArtSwaps().' }
+if ($swapHelper.Value -notmatch 'aTransform\.mImage == aOldImage') { throw 'The art swap must match per-frame transforms by original image pointer, not per track: anim_blink / idle_shoot_blink each reference BOTH blink images.' }
 # Fail safe: an image without real transparency would be drawn as a white box.
-if ($artBody.Value -notmatch 'mHasTrans' -or $artBody.Value -notmatch 'CommitBits\(\)') { throw 'The art swap must reject opaque art (mHasTrans/mHasAlpha after CommitBits) so a baked white background never renders as boxes.' }
-if ($artBody.Value -notmatch 'return false') { throw 'The art swap must fall back when the art is missing or unusable.' }
+if ($swapHelper.Value -notmatch 'mHasTrans' -or $swapHelper.Value -notmatch 'CommitBits\(\)') { throw 'The art swap must reject opaque art (mHasTrans/mHasAlpha after CommitBits) so a baked white background never renders as boxes.' }
+if ($swapHelper.Value -notmatch 'return false') { throw 'The art swap must fall back when the art is missing or unusable.' }
 # The tint must only be the fallback, never applied on top of the custom art.
 Assert-Source $plantPath 'SEED_ELECTRIC_GATLING_PEA && !ElectricGatlingUsesCustomArt\(\)' 'The electric-blue tint must be gated on the custom art being unavailable.'
 Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'SEED_ELECTRIC_GATLING_PEA && !ElectricGatlingUsesCustomArt\(\)' 'The cached card art must use the same gate.'

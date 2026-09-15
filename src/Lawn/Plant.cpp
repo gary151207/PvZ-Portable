@@ -44,6 +44,7 @@
 #include "../Sexy.TodLib/TodCommon.h"
 #include "graphics/MemoryImage.h"
 #include "Widget/AchievementsScreen.h"
+#include <vector>
 
 PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_PEASHOOTER,        nullptr, ReanimationType::REANIM_PEASHOOTER,    0,  100,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "PEASHOOTER" },
@@ -101,67 +102,53 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_LEFTPEATER,        nullptr, ReanimationType::REANIM_REPEATER,      5,  200,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "REPEATER" },
     { SeedType::SEED_FUMESHROOM_GROUP,  nullptr, ReanimationType::REANIM_FUMESHROOM,    9,  0,      3000,   PlantSubClass::SUBCLASS_SHOOTER,    90,     "FUMESHROOM_GROUP" },
     { SeedType::SEED_PEATER_1_5,        nullptr, ReanimationType::REANIM_REPEATER,      5,  150,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "PEATER_1_5" },   // 1.5 发射手：150 阳光 / 普通冷却（旅行红卡，贴图 = 去掉眉毛的双发射手）
-    { SeedType::SEED_ELECTRIC_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5,  200,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    100,    "ELECTRIC_GATLING_PEA" }   // 究极电能机枪射手：200 阳光 / 30.01s 冷却（旅行红卡，由机枪射手升级，100% 电能豌豆）
-    // ↑ 这里默认写普通机枪射手的 reanim：只有专用贴图确实可用时，ElectricGatlingReanimType() 才会
-    //   把运行时类型换成 REANIM_ELECTRIC_GATLINGPEA。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
+    { SeedType::SEED_ELECTRIC_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5,  200,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    100,    "ELECTRIC_GATLING_PEA" },   // 究极电能机枪射手：200 阳光 / 30.01s 冷却（旅行红卡，由机枪射手升级，100% 电能豌豆）
+    { SeedType::SEED_ELECTRIC_STARFRUIT, nullptr, ReanimationType::REANIM_STARFRUIT, 30, 300,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    100,    "ELECTRIC_STARFRUIT" }   // 究极电能杨桃：300 阳光 / 30.01s 冷却（旅行红卡，由杨桃升级，5 颗追踪电能星星）
+    // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
+    //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
+    //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
 };
 
 Plant::Plant()
 {
 }
 
-// 究极电能机枪射手专用贴图：逐帧把 REANIM_ELECTRIC_GATLINGPEA 定义里的贴图换成 main.pak 中
-// reanim/ElectricGatling_* 那一套（"红火豌豆"式的原版贴图仍留给普通机枪射手）。
+// 专用"部位贴图"接入的公共实现（究极电能机枪射手 / 究极电能杨桃共用）：
+// 逐帧把 REANIM_ELECTRIC_* 定义里的原版贴图换成 main.pak 里那一套专用贴图
+// （例如 reanim/ElectricGatling_* / reanim/Electric_Starfruit_*）。
 //
 // 为什么必须改定义、而不是给每个轨道挂 mImageOverride：
-//   anim_blink / idle_shoot_blink 这两条轨道**同时**引用 blink1 与 blink2 两张图
-//   （不同帧换图），而 mImageOverride 是"整个轨道一张图"，会把眨眼动画压成同一张。
-//   本类型是独立定义的（ReanimatorEnsureDefinitionLoaded 按 ReanimationType 分槽装载），
-//   所以改它不会影响 REANIM_GATLINGPEA 的机枪射手，也不影响魅惑机枪头僵尸。
+//   眨眼类轨道会**同时**引用两张图（不同帧换图），而 mImageOverride 是"整个轨道一张图"，
+//   会把眨眼动画压成同一张。两者都是独立定义的（ReanimatorEnsureDefinitionLoaded 按
+//   ReanimationType 分槽装载），所以改它不会影响原版植物。
 //
 // 安全阀：这些是"部位"贴图，必须自带透明通道。若某张图不透明（背景被烘焙成白底），
-//   直接用会在植物周围画出白方块 —— 此时整体回退（返回 false），由调用方改用
-//   "机枪射手贴图 + 电能蓝叠加"，宁可不好看也不画白块。
-static bool sElectricGatlingArtChecked = false;
-static bool sElectricGatlingArtApplied = false;
-
-bool ElectricGatlingHasCustomArt()
+//   直接用会在植物周围画出白方块 —— 此时整体回退（返回 false），由调用方改用染色兜底，
+//   宁可不好看也不画白块。另外 reanim 是按"帧号"索引到贴图某一列的，尺寸不符会串帧，
+//   因此尺寸也必须与被替换的原贴图完全一致。
+struct ReanimArtSwap
 {
-    if (sElectricGatlingArtChecked)
-        return sElectricGatlingArtApplied;
-    sElectricGatlingArtChecked = true;
+    const char* mOldPath;   // 定义里原本引用的贴图路径 = 贴图加载器使用的键（DefinitionLoadImage）
+    const char* mNewPath;   // 专用贴图路径（大小写不敏感，扩展名可省）
+    const char* mImageId;   // 登记到资源管理器时用的名字
+};
 
-    const ReanimationType aType = ReanimationType::REANIM_ELECTRIC_GATLINGPEA;
-    ReanimatorEnsureDefinitionLoaded(aType, true);
-    ReanimatorDefinition* aDef = &gReanimatorDefArray[aType];
+static bool ApplyReanimArtSwaps(ReanimationType theType, const ReanimArtSwap* theSwaps, size_t theCount, const char* theLogTag)
+{
+    ReanimatorEnsureDefinitionLoaded(theType, true);
+    ReanimatorDefinition* aDef = &gReanimatorDefArray[theType];
     if (aDef == nullptr || aDef->mTracks.tracks == nullptr)
         return false;
 
-    struct ElectricArtSwap
+    std::vector<Image*> aOldImages(theCount, nullptr);
+    std::vector<Image*> aNewImages(theCount, nullptr);
+    for (size_t i = 0; i < theCount; i++)
     {
-        const char* mOldPath;   // 定义里原本引用的贴图路径 = 贴图加载器使用的键（DefinitionLoadImage）
-        const char* mNewPath;   // 专用贴图路径（大小写不敏感，扩展名可省）
-        const char* mImageId;   // 登记到资源管理器时用的名字
-    };
-    static const ElectricArtSwap aSwaps[] = {
-        { "reanim/GATLINGPEA_HEAD",          "reanim/ELECTRICGATLING_HEAD",          "IMAGE_REANIM_ELECTRICGATLING_HEAD" },
-        { "reanim/GATLINGPEA_MOUTH",         "reanim/ELECTRICGATLING_MOUTH",         "IMAGE_REANIM_ELECTRICGATLING_MOUTH" },
-        { "reanim/GATLINGPEA_MOUTH_OVERLAY", "reanim/ELECTRICGATLING_MOUTH_OVERLAY", "IMAGE_REANIM_ELECTRICGATLING_MOUTH_OVERLAY" },
-        { "reanim/GATLINGPEA_BARREL",        "reanim/ELECTRICGATLING_BARREL",        "IMAGE_REANIM_ELECTRICGATLING_BARREL" },
-        // 注意：这两张在 pak 里的文件名拼写是 Eletric（少了 c），按原名照抄
-        { "reanim/GATLINGPEA_BLINK1",        "reanim/ELETRICGATLING_BLINK1",         "IMAGE_REANIM_ELETRICGATLING_BLINK1" },
-        { "reanim/GATLINGPEA_BLINK2",        "reanim/ELETRICGATLING_BLINK2",         "IMAGE_REANIM_ELETRICGATLING_BLINK2" },
-    };
-
-    Image* aOldImages[LENGTH(aSwaps)] = { nullptr };
-    Image* aNewImages[LENGTH(aSwaps)] = { nullptr };
-    for (size_t i = 0; i < LENGTH(aSwaps); i++)
-    {
-        SharedImageRef aImageRef = gSexyAppBase->GetSharedImage(aSwaps[i].mNewPath);
+        SharedImageRef aImageRef = gSexyAppBase->GetSharedImage(theSwaps[i].mNewPath);
         MemoryImage* aImage = dynamic_cast<MemoryImage*>((Image*)aImageRef);
         if (aImage == nullptr)
         {
-            TodTrace("Electric Gatling Pea art missing: %s", aSwaps[i].mNewPath);
+            TodTrace("%s art missing: %s", theLogTag, theSwaps[i].mNewPath);
             return false;   // 缺一张就整体回退，避免半套贴图
         }
         // mHasTrans / mHasAlpha 平时要等首次绘制时 TodSandImageIfNeeded() 才会算出来，
@@ -169,33 +156,33 @@ bool ElectricGatlingHasCustomArt()
         aImage->CommitBits();
         if (!aImage->mHasTrans && !aImage->mHasAlpha)
         {
-            TodTrace("Electric Gatling Pea art has no transparency: %s", aSwaps[i].mNewPath);
+            TodTrace("%s art has no transparency: %s", theLogTag, theSwaps[i].mNewPath);
             return false;   // 背景被烘焙成白色 → 用了会画成白方块
         }
 
         // reanim 是按"帧号"索引到贴图某一列的，尺寸必须与被替换的原贴图完全一致，否则会串帧
-        SharedImageRef aOldRef = gSexyAppBase->GetSharedImage(aSwaps[i].mOldPath);
+        SharedImageRef aOldRef = gSexyAppBase->GetSharedImage(theSwaps[i].mOldPath);
         Image* aOldImage = (Image*)aOldRef;
         if (aOldImage == nullptr)
         {
-            TodTrace("Electric Gatling Pea base art missing: %s", aSwaps[i].mOldPath);
+            TodTrace("%s base art missing: %s", theLogTag, theSwaps[i].mOldPath);
             return false;
         }
         if (aImage->mWidth != aOldImage->mWidth || aImage->mHeight != aOldImage->mHeight)
         {
-            TodTrace("Electric Gatling Pea art size mismatch: %s is %dx%d, expected %dx%d",
-                aSwaps[i].mNewPath, aImage->mWidth, aImage->mHeight, aOldImage->mWidth, aOldImage->mHeight);
+            TodTrace("%s art size mismatch: %s is %dx%d, expected %dx%d",
+                theLogTag, theSwaps[i].mNewPath, aImage->mWidth, aImage->mHeight, aOldImage->mWidth, aOldImage->mHeight);
             return false;
         }
         aOldImages[i] = aOldImage;
 
-        TodAddImageToMap(&aImageRef, aSwaps[i].mImageId);   // 交给资源管理器长期持有，避免被回收
+        TodAddImageToMap(&aImageRef, theSwaps[i].mImageId);   // 交给资源管理器长期持有，避免被回收
         TodMarkImageForSanding(aImage);
         aNewImages[i] = aImage;
     }
 
-    // 按"原图指针"逐帧替换：blink 两条轨道各有 blink1/blink2 两张图，只能靠指针区分
-    for (size_t i = 0; i < LENGTH(aSwaps); i++)
+    // 按"原图指针"逐帧替换：同一条轨道上可能有多张图（眨眼），只能靠指针区分
+    for (size_t i = 0; i < theCount; i++)
     {
         Image* aOldImage = aOldImages[i];
 
@@ -211,9 +198,32 @@ bool ElectricGatlingHasCustomArt()
         }
     }
 
-    sElectricGatlingArtApplied = true;
-    TodTrace("Electric Gatling Pea: custom art applied");
+    TodTrace("%s: custom art applied", theLogTag);
     return true;
+}
+
+static bool sElectricGatlingArtChecked = false;
+static bool sElectricGatlingArtApplied = false;
+
+bool ElectricGatlingHasCustomArt()
+{
+    if (sElectricGatlingArtChecked)
+        return sElectricGatlingArtApplied;
+    sElectricGatlingArtChecked = true;
+
+    static const ReanimArtSwap aSwaps[] = {
+        { "reanim/GATLINGPEA_HEAD",          "reanim/ELECTRICGATLING_HEAD",          "IMAGE_REANIM_ELECTRICGATLING_HEAD" },
+        { "reanim/GATLINGPEA_MOUTH",         "reanim/ELECTRICGATLING_MOUTH",         "IMAGE_REANIM_ELECTRICGATLING_MOUTH" },
+        { "reanim/GATLINGPEA_MOUTH_OVERLAY", "reanim/ELECTRICGATLING_MOUTH_OVERLAY", "IMAGE_REANIM_ELECTRICGATLING_MOUTH_OVERLAY" },
+        { "reanim/GATLINGPEA_BARREL",        "reanim/ELECTRICGATLING_BARREL",        "IMAGE_REANIM_ELECTRICGATLING_BARREL" },
+        // 注意：这两张在 pak 里的文件名拼写是 Eletric（少了 c），按原名照抄
+        { "reanim/GATLINGPEA_BLINK1",        "reanim/ELETRICGATLING_BLINK1",         "IMAGE_REANIM_ELETRICGATLING_BLINK1" },
+        { "reanim/GATLINGPEA_BLINK2",        "reanim/ELETRICGATLING_BLINK2",         "IMAGE_REANIM_ELETRICGATLING_BLINK2" },
+    };
+
+    sElectricGatlingArtApplied = ApplyReanimArtSwaps(
+        ReanimationType::REANIM_ELECTRIC_GATLINGPEA, aSwaps, LENGTH(aSwaps), "Electric Gatling Pea");
+    return sElectricGatlingArtApplied;
 }
 
 bool ElectricGatlingUsesCustomArt()
@@ -230,6 +240,42 @@ ReanimationType ElectricGatlingReanimType()
         : ReanimationType::REANIM_GATLINGPEA;
 }
 
+// 究极电能杨桃专用贴图：只换星形主体与两张眼睛图（叶/茎/嘴/笑保持原版）。
+// 玩家若没打包这三张图，就回退到"杨桃贴图 + 电能蓝叠加"。
+static bool sElectricStarfruitArtChecked = false;
+static bool sElectricStarfruitArtApplied = false;
+
+bool ElectricStarfruitHasCustomArt()
+{
+    if (sElectricStarfruitArtChecked)
+        return sElectricStarfruitArtApplied;
+    sElectricStarfruitArtChecked = true;
+
+    static const ReanimArtSwap aSwaps[] = {
+        { "reanim/STARFRUIT_BODY",  "reanim/ELECTRIC_STARFRUIT_BODY",  "IMAGE_REANIM_ELECTRIC_STARFRUIT_BODY" },
+        { "reanim/STARFRUIT_EYES1", "reanim/ELECTRIC_STARFRUIT_EYES1", "IMAGE_REANIM_ELECTRIC_STARFRUIT_EYES1" },
+        { "reanim/STARFRUIT_EYES2", "reanim/ELECTRIC_STARFRUIT_EYES2", "IMAGE_REANIM_ELECTRIC_STARFRUIT_EYES2" },
+    };
+
+    sElectricStarfruitArtApplied = ApplyReanimArtSwaps(
+        ReanimationType::REANIM_ELECTRIC_STARFRUIT, aSwaps, LENGTH(aSwaps), "Electric Starfruit");
+    return sElectricStarfruitArtApplied;
+}
+
+bool ElectricStarfruitUsesCustomArt()
+{
+    if (!ELECTRIC_STARFRUIT_USE_CUSTOM_ART)
+        return false;
+    return ElectricStarfruitHasCustomArt();
+}
+
+ReanimationType ElectricStarfruitReanimType()
+{
+    return ElectricStarfruitUsesCustomArt()
+        ? ReanimationType::REANIM_ELECTRIC_STARFRUIT
+        : ReanimationType::REANIM_STARFRUIT;
+}
+
 // GOTY @Patoke: 0x461483
 void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType)
 {
@@ -237,6 +283,8 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     ReanimationType aReanimType = GetPlantDefinition(theSeedType).mReanimationType;
     if (theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
         aReanimType = ElectricGatlingReanimType();
+    else if (theSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
+        aReanimType = ElectricStarfruitReanimType();
 
     mPlantCol = theGridX;
     mRow = theGridY;
@@ -1124,6 +1172,32 @@ void Plant::StarFruitFire()
     }
 }
 
+// 究极电能杨桃：与杨桃完全相同的 5 颗米字星，但弹丸换成"电能星星"
+// （追踪 + 命中后钉住 5 秒、每游戏刻 30 点伤害，见 Projectile::StartElectricStarLinger）。
+void Plant::ElectricStarFruitFire()
+{
+    mApp->PlayFoley(FoleyType::FOLEY_THROW);
+
+    float aShootAngleX = cos(DEG_TO_RAD(30.0f)) * 3.33f;
+    float aShootAngleY = sin(DEG_TO_RAD(30.0f)) * 3.33f;
+    for (int i = 0; i < 5; i++)
+    {
+        Projectile* aProjectile = mBoard->AddProjectile(mX + 25, mY + 25, mRenderOrder - 1, mRow, ProjectileType::PROJECTILE_ELECTRIC_STAR);
+        aProjectile->mDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
+        aProjectile->mMotionType = ProjectileMotion::MOTION_STAR;
+
+        switch (i)
+        {
+        case 0:     aProjectile->mVelX = -3.33f;         aProjectile->mVelY = 0.0f;             break;
+        case 1:     aProjectile->mVelX = 0.0f;          aProjectile->mVelY = 3.33f;             break;
+        case 2:     aProjectile->mVelX = 0.0f;          aProjectile->mVelY = -3.33f;            break;
+        case 3:     aProjectile->mVelX = aShootAngleX;  aProjectile->mVelY = aShootAngleY;      break;
+        case 4:     aProjectile->mVelX = aShootAngleX;  aProjectile->mVelY = -aShootAngleY;     break;
+        default:    TOD_ASSERT(false);                                                               break;
+        }
+    }
+}
+
 void Plant::UpdateShooter()
 {
     mLaunchCounter--;
@@ -1155,7 +1229,7 @@ void Plant::UpdateShooter()
         {
             LaunchThreepeater();
         }
-        else if (mSeedType == SeedType::SEED_STARFRUIT)
+        else if (mSeedType == SeedType::SEED_STARFRUIT || mSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
         {
             LaunchStarFruit();
         }
@@ -3087,6 +3161,21 @@ bool Plant::IsUpgradableTo(SeedType theUpgradedType)
     {
         return true;
     }
+    if (theUpgradedType == SeedType::SEED_ELECTRIC_STARFRUIT && mSeedType == SeedType::SEED_STARFRUIT)
+    {
+        return true;
+    }
+    // 究极形态互换（旅行红卡）：把"另一种基础植物"种在究极形态上 = 原地变身。
+    //   杨桃     @ 究极电能机枪射手 → 究极电能杨桃（Board::MouseDownWithPlant 会改写要种的种子并返还阳光）
+    //   机枪射手 @ 究极电能杨桃       → 究极电能机枪射手
+    if (theUpgradedType == SeedType::SEED_STARFRUIT && mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
+    {
+        return true;
+    }
+    if (theUpgradedType == SeedType::SEED_GATLINGPEA && mSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
+    {
+        return true;
+    }
     if (theUpgradedType == SeedType::SEED_WINTERMELON && mSeedType == SeedType::SEED_MELONPULT)
     {
         return true;
@@ -3244,6 +3333,20 @@ void Plant::UpdateReanimColor()
                 aHeadReanim->mExtraOverlayColor = Color(ELECTRIC_BLUE_R, ELECTRIC_BLUE_G, ELECTRIC_BLUE_B, ELECTRIC_GATLING_TINT_A);
                 aHeadReanim->mEnableExtraOverlayDraw = true;
             }
+        }
+    }
+
+    // 究极电能杨桃：同样只在**没有**可用专用贴图时才靠染色兜底。
+    // 杨桃只有一个实例（头/脸/眼/叶/茎都在同一个 reanim 里），因此整个实例一起上电能蓝叠加即可；
+    // 没有需要豁免"保持原色"的轨道（专用贴图方案下叶/茎本来也是原色，兜底方案只能整体变蓝）。
+    // 变量名故意不复用 aBodyReanim：那条 body 实例是机枪射手专用的（叶/茎必须保持原色）。
+    if (mSeedType == SeedType::SEED_ELECTRIC_STARFRUIT && !ElectricStarfruitUsesCustomArt() && mBeghouledFlashCountdown <= 0)
+    {
+        Reanimation* aWholePlantReanim = mApp->ReanimationTryToGet(mBodyReanimID);
+        if (aWholePlantReanim != nullptr)
+        {
+            aWholePlantReanim->mExtraOverlayColor = Color(ELECTRIC_BLUE_R, ELECTRIC_BLUE_G, ELECTRIC_BLUE_B, ELECTRIC_GATLING_TINT_A);
+            aWholePlantReanim->mEnableExtraOverlayDraw = true;
         }
     }
 }
@@ -3555,6 +3658,8 @@ Reanimation* Plant::AttachBlinkAnim(Reanimation* theReanimBody)
     ReanimationType aBlinkReanimType = aPlantDef.mReanimationType;
     if (mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
         aBlinkReanimType = ElectricGatlingReanimType();
+    else if (mSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
+        aBlinkReanimType = ElectricStarfruitReanimType();   // 眨眼用的眼睛图也要是电能版
 
     Reanimation* aBlinkReanim = aApp->mEffectSystem->mReanimationHolder->AllocReanimation(0.0f, 0.0f, 0, aBlinkReanimType);
     aBlinkReanim->SetFramesForLayer(aTrackToPlay);
@@ -4320,7 +4425,7 @@ float PlantDrawHeightOffset(Board* theBoard, Plant* thePlant, SeedType theSeedTy
     {
         aHeightOffset += 25.0f;
     }
-    else if (theSeedType == SeedType::SEED_STARFRUIT)
+    else if (theSeedType == SeedType::SEED_STARFRUIT || theSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
     {
         aHeightOffset += 10.0f;
     }
@@ -4548,7 +4653,8 @@ Image* Plant::GetImage(SeedType theSeedType)
 
 void Plant::DrawShadow(Sexy::Graphics* g, float theOffsetX, float theOffsetY)
 {
-    if (mSeedType == SeedType::SEED_LILYPAD || mSeedType == SeedType::SEED_STARFRUIT || mSeedType == SeedType::SEED_TANGLEKELP || 
+    if (mSeedType == SeedType::SEED_LILYPAD || mSeedType == SeedType::SEED_STARFRUIT || mSeedType == SeedType::SEED_ELECTRIC_STARFRUIT ||
+        mSeedType == SeedType::SEED_TANGLEKELP || 
         mSeedType == SeedType::SEED_SEASHROOM || mSeedType == SeedType::SEED_COBCANNON || mSeedType == SeedType::SEED_SPIKEWEED || 
         mSeedType == SeedType::SEED_SPIKEROCK || mSeedType == SeedType::SEED_GRAVEBUSTER || mSeedType == SeedType::SEED_CATTAIL || 
         mOnBungeeState == PlantOnBungeeState::RISING_WITH_BUNGEE)
@@ -5274,6 +5380,11 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         StarFruitFire();
         return;
     }
+    if (mSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
+    {
+        ElectricStarFruitFire();
+        return;
+    }
 
     ProjectileType aProjectileType;
     switch (mSeedType)
@@ -5992,7 +6103,8 @@ bool Plant::IsUpgrade(SeedType theSeedtype)
         theSeedtype == SeedType::SEED_GLOOMSHROOM || 
         theSeedtype == SeedType::SEED_CATTAIL ||
         theSeedtype == SeedType::SEED_FUMESHROOM_GROUP ||
-        theSeedtype == SeedType::SEED_ELECTRIC_GATLING_PEA;
+        theSeedtype == SeedType::SEED_ELECTRIC_GATLING_PEA ||
+        theSeedtype == SeedType::SEED_ELECTRIC_STARFRUIT;
 }
 
 bool Plant::IsRedCard(SeedType theSeedtype)
@@ -6000,10 +6112,12 @@ bool Plant::IsRedCard(SeedType theSeedtype)
     // 红卡：旅行专属高阶卡级（对标紫卡 IsUpgrade 的全局观感列表）。
     // 巨大坚果（旅行专属；保龄球 2 作为滚球出现时同样显示红卡，同物种同卡）、
     // 1.5 发射手（旅行专属，贴图 = 去掉眉毛的双发射手）、
-    // 究极电能机枪射手（旅行专属，贴图 = 主体/枪管变白的机枪射手）。
+    // 究极电能机枪射手（旅行专属，贴图 = 主体/枪管变白的机枪射手）、
+    // 究极电能杨桃（旅行专属，贴图 = 主体/眼睛变电光蓝的杨桃）。
     return theSeedtype == SeedType::SEED_GIANT_WALLNUT ||
            theSeedtype == SeedType::SEED_PEATER_1_5 ||
-           theSeedtype == SeedType::SEED_ELECTRIC_GATLING_PEA;
+           theSeedtype == SeedType::SEED_ELECTRIC_GATLING_PEA ||
+           theSeedtype == SeedType::SEED_ELECTRIC_STARFRUIT;
 }
 
 Rect Plant::GetPlantRect()
@@ -6076,6 +6190,8 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
     ReanimationType aReanimType = aPlantDef.mReanimationType;
     if (theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
         aReanimType = ElectricGatlingReanimType();
+    else if (theSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
+        aReanimType = ElectricStarfruitReanimType();
 
     if (aReanimType != ReanimationType::REANIM_NONE)
     {

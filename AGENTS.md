@@ -66,3 +66,7 @@ The binary accepts modding flags beyond the original game. Defined in `LawnApp.c
 - Architecture Decision Records: `docs/adr/`
 - Community wiki (game data): https://wiki.pvz1.com
 - Memory reference: https://pvz.tools/memory/
+
+## Superpowers 硬性禁用规则
+
+默认禁止主动调用任何 `superpowers:*` Skill，除非用户显式触发，或当前已经在 Superpowers 流程中。

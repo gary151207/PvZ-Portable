@@ -63,6 +63,23 @@ This project supports the following platforms (including but not limited to):
 
 To play the game, you need the game data from PvZ GOTY. Place `main.pak` and the `properties/` folder next to the `pvz-portable` executable (the game will search for resources relative to the executable's directory). You can also use extracted data instead of `main.pak` if you prefer.
 
+### Editable resources and native distribution builds
+
+For development, keep the complete unpacked `main.pak` tree in `res/main/` (including its `properties/` files), and keep external properties in `res/properties/`. The native default build regenerates `dist/main.pak` from `res/main/`, copies `res/properties/` to `dist/properties/`, and stages the executable in `dist/`:
+
+```bash
+cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
+
+This requires Python 3.9 or later for the PopCap PAK packer. `dist/` is a generated directory. To extract a legally obtained original package into a new resource tree, use:
+
+```bash
+python scripts/pak.py unpack --input path/to/main.pak --output res/main
+```
+
+Copy the original external `properties/` contents into `res/properties/` afterwards. The command refuses to overwrite a non-empty output directory. When both locations contain the same filename, the packaged `res/main/properties/` version takes precedence at runtime.
+
 Note about writable data and caches:
 
 - The game will read resources (like `main.pak` and `properties/`) from the executable directory by default, so you can launch the binary from any working directory and it will still find them.

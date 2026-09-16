@@ -1173,7 +1173,7 @@ void Plant::StarFruitFire()
 }
 
 // 究极电能杨桃：与杨桃完全相同的 5 颗米字星，但弹丸换成"电能星星"
-// （追踪 + 命中后钉住 5 秒、每游戏刻 30 点伤害，见 Projectile::StartElectricStarLinger）。
+// （追踪 + 命中后钉住 2.5 秒、期间每 0.15 秒 30 点伤害，见 Projectile::StartElectricStarLinger）。
 void Plant::ElectricStarFruitFire()
 {
     mApp->PlayFoley(FoleyType::FOLEY_THROW);
@@ -5403,7 +5403,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         break;
     case SeedType::SEED_ELECTRIC_GATLING_PEA:
         // 究极电能机枪射手：100% 电能豌豆。
-        // PROJECTILE_FIREPEA_RED 即"纯白闪电豌豆"（接触每 tick 30 伤害 + 无限穿透），
+        // PROJECTILE_FIREPEA_RED 即"纯白闪电豌豆"（接触每 0.15 秒 30 伤害 + 无限穿透），
         // 与电能豌豆本是同一物，故不新增弹丸类型。
         aProjectileType = ProjectileType::PROJECTILE_FIREPEA_RED;
         break;

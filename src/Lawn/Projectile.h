@@ -83,6 +83,12 @@ public:
     int32_t                 mLingerCountdown = 0;
     // 电能星星当前是否正"钉"在僵尸身上（false 且 mLingerCountdown > 0 = 目标已死、正在改追下一个）
     bool                    mElectricStarStuck = false;
+    // 电能星星的伤害节奏：距离下一次结算电能伤害还剩多少游戏刻。
+    // 每帧在 Projectile::Update 里自减，归零才算一次伤害并把节奏重置为
+    // ELECTRIC_DAMAGE_INTERVAL_TICKS（15 刻 = 0.15 秒）；中间那些帧只跟随目标、不掉血。
+    // 0 = 本帧可以结算（刚钉住时先打一次，之后按 0.15 秒的间隔）。
+    // 电能豌豆不用这个计数器：它直接按 mProjectileAge % ELECTRIC_DAMAGE_INTERVAL_TICKS 结算。
+    int32_t                 mElectricDamageCountdown = 0;
 
 public:
     Projectile();

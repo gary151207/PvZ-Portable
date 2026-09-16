@@ -10161,6 +10161,12 @@ bool Zombie::IsFlying()
     return mZombiePhase == ZombiePhase::PHASE_BALLOON_FLYING || mZombiePhase == ZombiePhase::PHASE_BALLOON_POPPING;
 }
 
+bool Zombie::IsUnderground()
+{
+    return mZombiePhase == ZombiePhase::PHASE_DIGGER_TUNNELING ||
+        mZombiePhase == ZombiePhase::PHASE_DIGGER_TUNNELING_PAUSE_WITHOUT_AXE;
+}
+
 int Zombie::GetBobsledPosition()
 {
     if (mZombieType != ZombieType::ZOMBIE_BOBSLED)

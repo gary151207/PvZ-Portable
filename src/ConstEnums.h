@@ -825,8 +825,8 @@ enum ProjectileType : int32_t
     PROJECTILE_COBBIG = 11,  // 玉米加农炮
     PROJECTILE_BUTTER = 12,  // 黄油
     PROJECTILE_ZOMBIE_PEA = 13,  // 僵尸豌豆
-    PROJECTILE_FIREPEA_RED = 14,  // 电能豌豆（机枪射手 3% 概率，接触每 tick 30 伤害 + 无限穿透）
-    PROJECTILE_ELECTRIC_STAR = 15,  // 电能星星（究极电能杨桃：追踪僵尸，命中后钉住 5 秒，每 tick 30 伤害）
+    PROJECTILE_FIREPEA_RED = 14,  // 电能豌豆（机枪射手 3% 概率 / 究极电能机枪射手 100%，接触每 0.15 秒 30 伤害 + 无限穿透）
+    PROJECTILE_ELECTRIC_STAR = 15,  // 电能星星（究极电能杨桃：追踪僵尸，命中后钉住 2.5 秒，每 0.15 秒 30 伤害）
     NUM_PROJECTILES = 16
 };
 enum ReanimationType : uint32_t {

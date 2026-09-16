@@ -20,10 +20,18 @@
 | 反向互换 | **拖机枪射手卡到究极电能杨桃 → 变回究极电能机枪射手，返还 225 阳光** |
 | 星星数量/方向 | **5 颗**，方向与普通杨桃完全一致（左/上/下/右上/右下 30°） |
 | 追踪 | 与普通杨桃**同一套**追踪逻辑（飞行 1 格后锁定最靠左的僵尸） |
-| 命中效果 | 星星**不消失**，钉在该僵尸身上 **5 秒**，期间**每游戏刻（10 ms）造成 30 点电能伤害** |
-| 目标死亡后 | **自动改追下一个目标**（改追期间 5 秒总寿命照常流逝，见下"弹丸状态机"） |
+| 命中效果 | 星星**不消失**，钉在该僵尸身上 **2.5 秒**，期间**每 0.15 秒造成 30 点电能伤害** |
+| 目标死亡后 | **自动改追下一个目标**（改追期间 2.5 秒总寿命照常流逝，见下"弹丸状态机"） |
 | 其余机制 | 与杨桃完全一致（125 阳光本体数值、300 生命、100 发射节奏、`anim_shoot`、护盾穿透、无影子、光照偏移 +10） |
 | 贴图 | 用玩家自备的 `reanim/Electric_Starfruit_body/eyes1/eyes2.png`（main.pak 内已有）；叶/茎/嘴/眉保持原版 |
+
+> **数值调整（2026-09-14 后续需求）**：电能伤害不再是"每游戏刻（10 ms）一次"，
+> 而是**每 0.15 秒一次**（`ELECTRIC_DAMAGE_INTERVAL_TICKS = 15` 刻）；钉住总时长
+> 从 5 秒改为 **2.5 秒**（`ELECTRIC_STAR_LINGER_TICKS = 250`）。
+> 同一节奏也适用于**电能豌豆**（`PROJECTILE_FIREPEA_RED`，究极电能机枪射手的子弹）。
+> 实现：豌豆在 `CheckForCollision` 里以 `mProjectileAge % ELECTRIC_DAMAGE_INTERVAL_TICKS` 结算；
+> 星星用 `Projectile::mElectricDamageCountdown`（每帧在 `Projectile::Update` 自减，
+> 归零才 `TakeDamage` 并重置为 15）。下文各节中"每游戏刻 / 5 秒 / 500"的表述均以此调整为准。
 
 ## 背景与目标
 
@@ -66,7 +74,7 @@
 `Projectile::UpdateNormalMotion`（Projectile.cpp ~L833）的 `MOTION_STAR` 分支：
 
 - `mProjectileAge >= 24`（飞行约 1 格）后锁定**最靠左**（`mX` 最小）且可被伤害的僵尸，
-  写进 `mTargetZombieID`；目标失效则重新索敌（向左飞的星星可锁矿工僵尸）。
+  写进 `mTargetZombieID`；目标失效则重新索敌（矿工僵尸**还在钻地**时只有向左飞的星星能锁，出土后 5 颗一律正常索敌）。
 - 锁定后每帧把 `mVelX/mVelY` 重定向到目标中心，速度仍为 3.33 → 形成"追踪"。
 - `mTargetZombieID != NULL` 时 `GetDamageFlags()` 追加 `DAMAGE_BYPASSES_SHIELD`（与向左星一致）。
 - 命中判定在 `Projectile::CheckForCollision`（~L367）：与目标矩形重叠且 `mPosY` 落在僵尸身内

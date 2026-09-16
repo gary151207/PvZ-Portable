@@ -46,8 +46,12 @@
 4. **卡面**：红卡（`Plant::IsRedCard`）+ 升级卡（`Plant::IsUpgrade`）——卡包底色走红卡着色渲染。
 5. **仅旅行模式**：登记进 `gTravelPlantDefs`（→ `IsTravelOnlySeed` → 选卡器页 1），
    `LawnApp::HasSeedType` 仅 `IsTravelLevel(mGameMode)` 返回真。
-6. **子弹**：100% 发射 `PROJECTILE_FIREPEA_RED`（电能蓝闪电豌豆：接触每 tick 30 点伤害、
+6. **子弹**：100% 发射 `PROJECTILE_FIREPEA_RED`（电能蓝闪电豌豆：接触每 0.15 秒 30 点伤害、
    无限穿透、出屏才消失）。
+   > **数值调整（2026-09-14 后续需求）**：电能伤害不再是"每游戏刻（10 ms）一次"，而是
+   > **每 0.15 秒一次**（`ELECTRIC_DAMAGE_INTERVAL_TICKS = 15` 刻），实现在
+   > `Projectile::CheckForCollision` 里按 `mProjectileAge % ELECTRIC_DAMAGE_INTERVAL_TICKS` 结算。
+   > 同一节奏也适用于究极电能杨桃的电能星星。下文"每 tick 30 点"的表述均以此调整为准。
 7. **开大（散射大招）**：完全照抄机枪射手的 `mGatlingScatterCountdown` / `mGatlingScatterChance` 机制。
 8. **贴图**：复用 `REANIM_GATLINGPEA`；**头部实例**（头/脸/嘴/眉毛/眨眼/枪管）整体染成电能蓝，
    `GatlingPea_helmet` 轨道豁免；**body 实例**（叶/茎 = "底下"）原样不动。

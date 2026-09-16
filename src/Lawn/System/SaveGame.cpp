@@ -956,6 +956,9 @@ static void SyncProjectileTailPortable(PortableSaveContext& theContext, Projecti
 	//（追加在末尾，旧存档读不到时按 0/false = 未钉住处理）
 	theContext.SyncInt32(theProjectile.mLingerCountdown);
 	theContext.SyncBool(theProjectile.mElectricStarStuck);
+	// 电能伤害节奏（电能豌豆 / 电能星星共用）：距下一次结算电能伤害的剩余刻数
+	//（同样追加在末尾，旧存档读不到时按 0 = 本帧即可结算处理）
+	theContext.SyncInt32(theProjectile.mElectricDamageCountdown);
 }
 
 static void SyncCoinTailPortable(PortableSaveContext& theContext, Coin& theCoin)

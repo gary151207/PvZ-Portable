@@ -107,6 +107,7 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 	mLastHitZombieID = ZombieID::ZOMBIEID_NULL;
 	mLingerCountdown = 0;
 	mElectricStarStuck = false;
+	mElectricDamageCountdown = 0;
 	if (mProjectileType == ProjectileType::PROJECTILE_SPIKE)
 	{
 		mPenetrations = 2;
@@ -274,7 +275,9 @@ Zombie* Projectile::FindCollisionTarget()
 				continue;
 			}
 
-			if (mProjectileType == ProjectileType::PROJECTILE_STAR && mProjectileAge < 25 && mVelX >= 0.0f && aZombie->mZombieType == ZombieType::ZOMBIE_DIGGER)
+			// 矿工僵尸的豁免只针对"还在土里"的那一段：出土站起来之后，星星与其它僵尸一视同仁。
+			if (mProjectileType == ProjectileType::PROJECTILE_STAR && mProjectileAge < 25 && mVelX >= 0.0f &&
+				aZombie->mZombieType == ZombieType::ZOMBIE_DIGGER && aZombie->IsUnderground())
 			{
 				continue;
 			}
@@ -345,7 +348,7 @@ void Projectile::StartElectricStarLinger(Zombie* theZombie)
 	mShadowY = mPosY + 67.0f;
 }
 
-// 钉住期间：每游戏刻跟随目标僵尸 + 结算一次电能伤害；目标死亡则自动改追下一个。
+// 钉住期间：每帧跟随目标僵尸 + 每 0.15 秒结算一次电能伤害；目标死亡则自动改追下一个。
 void Projectile::UpdateElectricStarLinger()
 {
 	Zombie* aZombie = mBoard->ZombieTryToGet(mTargetZombieID);
@@ -359,7 +362,13 @@ void Projectile::UpdateElectricStarLinger()
 		mX = static_cast<int>(mPosX);
 		mY = static_cast<int>(mPosY);
 
-		aZombie->TakeDamage(ELECTRIC_STAR_HIT_DAMAGE, GetDamageFlags(aZombie));
+		// 伤害节奏与电能豌豆同一口径：计数归零才打一次（刚钉住时计数为 0 → 立刻打第一次），
+		// 随后重置为 ELECTRIC_DAMAGE_INTERVAL_TICKS，中间那些帧只跟随不掉血。
+		if (mElectricDamageCountdown <= 0)
+		{
+			mElectricDamageCountdown = ELECTRIC_DAMAGE_INTERVAL_TICKS;
+			aZombie->TakeDamage(ELECTRIC_STAR_HIT_DAMAGE, GetDamageFlags(aZombie));
+		}
 	}
 	else if (RetargetElectricStar())
 	{
@@ -558,7 +567,15 @@ void Projectile::CheckForCollision()
 
 	if (mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 	{
-		// 电能伤害：每 tick（10ms）对矩形重叠的每个僵尸造成 30 点伤害；无限穿透，永不因击中僵尸而消亡（出屏判定在上方，正常 Die）
+		// 电能伤害：每 0.15 秒（ELECTRIC_DAMAGE_INTERVAL_TICKS = 15 刻）对矩形重叠的每个僵尸
+		// 造成 30 点伤害；未到结算刻的那几帧只是"接触但不掉血"。
+		// 节奏直接跟 mProjectileAge 对齐（此弹丸永远不会在出生的同一刻打中僵尸），
+		// 因此从出膛起就是稳定的 15 刻一次。无限穿透，永不因击中僵尸而消亡（出屏判定在上方，正常 Die）
+		if (mProjectileAge % ELECTRIC_DAMAGE_INTERVAL_TICKS != 0)
+		{
+			return;
+		}
+
 		Rect aProjectileRect = GetProjectileRect();
 		Zombie* aZombie = nullptr;
 		while (mBoard->IterateZombies(aZombie))
@@ -962,13 +979,14 @@ void Projectile::UpdateNormalMotion()
 			}
 			if (aNeedNewTarget)
 			{
-				bool aCanTargetDigger = (mVelX < 0.0f);
+				// 旧规则"只有向左飞的星星能锁矿工"只该作用在矿工真正钻地的期间：
+				// 出土后他就是一个普通地面僵尸，5 颗星星都应当正常索敌。
 				Zombie* aBestZombie = nullptr;
 				int aMinX = INT32_MAX;
 				Zombie* aZombie = nullptr;
 				while (mBoard->IterateZombies(aZombie))
 				{
-					if (!aCanTargetDigger && aZombie->mZombieType == ZombieType::ZOMBIE_DIGGER)
+					if (aZombie->mZombieType == ZombieType::ZOMBIE_DIGGER && aZombie->IsUnderground())
 						continue;
 					if (!aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
 						continue;
@@ -1313,7 +1331,14 @@ void Projectile::Update()
 	}
 	mRotation += mRotationSpeed;
 
-	// 究极电能杨桃的电能星星：钉住时只跟随 + 每游戏刻结算伤害，不再走飞行/碰撞
+	// 电能星星的伤害节奏：每帧在这里自减一次（电能豌豆不用计数器，直接跟 mProjectileAge 对齐），
+	// 实际结算在 UpdateElectricStarLinger 里按归零判定。
+	if (mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR && mElectricDamageCountdown > 0)
+	{
+		mElectricDamageCountdown--;
+	}
+
+	// 究极电能杨桃的电能星星：钉住时只跟随 + 按节奏结算伤害，不再走飞行/碰撞
 	if (mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR)
 	{
 		if (IsElectricStarStuck())

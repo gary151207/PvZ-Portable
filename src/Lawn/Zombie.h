@@ -341,6 +341,7 @@ public:
     void                            SetAnimRate(float theAnimRate);
     void                            ApplyAnimRate(float theAnimRate);
     /*inline*/ bool                 IsDeadOrDying();
+    bool                            IsUnderground();
     void                            DrawDancerReanim(Graphics* g);
     void                            DrawBungeeReanim(Graphics* g);
     void                            DrawBungeeTarget(Graphics* g);

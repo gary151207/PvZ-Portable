@@ -2566,6 +2566,9 @@ static void FixBoardAfterLoad(Board* theBoard)
 	}
 
 	theBoard->mAdvice->mApp = theBoard->mApp;
+	// 字幕的字节偏移表是运行时数据、不入存档：读档后按恢复出来的字幕文本重建，
+	// 否则存档时正显示的文字动画（如"一大波僵尸即将来袭"）会按空偏移绘制。
+	theBoard->mAdvice->RebuildReanimLayout();
 	theBoard->mCursorObject->mApp = theBoard->mApp;
 	theBoard->mCursorObject->mBoard = theBoard;
 	theBoard->mCursorPreview->mApp = theBoard->mApp;

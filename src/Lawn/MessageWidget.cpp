@@ -39,7 +39,15 @@ MessageWidget::MessageWidget(LawnApp* theApp)
 	mLabelNext[0] = '\0';
 	mMessageStyleNext = MessageStyle::MESSAGE_STYLE_OFF;
 	mSlideOffTime = 100;
-	memset(mTextReanimID, static_cast<int>(ReanimationID::REANIMATIONID_NULL), MAX_MESSAGE_LENGTH);
+	mReanimType = ReanimationType::REANIM_NONE;
+	mTextReanimCount = 0;
+	// 注意：mTextReanimID 是 int 数组，不能用 memset 只填前 MAX_MESSAGE_LENGTH 个字节，
+	// 否则后面大半的槽位是未初始化内存（ClearReanim 会拿着野 ID 去销毁别的动画）。
+	for (int i = 0; i < MAX_MESSAGE_LENGTH; i++)
+	{
+		mTextReanimID[i] = ReanimationID::REANIMATIONID_NULL;
+		mTextReanimByteOffset[i] = 0;
+	}
 }
 
 void MessageWidget::ClearReanim()
@@ -67,11 +75,39 @@ void MessageWidget::ClearLabel()
 	}
 }
 
+// 字幕受两个上限约束：缓冲区长度（MAX_MESSAGE_LENGTH）与行数（MAX_REANIM_LINES）。
+// 统一在这里按 UTF-8 码点截断，后续代码即可假定两条约束都已成立（中文等多字节字幕同样安全）。
+static void TruncateLabel(std::string& theLabel)
+{
+	size_t aBytePos = 0;
+	int aLineCount = 1;
+	while (aBytePos < theLabel.size())
+	{
+		size_t aNext = aBytePos;
+		char32_t aChar = 0;
+		if (!Sexy::UTF8DecodeNext(theLabel, aNext, aChar))
+		{
+			theLabel.resize(aBytePos);  // 丢弃无效字节及其之后的内容
+			return;
+		}
+		if (aNext > MAX_MESSAGE_LENGTH - 1 || (aChar == U'\n' && aLineCount == MAX_REANIM_LINES))
+		{
+			theLabel.resize(aBytePos);
+			return;
+		}
+		if (aChar == U'\n')
+		{
+			aLineCount++;
+		}
+		aBytePos = aNext;
+	}
+}
+
 // GOTY @Patoke: inlined 0x459715
 void MessageWidget::SetLabel(const std::string& theNewLabel, MessageStyle theMessageStyle)
 {
 	std::string aLabel = TodStringTranslate(theNewLabel);
-	TOD_ASSERT(aLabel.length() < MAX_MESSAGE_LENGTH - 1);
+	TruncateLabel(aLabel);
 
 	if (mReanimType != ReanimationType::REANIM_NONE && mDuration > 0)
 	{
@@ -173,24 +209,70 @@ void MessageWidget::LayoutReanimText()
 	aCurLine = 0;
 	float aCurPosY = 0.0f;
 	float aCurPosX = -aLineWidth[0] * 0.5f;
-	// 以下遍历字幕中的所有文本，分别在适当的位置创建每一个文字的动画
-	for (int aPos = 0; aPos < aLabelLen; aPos++)
+	// 按 UTF-8 码点遍历字幕：每个"文字"（中文字符占多个字节）对应一个文字动画，
+	// 并记下该字符在 mLabel 中的字节偏移，绘制时按整字符取子串。
+	std::string aLabel(mLabel);
+	int aCharIdx = 0;
+	size_t aBytePos = 0;
+	while (aBytePos < aLabel.size() && aCharIdx < MAX_MESSAGE_LENGTH)
 	{
+		size_t aCharStart = aBytePos;
+		char32_t aChar = 0;
+		if (!Sexy::UTF8DecodeNext(aLabel, aBytePos, aChar))
+		{
+			break;
+		}
+
 		// 创建文字的动画
 		Reanimation* aReanimText = mApp->AddReanimation(aCurPosX, aCurPosY, 0, mReanimType);
 		aReanimText->mIsAttachment = true;
 		aReanimText->PlayReanim("anim_enter", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0.0f, 0.0f);
-		mTextReanimID[aPos] = mApp->ReanimationGetID(aReanimText);
+		mTextReanimID[aCharIdx] = mApp->ReanimationGetID(aReanimText);
+		mTextReanimByteOffset[aCharIdx] = static_cast<int32_t>(aCharStart);
 
-		aCurPosX += aFont->CharWidth(mLabel[aPos]);  // 坐标调整至下一个文字的位置
-		if (mLabel[aPos] == '\n')  // 换行处理
+		aCurPosX += aFont->CharWidth(aChar);  // 坐标调整至下一个文字的位置
+		if (aChar == U'\n')  // 换行处理
 		{
 			aCurLine++;
 			TOD_ASSERT(aCurLine < MAX_REANIM_LINES);
 			aCurPosX = -aLineWidth[aCurLine] * 0.5f;
 			aCurPosY += aFont->GetLineSpacing();
 		}
+		aCharIdx++;
 	}
+	mTextReanimCount = aCharIdx;
+}
+
+// 读档后重建文字动画的字节偏移表。
+// 文字动画本身（位置 / 动画时间 / ID）都随存档恢复，但字节偏移是运行时数据、不入存档，
+// 因此这里只按 mLabel 重新推算偏移与字符数，不重建动画。
+void MessageWidget::RebuildReanimLayout()
+{
+	mTextReanimCount = 0;
+	for (int i = 0; i < MAX_MESSAGE_LENGTH; i++)
+	{
+		mTextReanimByteOffset[i] = 0;
+	}
+
+	if (mReanimType == ReanimationType::REANIM_NONE)
+	{
+		return;
+	}
+
+	std::string aLabel(mLabel);
+	int aCharIdx = 0;
+	size_t aBytePos = 0;
+	while (aBytePos < aLabel.size() && aCharIdx < MAX_MESSAGE_LENGTH)
+	{
+		mTextReanimByteOffset[aCharIdx] = static_cast<int32_t>(aBytePos);
+		char32_t aChar = 0;
+		if (!Sexy::UTF8DecodeNext(aLabel, aBytePos, aChar))
+		{
+			break;
+		}
+		aCharIdx++;
+	}
+	mTextReanimCount = aCharIdx;
 }
 
 void MessageWidget::Update()
@@ -213,11 +295,10 @@ void MessageWidget::Update()
 		}
 	}
 
-	int aLabelLen = strlen(mLabel);
-	// 以下遍历每个文字的动画，设置其动画速率并更新其动画
-	for (int aPos = 0; aPos < aLabelLen; aPos++)
+	// 以下按字符索引遍历每个文字的动画，设置其动画速率并更新其动画
+	for (int aCharIdx = 0; aCharIdx < mTextReanimCount; aCharIdx++)
 	{
-		Reanimation* aTextReanim = mApp->ReanimationTryToGet(mTextReanimID[aPos]);
+		Reanimation* aTextReanim = mApp->ReanimationTryToGet(mTextReanimID[aCharIdx]);
 		if (aTextReanim == nullptr)
 		{
 			break;  // 当不存在文本动画时，跳出循环，直接返回
@@ -233,7 +314,7 @@ void MessageWidget::Update()
 			}
 			else
 			{
-				aTextReanim->mAnimRate = TodAnimateCurveFloat(0, 50, (mDisplayTime - mDuration) * aTextSpeed - aPos, 0.0f, 40.0f, TodCurves::CURVE_LINEAR);
+				aTextReanim->mAnimRate = TodAnimateCurveFloat(0, 50, (mDisplayTime - mDuration) * aTextSpeed - aCharIdx, 0.0f, 40.0f, TodCurves::CURVE_LINEAR);
 			}
 		}
 		else
@@ -242,7 +323,7 @@ void MessageWidget::Update()
 			{
 				aTextReanim->PlayReanim("anim_leave", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 0.0f);
 			}
-			aTextReanim->mAnimRate = TodAnimateCurveFloat(0, 50, (mSlideOffTime - mDuration) * aTextSpeed - aPos, 0.0f, 40.0f, TodCurves::CURVE_LINEAR);
+			aTextReanim->mAnimRate = TodAnimateCurveFloat(0, 50, (mSlideOffTime - mDuration) * aTextSpeed - aCharIdx, 0.0f, 40.0f, TodCurves::CURVE_LINEAR);
 		}
 
 		aTextReanim->Update();  //更新动画
@@ -252,9 +333,9 @@ void MessageWidget::Update()
 void MessageWidget::DrawReanimatedText(Graphics* g, _Font* theFont, const Color& theColor, float thePosY)
 {
 	int aLabelLen = strlen(mLabel);
-	for (int aPos = 0; aPos < aLabelLen; aPos++)
+	for (int aCharIdx = 0; aCharIdx < mTextReanimCount; aCharIdx++)
 	{
-		Reanimation* aTextReanim = mApp->ReanimationTryToGet(mTextReanimID[aPos]);
+		Reanimation* aTextReanim = mApp->ReanimationTryToGet(mTextReanimID[aCharIdx]);
 		if (aTextReanim == nullptr)
 		{
 			break;  // 当不存在文本动画时，跳出循环，直接返回
@@ -281,8 +362,10 @@ void MessageWidget::DrawReanimatedText(Graphics* g, _Font* theFont, const Color&
 
 		SexyMatrix3 aMatrix;
 		Reanimation::MatrixFromTransform(aTransform, aMatrix);
-		std::string aLetter;
-		aLetter.append(1, mLabel[aPos]);
+		// 取出该字符的完整 UTF-8 字节序列（中文等多字节字符必须整字绘制）
+		int aByteStart = mTextReanimByteOffset[aCharIdx];
+		int aByteEnd = aCharIdx + 1 < mTextReanimCount ? mTextReanimByteOffset[aCharIdx + 1] : aLabelLen;
+		std::string aLetter(&mLabel[aByteStart], aByteEnd - aByteStart);
 		TodDrawStringMatrix(g, theFont, aMatrix, aLetter, aFinalColor);
 	}
 }

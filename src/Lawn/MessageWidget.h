@@ -46,6 +46,8 @@ public:
 	int32_t				mDuration;
 	MessageStyle		mMessageStyle;
 	ReanimationID		mTextReanimID[MAX_MESSAGE_LENGTH];
+	int32_t				mTextReanimByteOffset[MAX_MESSAGE_LENGTH];	// 每个文字动画对应字符在 mLabel 中的字节偏移
+	int32_t				mTextReanimCount;							// 当前字幕的文字动画数量（= 字符数，按 UTF-8 码点计）
 	ReanimationType		mReanimType;
 	int32_t				mSlideOffTime;
 	char				mLabelNext[MAX_MESSAGE_LENGTH];
@@ -59,6 +61,7 @@ public:
 	void				Update();
 	void				Draw(Sexy::Graphics* g);
 	void				ClearReanim();
+	void				RebuildReanimLayout();
 	/*inline*/ void		ClearLabel();
 	inline bool			IsBeingDisplayed() { return mDuration != 0; }
 	/*inline*/ _Font*	GetFont();

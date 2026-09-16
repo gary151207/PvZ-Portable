@@ -1,1 +1,3 @@
-build/pvz-portable.exe -resdir="/d/workspace/Plants vs. Zombies (AIO v1.0)/Plants vs. Zombies GOTY EN/1.2.0.1073 EN Origin"
+#!/bin/sh
+
+dist/pvz-portable.exe

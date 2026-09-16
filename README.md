@@ -203,6 +203,18 @@ You can install the required dependencies using the following command:
 pacman -S --needed base-devel mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-libjpeg-turbo mingw-w64-ucrt-x86_64-libopenmpt mingw-w64-ucrt-x86_64-libogg mingw-w64-ucrt-x86_64-libpng mingw-w64-ucrt-x86_64-libvorbis mingw-w64-ucrt-x86_64-mpg123 mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-SDL2
 ```
 
+Once the dependencies are installed you can build from a regular `cmd.exe` prompt
+(no MSYS2 shell needed) with the helper script:
+
+```bat
+build.bat            :: Release, static, staged into dist\
+build.bat debug      :: Debug build with a console window
+build.bat clean      :: reconfigure from scratch
+```
+
+Set `MSYS2_ROOT` first if MSYS2 is not installed in `C:\msys64`. The script checks
+for the tools above and prints the exact `pacman` command when something is missing.
+
 ### macOS (Homebrew)
 
 You can install the required dependencies using [Homebrew](https://brew.sh/) with the following command:

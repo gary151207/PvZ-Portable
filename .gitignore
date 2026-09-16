@@ -415,9 +415,6 @@ tools/read-compiled/target
 *.sublime-workspace
 
 build-*/
-
-run-pvz*
-
 dist/
 
 # Recoloured Plants vs. Zombies sprite derivatives — kept on disk but out of the

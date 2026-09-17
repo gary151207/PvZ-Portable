@@ -4859,9 +4859,9 @@ void Zombie::CheckForBoardEdge()
 
     if (mX <= aEdgeX && mHasHead)
     {
-        if (mApp->IsIZombieLevel() || mBoard->IsIceSandboxLevel())
+        if (mApp->IsIZombieLevel() || mBoard->IsIceSandboxLevel() || mApp->IsCricketFight2Level())
         {
-            // 我是僵尸 / 冰冻沙盒：僵尸走到最左边后安静退场，不判负
+            // 我是僵尸 / 冰冻沙盒 / 斗蛐蛐 2：僵尸走到最左边后安静退场，不判负
             DieNoLoot();
         }
         else
@@ -7601,6 +7601,12 @@ bool Zombie::TrySpawnLevelAward()
 {
     if (!IsOnBoard() || mBoard->HasLevelAwardDropped() || mBoard->mLevelComplete || mDroppedLoot)
     {
+        return false;
+    }
+
+    if (mApp->IsCricketFight2Level())
+    {
+        // 斗蛐蛐 2：纯录制沙盒——没有胜利结算，僵尸全灭也不落奖杯币、不结束关卡
         return false;
     }
 

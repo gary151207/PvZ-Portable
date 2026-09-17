@@ -148,7 +148,7 @@ SeedChooserScreen::SeedChooserScreen()
 	mImitaterButton->Resize(464, 515, Sexy::IMAGE_IMITATERSEED->mWidth, Sexy::IMAGE_IMITATERSEED->mHeight);
 	mImitaterButton->mParentWidget = this;
 
-	// 翻页按钮（旅行关卡专属：切到旅行植物页）。普通模式 mVisible=false 不存在
+	// 翻页按钮（旅行关卡 + 斗蛐蛐 2 录制沙盒专属：切到旅行植物页）。其余模式 mVisible=false 不存在
 	mChooserPageButton = new GameButton(SeedChooserScreen::SeedChooserScreen_Page2);
 	mChooserPageButton->SetLabel("»");
 	mChooserPageButton->mButtonImage = Sexy::IMAGE_SEEDCHOOSER_BUTTON2;
@@ -160,7 +160,7 @@ SeedChooserScreen::SeedChooserScreen()
 	mChooserPageButton->Resize(600, 88, 46, 30);
 	mChooserPageButton->mParentWidget = this;
 	mChooserPageButton->mTextOffsetY = 1;
-	if (!IsTravelLevel(mApp->mGameMode))
+	if (!mApp->HasTravelChooserPage())
 	{
 		mChooserPageButton->mBtnNoDraw = true;
 		mChooserPageButton->mDisabled = true;
@@ -1150,7 +1150,7 @@ bool SeedChooserScreen::PickedPlantType(SeedType theSeedType)
 bool SeedChooserScreen::SeedShownOnChooserPage(SeedType theSeedType)
 {
 	if (mChooserPage == 1)
-		return IsTravelOnlySeed(theSeedType) && IsTravelLevel(mApp->mGameMode);
+		return IsTravelOnlySeed(theSeedType) && mApp->HasTravelChooserPage();
 	return !IsTravelOnlySeed(theSeedType);
 }
 

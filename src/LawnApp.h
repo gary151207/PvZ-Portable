@@ -282,6 +282,8 @@ public:
 	/*inline*/ bool					IsSlotMachineLevel();
 	/*inline*/ bool					IsLittleTroubleLevel();
 	/*inline*/ bool					IsCricketFightLevel();
+	/*inline*/ bool					IsCricketFight2Level();
+	/*inline*/ bool					HasTravelChooserPage();
 	void							LoadCricketStats();
 	void							SaveCricketStats();
 	/*inline*/ bool					IsStormyNightLevel();

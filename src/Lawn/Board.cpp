@@ -155,6 +155,12 @@ Board::Board(LawnApp* theApp)
 	mCricketStatsPanel = 0;
 	mCricketStatsScroll = 0;
 	mCricketMatchRecorded = false;
+	// 斗蛐蛐 2：录制沙盒——默认只勾选普通僵尸、倍率 1
+	mCricket2Prep = true;
+	mCricket2ZombieMultiplier = 1;
+	mCricket2PanelOpen = false;
+	memset(mCricket2ZombieEnabled, 0, sizeof(mCricket2ZombieEnabled));
+	mCricket2ZombieEnabled[ZombieType::ZOMBIE_NORMAL] = true;
 	mProgressMeterWidth = 0;
 	mPoolSparklyParticleID = ParticleSystemID::PARTICLESYSTEMID_NULL;
 	mFogBlownCountDown = 0;
@@ -725,6 +731,8 @@ void Board::PickZombieWaves()
 			mNumWaves = 12;
 		else if (mApp->IsCricketFightLevel())
 			mNumWaves = 1;
+		else if (mApp->IsCricketFight2Level())
+			mNumWaves = 1;   // 斗蛐蛐 2：不使用波次系统（出怪完全由「开始战斗」接管）
 		else if (IsTravelLevel(aGameMode))
 			mNumWaves = GetTravelLevelDef(aGameMode).mTotalWaves;   // 旅行体验关：6 波（2 旗帜）
 		else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_WALLNUT_BOWLING || aGameMode == GameMode::GAMEMODE_CHALLENGE_AIR_RAID ||
@@ -990,6 +998,12 @@ void Board::PickZombieWaves()
 		}
 		mZombiesInWave[0][6] = ZombieType::ZOMBIE_INVALID;
 	}
+
+	// 斗蛐蛐 2：出怪不由波次系统决定（「开始战斗」时直接 AddZombie），清空波内列表
+	if (mApp->IsCricketFight2Level())
+	{
+		mZombiesInWave[0][0] = ZombieType::ZOMBIE_INVALID;
+	}
 }
 
 int Board::GetLevelRandSeed()
@@ -1157,6 +1171,7 @@ void Board::PickBackground()
 	case GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_9:
 	case GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS:
 	case GameMode::GAMEMODE_CHALLENGE_CRICKET:
+	case GameMode::GAMEMODE_CHALLENGE_CRICKET_2:   // 斗蛐蛐 2：夜间草坪（蘑菇全部清醒，5 行）
 		mBackground = BackgroundType::BACKGROUND_2_NIGHT;
 		break;
 
@@ -2068,6 +2083,392 @@ bool Board::IceSandboxHandleMouseDown(int x, int y, int theClickCount)
 	return false;
 }
 
+// =============================================================================================
+// ▲ 斗蛐蛐 2（CHALLENGE_CRICKET_2）录制沙盒：出怪设置面板 + 开始/结束战斗
+// 自选僵尸种类与出怪倍率（每种已选僵尸各出 N 只），点「开始战斗」一次性全部刷出；
+// 纯沙盒：无小推车、不判负、不通关，僵尸走到最左安静退场。
+// =============================================================================================
+
+namespace
+{
+	// 出怪设置面板布局（棋盘本地坐标，800x600）
+	constexpr int CG2_PANEL_LEFT = 60;
+	constexpr int CG2_PANEL_TOP = 20;
+	constexpr int CG2_PANEL_W = 680;
+	constexpr int CG2_PANEL_H = 560;
+	constexpr int CG2_GRID_COLS = 7;    // 7 列网格：20 种僵尸占 3 行
+	constexpr int CG2_CELL_W = 92;
+	constexpr int CG2_CELL_H = 72;
+	constexpr int CG2_GRID_LEFT = CG2_PANEL_LEFT + 24;
+	constexpr int CG2_GRID_TOP = CG2_PANEL_TOP + 92;
+	constexpr int CG2_MULT_Y = CG2_PANEL_TOP + 324;     // 344：倍率行
+	constexpr int CG2_SUMMARY_Y = CG2_PANEL_TOP + 372;  // 392：汇总行
+	constexpr int CG2_ACTION_Y = CG2_PANEL_TOP + 404;   // 424：全选/全不选/关闭
+	constexpr int CG2_MULT_MIN = 1;
+	constexpr int CG2_MULT_MAX = 50;
+
+	// 倍率行的 4 颗 -/+ 按钮与中间的数值框
+	const Rect CG2_MULT_MINUS10(CG2_GRID_LEFT + 106, CG2_MULT_Y, 52, 34);
+	const Rect CG2_MULT_MINUS1(CG2_GRID_LEFT + 164, CG2_MULT_Y, 52, 34);
+	const Rect CG2_MULT_PLUS1(CG2_GRID_LEFT + 296, CG2_MULT_Y, 52, 34);
+	const Rect CG2_MULT_PLUS10(CG2_GRID_LEFT + 354, CG2_MULT_Y, 52, 34);
+	const int CG2_MULT_VALUE_CENTER_X = CG2_GRID_LEFT + 256;
+
+	const Rect CG2_ACTION_ALL(CG2_PANEL_LEFT + 165, CG2_ACTION_Y, 110, 34);
+	const Rect CG2_ACTION_NONE(CG2_PANEL_LEFT + 285, CG2_ACTION_Y, 110, 34);
+	const Rect CG2_ACTION_CLOSE(CG2_PANEL_LEFT + 405, CG2_ACTION_Y, 110, 34);
+
+	// 把「第 n 张僵尸卡」换算成面板内格子位置
+	void Cricket2CardPos(int theIndex, int& x, int& y)
+	{
+		x = CG2_GRID_LEFT + (theIndex % CG2_GRID_COLS) * CG2_CELL_W;
+		y = CG2_GRID_TOP + (theIndex / CG2_GRID_COLS) * CG2_CELL_H;
+	}
+
+	bool Cricket2CardHit(int x, int y, int& theIndex)
+	{
+		if (x < CG2_GRID_LEFT || y < CG2_GRID_TOP)
+			return false;
+		int aCol = (x - CG2_GRID_LEFT) / CG2_CELL_W;
+		int aRow = (y - CG2_GRID_TOP) / CG2_CELL_H;
+		if (aCol < 0 || aCol >= CG2_GRID_COLS || aRow < 0)
+			return false;
+		theIndex = aRow * CG2_GRID_COLS + aCol;
+		return true;
+	}
+}
+
+bool Board::IsCricket2Level()
+{
+	// 斗蛐蛐 2：5 行草坪录制沙盒（自选僵尸出怪 + 倍率 + 无限阳光）
+	return mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_CRICKET_2;
+}
+
+Rect Board::GetCricket2PanelButtonRect()
+{
+	// 本模式卡槽是满的 10 格，顶部工具条已被卡槽背板 + 铲子占满，故入口放左下角
+	return Rect(24, 546, 170, 44);
+}
+
+Rect Board::GetCricket2StartButtonRect()
+{
+	// 与坚不可摧「开始战斗」同位（底部中央），画法也用同一套 DrawStoneButton
+	return Rect(300, 546, 210, 46);
+}
+
+int Board::Cricket2SelectedTypeCount()
+{
+	int aCount = 0;
+	for (int i = 0; i < ICE_ZOMBIE_COUNT; i++)
+	{
+		if (mCricket2ZombieEnabled[gIceSandboxZombieTypes[i]])
+		{
+			aCount++;
+		}
+	}
+	return aCount;
+}
+
+int Board::Cricket2ZombieTotal()
+{
+	int aTotal = Cricket2SelectedTypeCount() * mCricket2ZombieMultiplier;
+	return std::min(aTotal, MAX_ZOMBIES_IN_WAVE);
+}
+
+void Board::CricketFight2OpenPanel()
+{
+	ClearCursor();   // 打开面板时先放下手里已有的铲子/卡牌，避免误操作
+	mCricket2PanelOpen = true;
+}
+
+void Board::CricketFight2StartBattle()
+{
+	if (!mCricket2Prep)
+		return;
+
+	if (Cricket2SelectedTypeCount() == 0)
+	{
+		DisplayAdvice("请先在左下的出怪设置里选择要出的僵尸", MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_NONE);
+		return;
+	}
+
+	// 收集已选种类，按轮转顺序填充，保证每种至少出场一次
+	ZombieType aSelected[ICE_ZOMBIE_COUNT];
+	int aSelectedCount = 0;
+	for (int i = 0; i < ICE_ZOMBIE_COUNT; i++)
+	{
+		if (mCricket2ZombieEnabled[gIceSandboxZombieTypes[i]])
+		{
+			aSelected[aSelectedCount++] = gIceSandboxZombieTypes[i];
+		}
+	}
+
+	// ZOMBIE_WAVE_DEBUG：不记波次，同时关掉「路障 20%→豌豆头」这类随机转化，
+	// 保证录出来的就是玩家勾选的那种僵尸。
+	const int aTotal = Cricket2ZombieTotal();
+	for (int i = 0; i < aTotal; i++)
+	{
+		AddZombie(aSelected[i % aSelectedCount], Zombie::ZOMBIE_WAVE_DEBUG);
+	}
+
+	mCricket2Prep = false;
+	mApp->PlaySample(Sexy::SOUND_HUGE_WAVE);
+}
+
+void Board::CricketFight2EndBattle()
+{
+	if (mCricket2Prep)
+		return;
+
+	// 清场：僵尸 / 子弹 / 金币 / 粒子（植物与卡槽冷却全部保留，方便接着录下一场）
+	RemoveAllZombies();
+
+	Projectile* aProjectile = nullptr;
+	while (IterateProjectiles(aProjectile))
+	{
+		aProjectile->Die();
+	}
+	Coin* aCoin = nullptr;
+	while (IterateCoins(aCoin))
+	{
+		aCoin->Die();
+	}
+	TodParticleSystem* aParticle = nullptr;
+	while (IterateParticles(aParticle))
+	{
+		aParticle->ParticleSystemDie();
+	}
+	for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+	{
+		mIceTimer[aRow] = 0;
+		mIceMinX[aRow] = BOARD_ICE_START;
+	}
+
+	mCricket2Prep = true;
+	mApp->PlaySample(Sexy::SOUND_GRAVEBUTTON);
+}
+
+void Board::CricketFight2DrawPanel(Graphics* g)
+{
+	// 全屏半透明背景
+	g->SetColor(Color(0, 0, 0, 170));
+	g->FillRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
+
+	// 面板底色
+	g->SetColor(Color(30, 36, 54, 240));
+	g->FillRect(CG2_PANEL_LEFT, CG2_PANEL_TOP, CG2_PANEL_W, CG2_PANEL_H);
+	g->SetColor(Color(150, 200, 255, 255));
+	g->DrawRect(CG2_PANEL_LEFT, CG2_PANEL_TOP, CG2_PANEL_W, CG2_PANEL_H);
+
+	// 面板标题：pak 的位图字体没有「蛐」字形，故不写关卡名（写出来会缺字）
+	TodDrawString(g, "出怪设置", 400, CG2_PANEL_TOP + 26, Sexy::FONT_DWARVENTODCRAFT18YELLOW, Color::White, DrawStringJustification::DS_ALIGN_CENTER);
+
+	// 僵尸卡网格：开 = 亮绿底 + 实心方块，关 = 暗灰底 + 空心方块
+	for (int i = 0; i < ICE_ZOMBIE_COUNT; i++)
+	{
+		int x, y;
+		Cricket2CardPos(i, x, y);
+		ZombieType aZombie = gIceSandboxZombieTypes[i];
+		bool aOn = mCricket2ZombieEnabled[aZombie];
+
+		g->SetColor(aOn ? Color(46, 92, 60, 240) : Color(52, 52, 58, 225));
+		g->FillRect(x + 4, y + 2, CG2_CELL_W - 8, CG2_CELL_H - 6);
+		g->SetColor(aOn ? Color(150, 255, 160, 255) : Color(110, 110, 116, 255));
+		g->DrawRect(x + 4, y + 2, CG2_CELL_W - 8, CG2_CELL_H - 6);
+
+		// 开关指示方块（不依赖字体字形，中英文字体都能显示）
+		if (aOn)
+		{
+			g->SetColor(Color(150, 255, 160, 255));
+			g->FillRect(x + 12, y + 12, 12, 12);
+		}
+		else
+		{
+			g->SetColor(Color(110, 110, 116, 255));
+			g->DrawRect(x + 12, y + 12, 12, 12);
+		}
+
+		TodDrawString(g, IceSandboxZombieCardName(aZombie), x + CG2_CELL_W / 2, y + 58, Sexy::FONT_BRIANNETOD12,
+			aOn ? Color::White : Color(170, 170, 175), DrawStringJustification::DS_ALIGN_CENTER);
+	}
+
+	// 倍率行：每种已选僵尸各出 N 只
+	TodDrawString(g, "出怪倍率", CG2_GRID_LEFT, CG2_MULT_Y + 22, Sexy::FONT_DWARVENTODCRAFT18YELLOW, Color::White, DrawStringJustification::DS_ALIGN_LEFT);
+	DrawStoneButton(g, CG2_MULT_MINUS10.mX, CG2_MULT_MINUS10.mY, CG2_MULT_MINUS10.mWidth, CG2_MULT_MINUS10.mHeight, false, false, "-10");
+	DrawStoneButton(g, CG2_MULT_MINUS1.mX, CG2_MULT_MINUS1.mY, CG2_MULT_MINUS1.mWidth, CG2_MULT_MINUS1.mHeight, false, false, "-1");
+	DrawStoneButton(g, CG2_MULT_PLUS1.mX, CG2_MULT_PLUS1.mY, CG2_MULT_PLUS1.mWidth, CG2_MULT_PLUS1.mHeight, false, false, "+1");
+	DrawStoneButton(g, CG2_MULT_PLUS10.mX, CG2_MULT_PLUS10.mY, CG2_MULT_PLUS10.mWidth, CG2_MULT_PLUS10.mHeight, false, false, "+10");
+	TodDrawString(g, StrFormat("x%d", mCricket2ZombieMultiplier), CG2_MULT_VALUE_CENTER_X, CG2_MULT_Y + 22,
+		Sexy::FONT_DWARVENTODCRAFT18YELLOW, Color(255, 240, 140), DrawStringJustification::DS_ALIGN_CENTER);
+
+	// 汇总行
+	int aTypes = Cricket2SelectedTypeCount();
+	int aTotal = Cricket2ZombieTotal();
+	bool aCapped = aTypes * mCricket2ZombieMultiplier > MAX_ZOMBIES_IN_WAVE;
+	TodDrawString(g,
+		StrFormat("已选 %d 种 x %d 只 = %d 只%s", aTypes, mCricket2ZombieMultiplier, aTotal, aCapped ? "（已达上限 300）" : ""),
+		400, CG2_SUMMARY_Y + 20, Sexy::FONT_DWARVENTODCRAFT18YELLOW, aTypes == 0 ? Color(255, 150, 150) : Color(200, 240, 255),
+		DrawStringJustification::DS_ALIGN_CENTER);
+
+	// 快捷按钮
+	DrawStoneButton(g, CG2_ACTION_ALL.mX, CG2_ACTION_ALL.mY, CG2_ACTION_ALL.mWidth, CG2_ACTION_ALL.mHeight, false, false, "全选");
+	DrawStoneButton(g, CG2_ACTION_NONE.mX, CG2_ACTION_NONE.mY, CG2_ACTION_NONE.mWidth, CG2_ACTION_NONE.mHeight, false, false, "全不选");
+	DrawStoneButton(g, CG2_ACTION_CLOSE.mX, CG2_ACTION_CLOSE.mY, CG2_ACTION_CLOSE.mWidth, CG2_ACTION_CLOSE.mHeight, false, false, "关闭");
+
+	// 底部提示（全部只用 pak 位图字体里存在的字形，避免缺字）
+	TodDrawString(g, "点击僵尸卡可以开关（亮的=出 / 暗的=不出）  收录的是可以安全独立生成的常规僵尸",
+		400, CG2_PANEL_TOP + CG2_PANEL_H - 44, Sexy::FONT_BRIANNETOD12, Color(200, 225, 245), DrawStringJustification::DS_ALIGN_CENTER);
+	TodDrawString(g, "面板改动只作用于下一次开始战斗；开战后也可以打开面板，先调好下一场",
+		400, CG2_PANEL_TOP + CG2_PANEL_H - 24, Sexy::FONT_BRIANNETOD12, Color(200, 225, 245), DrawStringJustification::DS_ALIGN_CENTER);
+}
+
+bool Board::CricketFight2PanelMouseDown(int x, int y, int theClickCount)
+{
+	// 右键 / 左键点面板外：关闭
+	if (theClickCount < 0 || !Rect(CG2_PANEL_LEFT, CG2_PANEL_TOP, CG2_PANEL_W, CG2_PANEL_H).Contains(x, y))
+	{
+		mCricket2PanelOpen = false;
+		return true;
+	}
+
+	// 倍率 -/+
+	int aStep = 0;
+	if (CG2_MULT_MINUS10.Contains(x, y))
+		aStep = -10;
+	else if (CG2_MULT_MINUS1.Contains(x, y))
+		aStep = -1;
+	else if (CG2_MULT_PLUS1.Contains(x, y))
+		aStep = 1;
+	else if (CG2_MULT_PLUS10.Contains(x, y))
+		aStep = 10;
+	if (aStep != 0)
+	{
+		mCricket2ZombieMultiplier = ClampInt(mCricket2ZombieMultiplier + aStep, CG2_MULT_MIN, CG2_MULT_MAX);
+		mApp->PlaySample(Sexy::SOUND_TAP);
+		return true;
+	}
+
+	// 全选 / 全不选 / 关闭
+	if (CG2_ACTION_ALL.Contains(x, y))
+	{
+		for (int i = 0; i < ICE_ZOMBIE_COUNT; i++)
+		{
+			mCricket2ZombieEnabled[gIceSandboxZombieTypes[i]] = true;
+		}
+		mApp->PlaySample(Sexy::SOUND_TAP);
+		return true;
+	}
+	if (CG2_ACTION_NONE.Contains(x, y))
+	{
+		memset(mCricket2ZombieEnabled, 0, sizeof(mCricket2ZombieEnabled));
+		mApp->PlaySample(Sexy::SOUND_TAP);
+		return true;
+	}
+	if (CG2_ACTION_CLOSE.Contains(x, y))
+	{
+		mCricket2PanelOpen = false;
+		mApp->PlaySample(Sexy::SOUND_TAP);
+		return true;
+	}
+
+	// 僵尸卡开关
+	int aIndex;
+	if (Cricket2CardHit(x, y, aIndex) && aIndex < ICE_ZOMBIE_COUNT)
+	{
+		ZombieType aZombie = gIceSandboxZombieTypes[aIndex];
+		mCricket2ZombieEnabled[aZombie] = !mCricket2ZombieEnabled[aZombie];
+		mApp->PlaySample(Sexy::SOUND_TAP);
+		return true;
+	}
+
+	return true;   // 面板打开时吞掉所有点击，避免误种植物
+}
+
+bool Board::CricketFight2HandleMouseDown(int x, int y, int theClickCount)
+{
+	if (!IsCricket2Level() || mApp->mGameScene != GameScenes::SCENE_PLAYING)
+		return false;
+
+	if (mCricket2PanelOpen)
+	{
+		CricketFight2PanelMouseDown(x, y, theClickCount);
+		mIgnoreMouseUp = true;
+		return true;
+	}
+
+	if (theClickCount <= 0)
+		return false;
+
+	// 门控自己判：不加 CanInteractWithBoardButtons()，因为后者在"手里拿着卡牌"时也为假——
+	// 那样玩家必须先放下卡才能点开始战斗，很别扭。这里允许按钮直接抢走点击（不会误种）。
+	if (mPaused || mApp->GetDialogCount() > 0 || mBoardFadeOutCounter >= 0 ||
+		mApp->mCrazyDaveState != CrazyDaveState::CRAZY_DAVE_OFF)
+	{
+		return false;
+	}
+
+	// 左下「出怪设置」
+	if (GetCricket2PanelButtonRect().Contains(x, y))
+	{
+		CricketFight2OpenPanel();
+		mApp->PlaySample(Sexy::SOUND_TAP);
+		mIgnoreMouseUp = true;
+		return true;
+	}
+
+	// 底部中央「开始战斗 / 结束战斗」：先于种植消费点击，避免在按钮上误种植物
+	if (GetCricket2StartButtonRect().Contains(x, y))
+	{
+		if (mCricket2Prep)
+			CricketFight2StartBattle();
+		else
+			CricketFight2EndBattle();
+		mIgnoreMouseUp = true;
+		return true;
+	}
+
+	return false;
+}
+
+void Board::DrawCricket2UI(Graphics* g)
+{
+	if (!IsCricket2Level() || mApp->mGameScene != GameScenes::SCENE_PLAYING)
+		return;
+
+	if (mCricket2PanelOpen)
+	{
+		CricketFight2DrawPanel(g);
+		return;
+	}
+
+	// 左下「出怪设置」
+	Rect aPanelRect = GetCricket2PanelButtonRect();
+	DrawStoneButton(g, aPanelRect.mX, aPanelRect.mY, aPanelRect.mWidth, aPanelRect.mHeight, false, false, "出怪设置");
+
+	// 底部中央「开始战斗 / 结束战斗」
+	Rect aStartRect = GetCricket2StartButtonRect();
+	// 与坚不可摧同一颗按钮文案：优先用 pak 的 [START_ONSLAUGHT]（英文包也会显示对应语言）
+	std::string aStartLabel = TodStringTranslate("[START_ONSLAUGHT]");
+	if (aStartLabel.find("<Missing") != std::string::npos)
+		aStartLabel = "开始战斗";
+	DrawStoneButton(g, aStartRect.mX, aStartRect.mY, aStartRect.mWidth, aStartRect.mHeight, false, false,
+		mCricket2Prep ? aStartLabel : "结束战斗");
+
+	// 出怪汇总
+	int aTypes = Cricket2SelectedTypeCount();
+	int aTotal = Cricket2ZombieTotal();
+	bool aCapped = aTypes * mCricket2ZombieMultiplier > MAX_ZOMBIES_IN_WAVE;
+	std::string aSummary = aTypes == 0
+		? "出怪：未选择（点左下的出怪设置选择僵尸）"
+		: StrFormat("出怪：%d 种 x %d 只 = %d 只%s", aTypes, mCricket2ZombieMultiplier, aTotal, aCapped ? "（已达上限 300）" : "");
+	TodDrawString(g, aSummary, 400, 508, Sexy::FONT_DWARVENTODCRAFT12,
+		aTypes == 0 ? Color(255, 160, 160) : Color(255, 240, 180), DrawStringJustification::DS_ALIGN_CENTER);
+	TodDrawString(g,
+		mCricket2Prep ? "准备阶段：阳光无限，随便布阵；点开始战斗让选中的僵尸一次性全出"
+		              : "战斗中：点结束战斗清场回到准备阶段（植物与设置保留）",
+		400, 526, Sexy::FONT_BRIANNETOD12, Color(225, 235, 245), DrawStringJustification::DS_ALIGN_CENTER);
+}
+
 // GOTY @Patoke: 0x40D840
 void Board::InitLevel()
 {
@@ -2096,6 +2497,10 @@ void Board::InitLevel()
 	else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND)
 	{
 		mSunMoney = 5000;
+	}
+	else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_CRICKET_2)
+	{
+		mSunMoney = 9990;   // 斗蛐蛐 2：无限阳光（配合 AddSunMoney 忽略扣费）
 	}
 	else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_SNOWY_DAY)
 	{
@@ -2408,6 +2813,7 @@ void Board::InitLawnMowers()
 		aGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN || aGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM ||
 		aGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || aGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM ||
 		aGameMode == GameMode::GAMEMODE_CHALLENGE_ICE ||   // 冰冻沙盒：无小推车（沙盒不判负，僵尸走到最左边直接退场）
+		aGameMode == GameMode::GAMEMODE_CHALLENGE_CRICKET_2 ||   // 斗蛐蛐 2：录制沙盒，无小推车（僵尸走到最左边安静退场）
 		mApp->IsSquirrelLevel() || mApp->IsIZombieLevel() || (StageHasRoof() && !mApp->mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_ROOF_CLEANER]))
 		return;
 
@@ -2902,6 +3308,11 @@ void Board::ClearAdvice(AdviceType theHelpIndex)
 
 Coin* Board::AddCoin(int theX, int theY, CoinType theCoinType, CoinMotion theCoinMotion)
 {
+	if (mApp->IsCricketFight2Level() && theCoinType == CoinType::COIN_SUN)
+	{
+		return nullptr;   // 斗蛐蛐 2：无限阳光，不再掉落阳光币（向日葵产阳光同样被丢弃）
+	}
+
 	Coin* aCoin = mCoins.DataArrayAlloc();
 	aCoin->CoinInitialize(theX, theY, theCoinType, theCoinMotion);
 	if (mApp->IsFirstTimeAdventureMode() && mLevel == 1)
@@ -5690,6 +6101,12 @@ void Board::MouseDown(int x, int y, int theClickCount)
 		return;
 	}
 
+	// 斗蛐蛐 2：先处理「出怪设置」面板与「开始战斗 / 结束战斗」按钮（抢在种植之前消费点击）
+	if (CricketFight2HandleMouseDown(x, y, theClickCount))
+	{
+		return;
+	}
+
 	HitResult aHitResult;
 	MouseHitTest(x, y, &aHitResult);
 	if (mChallenge->MouseDown(x, y, theClickCount, &aHitResult))
@@ -6556,6 +6973,7 @@ void Board::UpdateSunSpawning()
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN ||
 		mApp->mGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM || 
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || 
+		mApp->IsCricketFight2Level() ||   // 斗蛐蛐 2：无限阳光，不掉自然阳光
 		mApp->IsIZombieLevel() ||
 		mApp->IsScaryPotterLevel() || 
 		mApp->IsSquirrelLevel() || 
@@ -7880,6 +8298,9 @@ void Board::DrawGameObjects(Graphics* g)
 
 bool Board::HasProgressMeter()
 {
+	if (mApp->IsCricketFight2Level())
+		return false;   // 斗蛐蛐 2：沙盒没有波次概念，不画进度条
+
 	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || 
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST || 
 		mApp->IsFinalBossLevel() || 
@@ -8986,6 +9407,7 @@ void Board::Draw(Graphics* g)
 	DrawGameObjects(g);
 	DrawCricketStatsPanel(g);
 	DrawIceSandboxUI(g);
+	DrawCricket2UI(g);
 }
 
 // GOTY @Patoke: 0x41D910
@@ -9243,6 +9665,24 @@ void Board::KeyDown(KeyCode theKey)
 			else if (mIceArmKind != 0)
 			{
 				IceSandboxDisarm();
+			}
+			else if (mCursorObject->mCursorType != CursorType::CURSOR_TYPE_NORMAL)
+			{
+				RefreshSeedPacketFromCursor();
+			}
+			else
+			{
+				mApp->DoNewOptions(false);
+			}
+			return;
+		}
+		if (IsCricket2Level() && mApp->mGameScene == GameScenes::SCENE_PLAYING)
+		{
+			// 斗蛐蛐 2：先关「出怪设置」面板，再放下手中卡牌，最后才弹暂停菜单
+			if (mCricket2PanelOpen)
+			{
+				mCricket2PanelOpen = false;
+				mApp->PlaySample(Sexy::SOUND_TAP);
 			}
 			else if (mCursorObject->mCursorType != CursorType::CURSOR_TYPE_NORMAL)
 			{
@@ -10084,6 +10524,11 @@ int Board::CountCoinsBeingCollected()
 
 bool Board::TakeSunMoney(int theAmount)
 {
+	if (mApp->IsCricketFight2Level())
+	{
+		return true;   // 斗蛐蛐 2：无限阳光——永远买得起，且不扣费
+	}
+
 	if (CanTakeSunMoney(theAmount))
 	{
 		mSunMoney -= theAmount;
@@ -10185,6 +10630,10 @@ bool Board::HasConveyorBeltSeedBank()
 
 int Board::GetNumSeedsInBank()
 {
+	if (mApp->IsCricketFight2Level())
+	{
+		return 10;   // 斗蛐蛐 2（录制沙盒）：满卡槽
+	}
 	if (mApp->IsScaryPotterLevel())
 	{
 		return 1;
@@ -10267,6 +10716,7 @@ bool Board::StageHasGraveStones()
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND ||
 		mApp->IsCricketFightLevel() ||
+		mApp->IsCricketFight2Level() ||   // 斗蛐蛐 2：录制沙盒不要墓碑挡位
 		mApp->IsIZombieLevel() ||
 		mApp->IsScaryPotterLevel())
 		return false;

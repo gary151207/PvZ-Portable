@@ -407,6 +407,30 @@ public:
 	bool						mCricketMatchRecorded;   // 每场战斗只记录一次结果
 	int							mCricketStatsPanel;   // 0=关, 1=植物, 2=僵尸
 	int							mCricketStatsScroll;
+
+	// ============================================================
+	// 斗蛐蛐 2（GAMEMODE_CHALLENGE_CRICKET_2）录制沙盒
+	// 5 行草坪：选卡后自由布阵（无限阳光），左下「出怪设置」自选僵尸种类与出怪倍率，
+	// 底部中央「开始战斗」把选中的僵尸一次性全部刷出；纯沙盒，不判负、不通关。
+	// 「开始战斗」用与坚不可摧同一套 DrawStoneButton 石头按钮画法，但点击由本类
+	// 在 MouseDown 里自接管（可抢在种植之前消费点击，避免误种）。
+	// ============================================================
+	/*inline*/ bool					IsCricket2Level();
+	Rect							GetCricket2PanelButtonRect();
+	Rect							GetCricket2StartButtonRect();
+	void							CricketFight2StartBattle();
+	void							CricketFight2EndBattle();
+	/*inline*/ void					CricketFight2OpenPanel();
+	void							CricketFight2DrawPanel(Graphics* g);
+	bool							CricketFight2PanelMouseDown(int x, int y, int theClickCount);
+	bool							CricketFight2HandleMouseDown(int x, int y, int theClickCount);
+	void							DrawCricket2UI(Graphics* g);
+	int								Cricket2SelectedTypeCount();
+	int								Cricket2ZombieTotal();
+	bool						mCricket2Prep;             // true = 准备阶段（不出任何僵尸）
+	bool						mCricket2ZombieEnabled[ZombieType::NUM_ZOMBIE_TYPES];
+	int							mCricket2ZombieMultiplier; // 1..50：每种已选僵尸各出几只
+	bool						mCricket2PanelOpen;
 	void							StopAllZombieSounds();
 	/*inline*/ bool					HasLevelAwardDropped();
 	void							UpdateProgressMeter();

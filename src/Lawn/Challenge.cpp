@@ -3045,6 +3045,7 @@ int Challenge::UpdateZombieSpawning()
 		mApp->IsIZombieLevel() ||
 		mApp->IsSquirrelLevel() ||
 		mApp->IsScaryPotterLevel() ||
+		mApp->IsCricketFight2Level() ||   // 斗蛐蛐 2：出怪完全由「开始战斗」接管，波次系统不参与
 		(mApp->mGameMode == GAMEMODE_CHALLENGE_LAST_STAND && mChallengeState != STATECHALLENGE_LAST_STAND_ONSLAUGHT);
 }
 

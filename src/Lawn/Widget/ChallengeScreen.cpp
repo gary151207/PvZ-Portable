@@ -109,6 +109,7 @@ ChallengeDefinition gChallengeDefs[NUM_CHALLENGE_MODES] = {
 	{ GameMode::GAMEMODE_CHALLENGE_TRAVEL_1,                  12,  ChallengePage::CHALLENGE_PAGE_CHALLENGE,   4,  1,  "[TRAVEL_EXPERIENCE]" },
 	{ GameMode::GAMEMODE_CHALLENGE_TRAVEL_2,                  12,  ChallengePage::CHALLENGE_PAGE_CHALLENGE,   4,  3,  "[TRAVEL_EXPERIENCE_GIANT]" },
 	{ GameMode::GAMEMODE_CHALLENGE_TRAVEL_JOURNEY,            12,  ChallengePage::CHALLENGE_PAGE_CHALLENGE,   4,  4,  "[TRAVEL_JOURNEY]" },
+	{ GameMode::GAMEMODE_CHALLENGE_CRICKET_2,                  12,  ChallengePage::CHALLENGE_PAGE_CHALLENGE,   5,  0,  "斗蛐蛐2" },
 	{ GameMode::GAMEMODE_UPSELL,                               10,  ChallengePage::CHALLENGE_PAGE_LIMBO,       3,  4,  "Upsell" },
 	{ GameMode::GAMEMODE_INTRO,                                10,  ChallengePage::CHALLENGE_PAGE_LIMBO,       2,  3,  "Intro" }
 };
@@ -275,9 +276,10 @@ int ChallengeScreen::MoreTrophiesNeeded(int theChallengeIndex)
 {
 	ChallengeDefinition& aDef = GetChallengeDefinition(theChallengeIndex);
 	if (aDef.mChallengeMode == GameMode::GAMEMODE_CHALLENGE_CRICKET || aDef.mChallengeMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_1 ||
-		aDef.mChallengeMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2 || aDef.mChallengeMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_JOURNEY)
+		aDef.mChallengeMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_2 || aDef.mChallengeMode == GameMode::GAMEMODE_CHALLENGE_TRAVEL_JOURNEY ||
+		aDef.mChallengeMode == GameMode::GAMEMODE_CHALLENGE_CRICKET_2)
 	{
-		return 0;   // 模组小游戏（斗蛐蛐/旅行体验×2/11 轮旅行）：永久可用
+		return 0;   // 模组小游戏（斗蛐蛐×2/旅行体验×2/11 轮旅行）：永久可用
 	}
 	if (mApp->mGameMode == GAMEMODE_UPSELL && mApp->mGameScene == SCENE_LEVEL_INTRO)
 	{

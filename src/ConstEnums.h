@@ -457,6 +457,7 @@ enum GameMode : int32_t
     GAMEMODE_CHALLENGE_TRAVEL_1,                    // 旅行模式体验关（大喷菇群）
     GAMEMODE_CHALLENGE_TRAVEL_2,                    // 旅行模式体验关（巨大坚果）
     GAMEMODE_CHALLENGE_TRAVEL_JOURNEY,               // 旅行模式：11 轮完整路线
+    GAMEMODE_CHALLENGE_CRICKET_2,                   // 斗蛐蛐 2：录制沙盒（自选僵尸出怪 + 倍率 + 无限阳光）
     GAMEMODE_UPSELL,
     GAMEMODE_INTRO,
     NUM_GAME_MODES

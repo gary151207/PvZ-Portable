@@ -2452,6 +2452,19 @@ bool LawnApp::IsCricketFightLevel()
 	return mGameMode == GameMode::GAMEMODE_CHALLENGE_CRICKET;
 }
 
+bool LawnApp::IsCricketFight2Level()
+{
+	// 斗蛐蛐 2：5 行草坪录制沙盒（自选僵尸出怪 + 倍率 + 无限阳光 + 开始战斗按钮）
+	return mGameMode == GameMode::GAMEMODE_CHALLENGE_CRICKET_2;
+}
+
+bool LawnApp::HasTravelChooserPage()
+{
+	// 选卡器启用「旅行专属植物」翻页（页 2）：旅行关卡，以及斗蛐蛐 2 录制沙盒。
+	// 只影响选卡器的翻页/可选性，不牵动旅行关卡的任何其它行为。
+	return IsTravelLevel(mGameMode) || IsCricketFight2Level();
+}
+
 void LawnApp::LoadCricketStats()
 {
 	memset(mCricketPlantWins, 0, sizeof(mCricketPlantWins));
@@ -2682,6 +2695,13 @@ SeedType LawnApp::GetAwardSeedForLevel(int theLevel)
 
 int LawnApp::GetSeedsAvailable()
 {
+	if (IsCricketFight2Level())
+	{
+		// 斗蛐蛐 2（录制沙盒）：不受存档进度限制，全部常规植物立刻可选。
+		// 这也保证选卡器的「开始」按钮可用（其门控是 GetSeedsAvailable() >= 卡槽数）。
+		return NUM_SEEDS_IN_CHOOSER;
+	}
+
 	int aLevel = mPlayerInfo->GetLevel();
 	if (HasFinishedAdventure())
 	{
@@ -2695,6 +2715,14 @@ int LawnApp::GetSeedsAvailable()
 // GOTY @Patoke: 0x456FE0
 bool LawnApp::HasSeedType(SeedType theSeedType)
 {
+	if (IsCricketFight2Level())
+	{
+		// 斗蛐蛐 2（录制沙盒）：常规植物 + 旅行专属植物全部直接开放，不受存档/商店解锁限制。
+		if (theSeedType >= SeedType::SEED_PEASHOOTER && theSeedType <= SeedType::SEED_IMITATER)
+			return true;
+		return IsTravelOnlySeed(theSeedType);
+	}
+
 	if (IsTrialStageLocked() && theSeedType >= SeedType::SEED_JALAPENO)
 		return false;
 

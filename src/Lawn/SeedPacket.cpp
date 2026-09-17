@@ -907,6 +907,14 @@ void SeedPacket::WasPlanted()
 		mActive = true;
 		FlashIfReady();
 	}
+	else if (mApp->IsCricketFight2Level())
+	{
+		// 斗蛐蛐 2（录制沙盒）：种植不消耗卡槽冷却，卡牌永远可用
+		// （与坚不可摧准备阶段同一处理：不置 mRefreshing，直接恢复可拾取）
+		mTimesUsed++;
+		mActive = true;
+		FlashIfReady();
+	}
 	else
 	{
 		mTimesUsed++;
@@ -1142,6 +1150,7 @@ void SeedPacket::SetPacketType(SeedType theSeedType, SeedType theImitaterType)
 	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST || 
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM || mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || 
 		mApp->IsIZombieLevel() || mApp->IsScaryPotterLevel() || mApp->IsWhackAZombieLevel() ||
+		mApp->IsCricketFight2Level() ||   // 斗蛐蛐 2：沙盒不消耗冷却，升级卡也不需要额外冷却覆盖
 		((mApp->IsSurvivalMode() || IsTravelJourneyLevel(mApp->mGameMode)) && mBoard->mChallenge->mSurvivalStage > 0))
 		return;
 

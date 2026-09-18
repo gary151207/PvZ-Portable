@@ -24,10 +24,14 @@
 #include "Zombie.h"
 #include "Cutscene.h"
 #include "Projectile.h"
+#include <algorithm>
+#include <utility>
+#include <vector>
 #include "../LawnApp.h"
 #include "../Resources.h"
 #include "../GameConstants.h"
 #include "../Sexy.TodLib/TodFoley.h"
+#include "../Sexy.TodLib/TodCommon.h"
 #include <climits>
 #include "../Sexy.TodLib/TodDebug.h"
 #include "../Sexy.TodLib/Reanimator.h"
@@ -108,6 +112,9 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 	mLingerCountdown = 0;
 	mElectricStarStuck = false;
 	mElectricDamageCountdown = 0;
+	mElectricChainFlash = 0;
+	mSourcePlantID = PlantID::PLANTID_NULL;
+	mElectricChainSource = false;
 	if (mProjectileType == ProjectileType::PROJECTILE_SPIKE)
 	{
 		mPenetrations = 2;
@@ -410,6 +417,241 @@ bool Projectile::RetargetElectricStar()
 	mElectricStarStuck = false;
 	mTargetZombieID = mBoard->ZombieGetID(aBestZombie);
 	return true;
+}
+
+// 究极电能机枪射手 / 究极电能杨桃的弹丸共用的"链式闪电"结算：
+// 弹丸是一个持续放电的电源，每 ELECTRIC_CHAIN_INTERVAL_TICKS 刻向**自身周围半径
+// ELECTRIC_CHAIN_RADIUS 像素内最近的至多 ELECTRIC_CHAIN_MAX_TARGETS 只僵尸**各放一道电弧，
+// 伤害只有弹丸本身的一半（30 → 15）；因为间隔也是本身的两倍（15 → 30 刻），
+// 摊到每秒的 DPS 只有弹丸本身的四分之一，属于纯额外收益。
+//
+// 节奏不新增存档字段，直接跟 mProjectileAge 对齐：出膛那一帧（age 0）就先放一次电，
+// 之后每 30 刻一次。这样读档回来哪怕 mElectricChainFlash 是 0，节奏也完全不会错位。
+// 放电完成后把 mElectricChainFlash 置为 ELECTRIC_CHAIN_FLASH_TICKS，
+// 由 DrawElectricChain() 在随后的几帧里把电弧画出来（电弧是"闪现"而不是长亮）。
+//
+// 注意：本函数在 UpdateMotion() 之前调用 —— 弹丸自己的接触伤害（电能豌豆的穿透伤害）
+// 要等移动之后才结算，所以哪怕同一帧同时打中，也是先电击、后穿透，不会漏掉目标。
+bool Projectile::IsElectricChainSource()
+{
+	// 只有究极形态自己射出的弹丸才带电弧（普通机枪射手那 3% 的电能豌豆不算）
+	if (mProjectileType != ProjectileType::PROJECTILE_FIREPEA_RED &&
+		mProjectileType != ProjectileType::PROJECTILE_ELECTRIC_STAR)
+	{
+		return false;
+	}
+
+	Plant* aSourcePlant = mBoard->mPlants.DataArrayTryToGet(static_cast<unsigned int>(mSourcePlantID));
+	if (aSourcePlant != nullptr)
+	{
+		// 来源植物还在场上：以现查结果为准，顺手修正缓存的标记
+		mElectricChainSource = PlantFiresElectricChainProjectile(aSourcePlant);
+	}
+
+	// 来源植物已经不在了（被吃掉/被铲掉）：用发射瞬间就定死的缓存，
+	// 否则电能星星钉到一半会因为"植物死了"而停止放电。
+	return mElectricChainSource;
+}
+
+void Projectile::UpdateElectricChainLightning()
+{
+	if (!IsElectricChainSource())
+	{
+		return;
+	}
+
+	// 电弧闪现倒计时：与结算解耦，每帧自减，与 mProjectileAge 的模运算共同决定"本帧画不画"
+	if (mElectricChainFlash > 0)
+	{
+		mElectricChainFlash--;
+	}
+
+	if (mProjectileAge % ELECTRIC_CHAIN_INTERVAL_TICKS != 0)
+	{
+		return;
+	}
+
+	// 弹丸自己的伤害口径：优先 mDamageOverride（孤狼关卡 / 机枪散射的 200），否则查表
+	const int aBaseDamage = mDamageOverride > 0 ? mDamageOverride : GetProjectileDef().mDamage;
+	const int aChainDamage = aBaseDamage / 2;   // 伤害是本身的一半（30 → 15）
+	if (aChainDamage <= 0)
+	{
+		return;
+	}
+
+	const float aCenterX = mPosX + mWidth * 0.5f;
+	const float aCenterY = mPosY + mHeight * 0.5f;
+
+	// 先按"到弹丸的距离"挑出半径内最近的至多 5 只僵尸，再统一结算伤害：
+	// 半径是圆形（纵向 2 格 85~100px × 2 ≈ 170~200px 因此必然落在 160px 的圆内，
+	// 横向 2 格正好 160px），故"两格内的僵尸"不会被漏掉，也不会多打到三格外的。
+	std::vector<std::pair<float, Zombie*>> aCandidates;
+	Zombie* aZombie = nullptr;
+	while (mBoard->IterateZombies(aZombie))
+	{
+		if (!aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+			continue;   // 已含"死亡/濒死僵尸不算目标"
+
+		Rect aZombieRect = aZombie->GetZombieRect();
+		float aDistance = Distance2D(aCenterX, aCenterY,
+			aZombieRect.mX + aZombieRect.mWidth * 0.5f, aZombieRect.mY + aZombieRect.mHeight * 0.5f);
+		if (aDistance <= ELECTRIC_CHAIN_RADIUS)
+		{
+			aCandidates.push_back(std::make_pair(aDistance, aZombie));
+		}
+	}
+
+	if (aCandidates.empty())
+	{
+		return;
+	}
+
+	if (static_cast<int>(aCandidates.size()) > ELECTRIC_CHAIN_MAX_TARGETS)
+	{
+		std::partial_sort(aCandidates.begin(), aCandidates.begin() + ELECTRIC_CHAIN_MAX_TARGETS, aCandidates.end(),
+			[](const std::pair<float, Zombie*>& a, const std::pair<float, Zombie*>& b) { return a.first < b.first; });
+		aCandidates.resize(ELECTRIC_CHAIN_MAX_TARGETS);
+	}
+
+	for (const std::pair<float, Zombie*>& aCandidate : aCandidates)
+	{
+		aCandidate.second->TakeDamage(aChainDamage, GetDamageFlags(aCandidate.second));
+	}
+
+	mElectricChainFlash = ELECTRIC_CHAIN_ARC_TICKS;
+}
+
+// 沿着"上一点 → 本点"画一条有粗细的线：Graphics 只有 1px 的 DrawLine，
+// 所以沿垂直方向平移 strokeCount 条平行线凑出宽度。
+static void DrawElectricStroke(Graphics* g, float theFromX, float theFromY, float theToX, float theToY, int theStrokeCount)
+{
+	float aDeltaX = theToX - theFromX;
+	float aDeltaY = theToY - theFromY;
+	float aLength = sqrt(aDeltaX * aDeltaX + aDeltaY * aDeltaY);
+	if (aLength < 0.01f)
+	{
+		return;
+	}
+
+	// 单位法线（垂直方向），"第 i 条线"沿它偏移
+	const float aNormalX = -aDeltaY / aLength;
+	const float aNormalY = aDeltaX / aLength;
+	const float aStart = -(theStrokeCount - 1) * 0.5f;
+
+	for (int i = 0; i < theStrokeCount; i++)
+	{
+		float aOffset = aStart + i;
+		g->DrawLineAA(static_cast<int>(theFromX + aNormalX * aOffset), static_cast<int>(theFromY + aNormalY * aOffset),
+			static_cast<int>(theToX + aNormalX * aOffset), static_cast<int>(theToY + aNormalY * aOffset));
+	}
+}
+
+// 把 mElectricChainFlash 仍然有效的电弧画出来：以弹丸为圆心，向半径两格内的最近至多 5 只僵尸各画一道闪电。
+// 这里重算一遍目标（而不是把目标存进弹丸）是为了不给存档加字段：
+// 电弧只是表现，取"当下仍在范围内且最近"的僵尸画，跟结算时的目标最多差几帧，观感上完全一致。
+// 每帧调用意味着僵尸往前走时电弧也从弹丸一路跟到僵尸身上，而不是画在固定位置。
+void Projectile::DrawElectricChain(Graphics* g)
+{
+	if (mElectricChainFlash <= 0)
+	{
+		return;
+	}
+
+	if (!IsElectricChainSource())
+	{
+		return;
+	}
+
+	const float aCenterX = mPosX + mWidth * 0.5f;
+	const float aCenterY = mPosY + mHeight * 0.5f;
+
+	std::vector<std::pair<float, Zombie*>> aCandidates;
+	Zombie* aZombie = nullptr;
+	while (mBoard->IterateZombies(aZombie))
+	{
+		if (!aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+			continue;
+
+		Rect aZombieRect = aZombie->GetZombieRect();
+		float aTargetX = aZombieRect.mX + aZombieRect.mWidth * 0.5f;
+		float aTargetY = aZombieRect.mY + aZombieRect.mHeight * 0.5f;
+		float aDistance = Distance2D(aCenterX, aCenterY, aTargetX, aTargetY);
+		if (aDistance <= ELECTRIC_CHAIN_RADIUS)
+		{
+			aCandidates.push_back(std::make_pair(aDistance, aZombie));
+		}
+	}
+
+	if (aCandidates.empty())
+	{
+		return;
+	}
+
+	if (static_cast<int>(aCandidates.size()) > ELECTRIC_CHAIN_MAX_TARGETS)
+	{
+		std::partial_sort(aCandidates.begin(), aCandidates.begin() + ELECTRIC_CHAIN_MAX_TARGETS, aCandidates.end(),
+			[](const std::pair<float, Zombie*>& a, const std::pair<float, Zombie*>& b) { return a.first < b.first; });
+		aCandidates.resize(ELECTRIC_CHAIN_MAX_TARGETS);
+	}
+
+	const float aScreenX = static_cast<float>(mBoard->mX);
+	const float aScreenY = static_cast<float>(mBoard->mY);
+
+	// 放电强度：刚结算完最亮，越接近下一次结算越暗 —— 观感上就是电弧一直在、并周期性"啪"一下。
+	// 用倒计时而不是随机数，保证 100fps 下每次放电的观感完全一致。
+	float aPulse = static_cast<float>(mElectricChainFlash) / ELECTRIC_CHAIN_ARC_TICKS;
+	aPulse = ClampFloat(aPulse, 0.0f, 1.0f);
+
+	// 闪电由"外圈淡蓝 + 内芯电能蓝"两层折线叠出来：
+	// 外层 5 条线做辉光，内芯 3 条线做亮芯，合计差不多 5px 宽，在草坪上不会被花草吞掉。
+	for (const std::pair<float, Zombie*>& aCandidate : aCandidates)
+	{
+		Rect aZombieRect = aCandidate.second->GetZombieRect();
+		const float aTargetX = aZombieRect.mX + aZombieRect.mWidth * 0.5f;
+		const float aTargetY = aZombieRect.mY + aZombieRect.mHeight * 0.5f;
+
+		for (int aLayer = 0; aLayer < 2; aLayer++)
+		{
+			// 每层各自从弹丸起笔，走完一整条折线到僵尸身上
+			float aPreviousX = aCenterX;
+			float aPreviousY = aCenterY;
+
+			g->SetColor(aLayer == 0
+				? Color(110, 190, 255, ClampInt(static_cast<int>(120.0f * aPulse), 0, 255))
+				: Color(ELECTRIC_BLUE_R, ELECTRIC_BLUE_G, ELECTRIC_BLUE_B, ClampInt(static_cast<int>(245.0f * aPulse), 0, 255)));
+
+			const int aSegmentCount = 5;
+			for (int aSegment = 1; aSegment <= aSegmentCount; aSegment++)
+			{
+				float aT = static_cast<float>(aSegment) / aSegmentCount;
+				float aPointX = aCenterX + (aTargetX - aCenterX) * aT;
+				float aPointY = aCenterY + (aTargetY - aCenterY) * aT;
+				if (aSegment != aSegmentCount)
+				{
+					// 中段抖动：每帧重新掷，闪电才会"噼啪"作响（最后一节必须落在僵尸身上）
+					aPointX += RandRangeFloat(-11.0f, 11.0f);
+					aPointY += RandRangeFloat(-11.0f, 11.0f);
+				}
+
+				DrawElectricStroke(g, aPreviousX + aScreenX, aPreviousY + aScreenY,
+					aPointX + aScreenX, aPointY + aScreenY, aLayer == 0 ? 5 : 3);
+
+				aPreviousX = aPointX;
+				aPreviousY = aPointY;
+			}
+		}
+	}
+}
+
+// 所有究极电能弹丸的电弧，统一由 Board 在**所有渲染项画完之后**调用（见 Board::Draw），
+// 这样闪电永远压在最顶层：僵尸、植物、雾、甚至屏幕渐隐都盖不住它。
+void Projectile::DrawAllElectricChains(Board* theBoard, Graphics* g)
+{
+	Projectile* aProjectile = nullptr;
+	while (theBoard->IterateProjectiles(aProjectile))
+	{
+		aProjectile->DrawElectricChain(g);
+	}
 }
 
 void Projectile::CheckForCollision()
@@ -1338,6 +1580,12 @@ void Projectile::Update()
 		mElectricDamageCountdown--;
 	}
 
+	// 究极电能弹丸（电能豌豆 / 电能星星）的链式闪电：在移动之前放电，
+	// 保证同一帧里"先电击、后弹丸自身的接触伤害"，不会因为目标先被打死而漏掉电弧。
+	// ⚠ 必须放在"电能星星钉住就 return"之前：钉住的星星位置本来就不动（只跟随僵尸），
+	//   要是被那个 return 挡掉，钉住期间的 2.5 秒就完全不放闪电、电弧也不再跟随目标。
+	UpdateElectricChainLightning();
+
 	// 究极电能杨桃的电能星星：钉住时只跟随 + 按节奏结算伤害，不再走飞行/碰撞
 	if (mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR)
 	{
@@ -1483,6 +1731,9 @@ void Projectile::Draw(Graphics* g)
 		MakeParentGraphicsFrame(&theParticleGraphics);
 		AttachmentDraw(mAttachmentID, &theParticleGraphics, false);
 	}
+
+	// 链式闪电不在这里画：它要求"永远在最顶层"，所以由 Board::Draw 在所有渲染项之后统一调用
+	// DrawAllElectricChains()，画在弹丸身上会被同层后面渲染的僵尸盖住。
 }
 
 void Projectile::DrawShadow(Graphics* g)

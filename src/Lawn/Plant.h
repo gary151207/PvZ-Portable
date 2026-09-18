@@ -385,6 +385,12 @@ bool                        ElectricStarfruitUsesCustomArt();
 // 否则退回 REANIM_STARFRUIT。
 ReanimationType             ElectricStarfruitReanimType();
 
+// 该植物射出的弹丸是否是"究极电能"弹丸（链式闪电只挂在这两只植物身上）：
+//   - 究极电能机枪射手（100% 电能豌豆）
+//   - 究极电能杨桃（5 颗电能星星）
+// 故意不认"普通机枪射手 3% 概率的那颗电能豌豆"：那颗是机枪射手打出来的，不属于究极形态。
+bool                        PlantFiresElectricChainProjectile(const Plant* thePlant);
+
 class PlantDefinition
 {
 public:

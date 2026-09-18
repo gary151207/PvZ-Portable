@@ -959,6 +959,13 @@ static void SyncProjectileTailPortable(PortableSaveContext& theContext, Projecti
 	// 电能伤害节奏（电能豌豆 / 电能星星共用）：距下一次结算电能伤害的剩余刻数
 	//（同样追加在末尾，旧存档读不到时按 0 = 本帧即可结算处理）
 	theContext.SyncInt32(theProjectile.mElectricDamageCountdown);
+	// 究极电能弹丸的链式闪电：射出它的植物（链式闪电靠"来源植物是不是究极形态"区分，
+	// 因为普通机枪射手 3% 概率打出的也是电能豌豆）+ 是否究极形态 + 电弧闪现剩余刻数。
+	// 电弧节奏本身由 mProjectileAge 推导，所以这几项读旧档按默认值处理也不会错位节奏。
+	SyncEnumU32(theContext, theProjectile.mSourcePlantID);
+	theContext.SyncInt32(theProjectile.mElectricChainFlash);
+	// 发射瞬间定死的"是不是究极形态射出来的"（读旧档按 false = 不放电，随后由来源植物现查修正）
+	theContext.SyncBool(theProjectile.mElectricChainSource);
 }
 
 static void SyncCoinTailPortable(PortableSaveContext& theContext, Coin& theCoin)

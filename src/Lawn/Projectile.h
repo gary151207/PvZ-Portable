@@ -89,6 +89,23 @@ public:
     // 0 = 本帧可以结算（刚钉住时先打一次，之后按 0.15 秒的间隔）。
     // 电能豌豆不用这个计数器：它直接按 mProjectileAge % ELECTRIC_DAMAGE_INTERVAL_TICKS 结算。
     int32_t                 mElectricDamageCountdown = 0;
+    // 究极电能机枪射手 / 究极电能杨桃的电能弹丸：链式闪电。
+    // 节奏完全不新增存档字段，直接由 mProjectileAge 推导：
+    //   - mProjectileAge % ELECTRIC_CHAIN_INTERVAL_TICKS == 0 → 本帧向周围最近 5 只僵尸放电
+    //   - 同一次结算之后的 ELECTRIC_CHAIN_ARC_TICKS 刻内，Draw 里画出电弧
+    //     （即 [k*INTERVAL, k*INTERVAL + ARC_TICKS) 为"有电弧帧"，越接近结算越亮）。
+    // 该字段只是观感状态：每帧按它算电弧亮度，读档后按 0 = 本帧无电弧处理即可。
+    int32_t                 mElectricChainFlash = 0;    // 本次放电的电弧还能亮几刻（每帧自减）
+    // 射出这颗弹丸的植物（PLANTID_NULL = 不是植物射的，例如僵尸豌豆 / 火球转化）。
+    // 链式闪电只认"究极电能机枪射手 / 究极电能杨桃"，而电能豌豆（PROJECTILE_FIREPEA_RED）
+    // 普通机枪射手也有 3% 概率打出来，光看弹丸类型区分不了，所以必须记来源。
+    PlantID                 mSourcePlantID = PlantID::PLANTID_NULL;
+    // 发射瞬间就定死的"这颗弹丸是不是究极电能形态射出来的"。
+    // 为什么不能只靠 mSourcePlantID 现查：弹丸可以活得比植物久（电能星星要钉 2.5 秒），
+    // 植物被吃掉后 mSourcePlantID 就查不到东西了，电弧会毫无道理地中途消失。
+    // 所以这里缓存一份；反过来，如果 ID 查得到植物、但那株植物已经不是究极形态
+    // （数组槽位被复用的极端情况），以现查结果为准并就地修正缓存，避免认错来源。
+    bool                    mElectricChainSource = false;
 
 public:
     Projectile();
@@ -123,6 +140,10 @@ public:
     void                    StartElectricStarLinger(Zombie* theZombie);
     void                    UpdateElectricStarLinger();
     bool                    RetargetElectricStar();
+    bool                    IsElectricChainSource();
+    void                    UpdateElectricChainLightning();
+    void                    DrawElectricChain(Graphics* g);
+    static void             DrawAllElectricChains(Board* theBoard, Graphics* g);
 
 };
 

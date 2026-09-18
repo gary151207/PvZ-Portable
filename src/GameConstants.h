@@ -82,6 +82,18 @@ constexpr const int   ELECTRIC_STARFRUIT_SWITCH_REFUND = 225;
 // 与究极电能机枪射手同一套规则：三张图必须带透明通道且尺寸与同名原图一致，
 // 任何一张不合格就整体回退到"杨桃贴图 + 电能蓝叠加"。
 constexpr const bool  ELECTRIC_STARFRUIT_USE_CUSTOM_ART = true;
+// 究极电能机枪射手 / 究极电能杨桃的弹丸（电能豌豆、电能星星）共用的"链式闪电"：
+//   弹丸在飞行/钉住期间，持续向周围半径 ELECTRIC_CHAIN_RADIUS 像素内**最近**的
+//   至多 ELECTRIC_CHAIN_MAX_TARGETS 只僵尸放电，伤害与频率都只有弹丸本身的一半
+//   （本身为每 15 刻 30 点 → 闪电为每 30 刻 15 点），因此链式闪电是纯粹的额外收益。
+//   半径两格 = 80px/格 × 2 = 160px（纵向一格 85~100px，故用圆形半径统一衡量）。
+//   伤害节奏只跟 mProjectileAge 对齐（不新增存档字段）。
+//   电弧观感：每次结算后的 ELECTRIC_CHAIN_ARC_TICKS 刻内都画电弧，越接近下次结算越亮，
+//   这样电弧"几乎一直在"（持续放电的观感），而且每帧重算目标 → 僵尸走动时电弧一路跟着走。
+constexpr const int   ELECTRIC_CHAIN_INTERVAL_TICKS = 2 * ELECTRIC_DAMAGE_INTERVAL_TICKS;   // 30 刻 = 0.3 秒
+constexpr const float ELECTRIC_CHAIN_RADIUS         = 160.0f;   // 两格
+constexpr const int   ELECTRIC_CHAIN_MAX_TARGETS    = 5;
+constexpr const int   ELECTRIC_CHAIN_ARC_TICKS      = 26;       // 每次结算后电弧可见的刻数（≈间隔-4，留一点熄灭间隙）
 constexpr const int HIGH_GROUND_HEIGHT = 30;
 
 constexpr const int SEEDBANK_MAX = 10;

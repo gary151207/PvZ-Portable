@@ -276,6 +276,15 @@ ReanimationType ElectricStarfruitReanimType()
         : ReanimationType::REANIM_STARFRUIT;
 }
 
+bool PlantFiresElectricChainProjectile(const Plant* thePlant)
+{
+    if (thePlant == nullptr)
+        return false;
+
+    return thePlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
+           thePlant->mSeedType == SeedType::SEED_ELECTRIC_STARFRUIT;
+}
+
 // GOTY @Patoke: 0x461483
 void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType)
 {
@@ -1185,6 +1194,9 @@ void Plant::ElectricStarFruitFire()
         Projectile* aProjectile = mBoard->AddProjectile(mX + 25, mY + 25, mRenderOrder - 1, mRow, ProjectileType::PROJECTILE_ELECTRIC_STAR);
         aProjectile->mDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
         aProjectile->mMotionType = ProjectileMotion::MOTION_STAR;
+        // 链式闪电只认"这颗弹丸是哪只植物射的"，所以电能弹丸一律记下来源（见 Projectile::IsElectricChainSource）
+        aProjectile->mSourcePlantID = static_cast<PlantID>(mBoard->mPlants.DataArrayGetID(this));
+        aProjectile->mElectricChainSource = true;
 
         switch (i)
         {
@@ -5609,12 +5621,18 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
             aScatterPea->mVelY = PEA_SPEED * sin(aAngleRad);
             aScatterPea->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
             aScatterPea->mDamageOverride = 200;
+            aScatterPea->mSourcePlantID = static_cast<PlantID>(mBoard->mPlants.DataArrayGetID(this));
+            aScatterPea->mElectricChainSource = PlantFiresElectricChainProjectile(this);
         }
     }
     else
     {
         aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aMainBulletType);
         aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+        // 链式闪电只认"这颗弹丸是哪只植物射的"：电能豌豆普通机枪射手也有 3% 概率打出，
+        // 所以每颗主子弹都记下来源，由 Projectile::IsElectricChainSource() 判定究极形态。
+        aProjectile->mSourcePlantID = static_cast<PlantID>(mBoard->mPlants.DataArrayGetID(this));
+        aProjectile->mElectricChainSource = PlantFiresElectricChainProjectile(this);
 
         if (mApp->IsLoneWolfLevel() && (mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA))
             aProjectile->mDamageOverride = 200;

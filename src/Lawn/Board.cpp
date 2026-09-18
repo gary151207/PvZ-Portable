@@ -9408,6 +9408,13 @@ void Board::Draw(Graphics* g)
 	DrawCricketStatsPanel(g);
 	DrawIceSandboxUI(g);
 	DrawCricket2UI(g);
+
+	// 究极电能弹丸的链式闪电：必须放在最后统一画（不是随弹丸渲染项一起画），
+	// 这样闪电永远压在整个战场的最顶层 —— 僵尸、植物、雾、UFO 罩子、甚至屏幕渐隐都盖不住它。
+	// 代价是它会盖住 HUD 图标，但"闪电永远最顶层"正是这里要的效果。
+	// 坐标空间与弹丸一致：Board 作为 Widget 已经把自己的位置翻译进了 g，弹丸渲染时补的
+	// mX / mY 其实是"震屏偏移"，所以这里同样在屏幕坐标上补一份，闪电才会跟着震屏一起抖。
+	Projectile::DrawAllElectricChains(this, g);
 }
 
 // GOTY @Patoke: 0x41D910

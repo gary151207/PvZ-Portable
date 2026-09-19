@@ -372,6 +372,12 @@ bool                        ElectricGatlingUsesCustomArt();
 // 同时避免为同一套贴图多建一份 Atlas。
 ReanimationType             ElectricGatlingReanimType();
 
+// 寒冰机枪射手专用贴图（reanim/SnowGatling_head/barrel/helmet.png）。嘴部和眨眼继续使用
+// 机枪射手原版贴图；缺图、无透明通道或尺寸不符时返回 false 并退回普通机枪射手外观。
+bool                        SnowGatlingHasCustomArt();
+bool                        SnowGatlingUsesCustomArt();
+ReanimationType             SnowGatlingReanimType();
+
 // 究极电能杨桃专用贴图（打包在 main.pak 的 reanim/ 下：Electric_Starfruit_body/eyes1/eyes2）。
 // 与究极电能机枪射手同一套机制与同一套安全阀：首次调用时把三张图替换进
 // REANIM_ELECTRIC_STARFRUIT 的定义里；缺一张 / 无透明通道 / 尺寸不符都返回 false，

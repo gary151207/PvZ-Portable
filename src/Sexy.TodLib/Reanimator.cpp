@@ -190,6 +190,9 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	// 同样用 REANIM_NO_ATLAS：定义里的 mImage 始终是真实指针，换贴图在任何时机都安全，
 	// 也不会和 REANIM_STARFRUIT 的 Atlas 共用同一批源贴图。
 	{ ReanimationType::REANIM_ELECTRIC_STARFRUIT,                   "reanim/Starfruit.reanim",                         1 << ReanimFlags::REANIM_NO_ATLAS },
+	// 与 REANIM_GATLINGPEA 同一个文件，但 Plant.cpp 会把 head/barrel/helmet 换成寒冰机枪射手专用贴图。
+	// 口部和眨眼继续复用原版贴图；不用 Atlas，确保这套替换不会影响普通机枪射手。
+	{ ReanimationType::REANIM_SNOW_GATLINGPEA,                      "reanim/GatlingPea.reanim",                        1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

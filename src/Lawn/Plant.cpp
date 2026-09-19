@@ -103,7 +103,8 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_FUMESHROOM_GROUP,  nullptr, ReanimationType::REANIM_FUMESHROOM,    9,  0,      3000,   PlantSubClass::SUBCLASS_SHOOTER,    90,     "FUMESHROOM_GROUP" },
     { SeedType::SEED_PEATER_1_5,        nullptr, ReanimationType::REANIM_REPEATER,      5,  150,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "PEATER_1_5" },   // 1.5 发射手：150 阳光 / 普通冷却（旅行红卡，贴图 = 去掉眉毛的双发射手）
     { SeedType::SEED_ELECTRIC_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5,  200,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    100,    "ELECTRIC_GATLING_PEA" },   // 究极电能机枪射手：200 阳光 / 30.01s 冷却（旅行红卡，由机枪射手升级，100% 电能豌豆）
-    { SeedType::SEED_ELECTRIC_STARFRUIT, nullptr, ReanimationType::REANIM_STARFRUIT, 30, 300,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    100,    "ELECTRIC_STARFRUIT" }   // 究极电能杨桃：300 阳光 / 30.01s 冷却（旅行红卡，由杨桃升级，5 颗追踪电能星星）
+    { SeedType::SEED_ELECTRIC_STARFRUIT, nullptr, ReanimationType::REANIM_STARFRUIT, 30, 300,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    100,    "ELECTRIC_STARFRUIT" },  // 究极电能杨桃：300 阳光 / 30.01s 冷却（旅行红卡，由杨桃升级，5 颗追踪电能星星）
+    { SeedType::SEED_SNOW_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 175,    750,    PlantSubClass::SUBCLASS_SHOOTER,    100,    "SNOW_GATLING_PEA" }  // 隐藏合成态：消耗寒冰射手卡，属性与机枪射手一致
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -240,6 +241,38 @@ ReanimationType ElectricGatlingReanimType()
         : ReanimationType::REANIM_GATLINGPEA;
 }
 
+static bool sSnowGatlingArtChecked = false;
+static bool sSnowGatlingArtApplied = false;
+
+bool SnowGatlingHasCustomArt()
+{
+    if (sSnowGatlingArtChecked)
+        return sSnowGatlingArtApplied;
+    sSnowGatlingArtChecked = true;
+
+    static const ReanimArtSwap aSwaps[] = {
+        { "reanim/GATLINGPEA_HEAD",   "reanim/SNOWGATLING_HEAD",   "IMAGE_REANIM_SNOWGATLING_HEAD" },
+        { "reanim/GATLINGPEA_BARREL", "reanim/SNOWGATLING_BARREL", "IMAGE_REANIM_SNOWGATLING_BARREL" },
+        { "reanim/GATLINGPEA_HELMET", "reanim/SNOWGATLING_HELMET", "IMAGE_REANIM_SNOWGATLING_HELMET" },
+    };
+
+    sSnowGatlingArtApplied = ApplyReanimArtSwaps(
+        ReanimationType::REANIM_SNOW_GATLINGPEA, aSwaps, LENGTH(aSwaps), "Snow Gatling Pea");
+    return sSnowGatlingArtApplied;
+}
+
+bool SnowGatlingUsesCustomArt()
+{
+    return SnowGatlingHasCustomArt();
+}
+
+ReanimationType SnowGatlingReanimType()
+{
+    return SnowGatlingUsesCustomArt()
+        ? ReanimationType::REANIM_SNOW_GATLINGPEA
+        : ReanimationType::REANIM_GATLINGPEA;
+}
+
 // 究极电能杨桃专用贴图：只换星形主体与两张眼睛图（叶/茎/嘴/笑保持原版）。
 // 玩家若没打包这三张图，就回退到"杨桃贴图 + 电能蓝叠加"。
 static bool sElectricStarfruitArtChecked = false;
@@ -294,6 +327,8 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         aReanimType = ElectricGatlingReanimType();
     else if (theSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
         aReanimType = ElectricStarfruitReanimType();
+    else if (theSeedType == SeedType::SEED_SNOW_GATLING_PEA)
+        aReanimType = SnowGatlingReanimType();
 
     mPlantCol = theGridX;
     mRow = theGridY;
@@ -426,6 +461,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     case SeedType::SEED_GATLINGPEA:
     case SeedType::SEED_PEATER_1_5:
     case SeedType::SEED_ELECTRIC_GATLING_PEA:
+    case SeedType::SEED_SNOW_GATLING_PEA:
         if (aBodyReanim)
         {
             aBodyReanim->mAnimRate = RandRangeFloat(15.0f, 20.0f);
@@ -1033,7 +1069,8 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
             aHeadReanim->mAnimRate = 45.0f;
             mShootingCounter = 26;
         }
-        else if (mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
+        else if (mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
+                 mSeedType == SeedType::SEED_SNOW_GATLING_PEA)
         {
             aHeadReanim->mAnimRate = 38.0f;
             mShootingCounter = 100;
@@ -3173,6 +3210,10 @@ bool Plant::IsUpgradableTo(SeedType theUpgradedType)
     {
         return true;
     }
+    if (theUpgradedType == SeedType::SEED_SNOWPEA && mSeedType == SeedType::SEED_GATLINGPEA)
+    {
+        return true;
+    }
     if (theUpgradedType == SeedType::SEED_ELECTRIC_STARFRUIT && mSeedType == SeedType::SEED_STARFRUIT)
     {
         return true;
@@ -3643,7 +3684,7 @@ Reanimation* Plant::AttachBlinkAnim(Reanimation* theReanimBody)
             aTrackToAttach = "anim_face2";
         }
     }
-    else if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_LEFTPEATER || mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_PEATER_1_5 || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
+    else if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_LEFTPEATER || mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_PEATER_1_5 || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || mSeedType == SeedType::SEED_SNOW_GATLING_PEA)
     {
         if (theReanimBody->TrackExists("anim_stem"))
         {
@@ -3672,6 +3713,8 @@ Reanimation* Plant::AttachBlinkAnim(Reanimation* theReanimBody)
         aBlinkReanimType = ElectricGatlingReanimType();
     else if (mSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
         aBlinkReanimType = ElectricStarfruitReanimType();   // 眨眼用的眼睛图也要是电能版
+    else if (mSeedType == SeedType::SEED_SNOW_GATLING_PEA)
+        aBlinkReanimType = SnowGatlingReanimType();
 
     Reanimation* aBlinkReanim = aApp->mEffectSystem->mReanimationHolder->AllocReanimation(0.0f, 0.0f, 0, aBlinkReanimType);
     aBlinkReanim->SetFramesForLayer(aTrackToPlay);
@@ -4056,7 +4099,8 @@ void Plant::UpdateShooting()
             Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
         }
     }
-    else if (mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
+    else if (mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
+             mSeedType == SeedType::SEED_SNOW_GATLING_PEA)
     {
         if (mGatlingScatterCountdown > 0)
         {
@@ -5411,6 +5455,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectileType = ProjectileType::PROJECTILE_PEA;
         break;
     case SeedType::SEED_SNOWPEA:
+    case SeedType::SEED_SNOW_GATLING_PEA:
         aProjectileType = ProjectileType::PROJECTILE_SNOWPEA;
         break;
     case SeedType::SEED_ELECTRIC_GATLING_PEA:
@@ -5461,12 +5506,13 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     };
 
     ProjectileType aMainBulletType = aProjectileType;
-    if ((mSeedType != SeedType::SEED_GATLINGPEA && mSeedType != SeedType::SEED_ELECTRIC_GATLING_PEA) || mGatlingScatterCountdown == 0)
+    if ((mSeedType != SeedType::SEED_GATLINGPEA && mSeedType != SeedType::SEED_ELECTRIC_GATLING_PEA &&
+         mSeedType != SeedType::SEED_SNOW_GATLING_PEA) || mGatlingScatterCountdown == 0)
     {
         aMainBulletType = RollGatlingBulletType(aProjectileType);
         mApp->PlayFoley(FoleyType::FOLEY_THROW);
     }
-    if (mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_WINTERMELON)
+    if (mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_WINTERMELON)
     {
         mApp->PlayFoley(FoleyType::FOLEY_SNOW_PEA_SPARKLES);
     }
@@ -5525,7 +5571,8 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aOriginX = mX + aOffsetX - 57;
         aOriginY = mY + aOffsetY - 33;
     }
-    else if (mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
+    else if (mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
+             mSeedType == SeedType::SEED_SNOW_GATLING_PEA)
     {
         int aOffsetX, aOffsetY;
         GetPeaHeadOffset(aOffsetX, aOffsetY);
@@ -5585,7 +5632,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aOriginY -= 5;
     }
     
-    if (mSeedType == SeedType::SEED_SNOWPEA)
+    if (mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_SNOW_GATLING_PEA)
     {
         int aRenderPosition = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_LAWN_MOWER, mRow, 1);
         mApp->AddTodParticle(aOriginX + 8, aOriginY + 13, aRenderPosition, ParticleEffect::PARTICLE_SNOWPEA_PUFF);
@@ -5602,7 +5649,8 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     }
 
     Projectile* aProjectile = nullptr;
-    if ((mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA) && mGatlingScatterCountdown > 0)
+    if ((mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
+         mSeedType == SeedType::SEED_SNOW_GATLING_PEA) && mGatlingScatterCountdown > 0)
     {
         // 大招：每 2 帧（0.02 s）发射 6 颗 ±15° 扇形子弹，取代主子弹
         constexpr int SCATTER_COUNT = 2;
@@ -5634,7 +5682,8 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectile->mSourcePlantID = static_cast<PlantID>(mBoard->mPlants.DataArrayGetID(this));
         aProjectile->mElectricChainSource = PlantFiresElectricChainProjectile(this);
 
-        if (mApp->IsLoneWolfLevel() && (mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA))
+        if (mApp->IsLoneWolfLevel() && (mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
+                                        mSeedType == SeedType::SEED_SNOW_GATLING_PEA))
             aProjectile->mDamageOverride = 200;
 
         if (mSeedType == SeedType::SEED_PEASHOOTER && !mHasFiredFirstPea)
@@ -5646,7 +5695,8 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     }
 
     // Gatling Pea: 正常模式下每发主子弹 50% 概率 +1% 散射概率；每轮开始判定开大
-    if ((mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA) && mGatlingScatterCountdown == 0)
+    if ((mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
+         mSeedType == SeedType::SEED_SNOW_GATLING_PEA) && mGatlingScatterCountdown == 0)
     {
         if (Rand(100) < 50 && mGatlingScatterChance < 100)
         {
@@ -6210,6 +6260,8 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
         aReanimType = ElectricGatlingReanimType();
     else if (theSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
         aReanimType = ElectricStarfruitReanimType();
+    else if (theSeedType == SeedType::SEED_SNOW_GATLING_PEA)
+        aReanimType = SnowGatlingReanimType();
 
     if (aReanimType != ReanimationType::REANIM_NONE)
     {

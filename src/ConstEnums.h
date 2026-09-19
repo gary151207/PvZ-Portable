@@ -979,6 +979,8 @@ enum ReanimationType : uint32_t {
                                     // 但装载后用 reanim/ElectricGatling_*.png 专用贴图逐帧替换（见 Plant.cpp）
     REANIM_ELECTRIC_STARFRUIT,      // 究极电能杨桃：与 REANIM_STARFRUIT 同一个 reanim 文件，
                                     // 但装载后用 reanim/Electric_Starfruit_*.png 专用贴图逐帧替换（见 Plant.cpp）
+    REANIM_SNOW_GATLINGPEA,         // 寒冰机枪射手：与 REANIM_GATLINGPEA 同一个 reanim 文件，
+                                    // 但装载后用 reanim/SnowGatling_*.png 专用贴图逐帧替换（见 Plant.cpp）
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1109,6 +1111,7 @@ enum SeedType : int32_t
     SEED_PEATER_1_5,                                // 1.5 发射手（旅行红卡：每次攻击 50% 一发 / 50% 两发）
     SEED_ELECTRIC_GATLING_PEA,                      // 究极电能机枪射手（旅行红卡：由机枪射手升级，200 阳光，100% 电能豌豆）
     SEED_ELECTRIC_STARFRUIT,                        // 究极电能杨桃（旅行红卡：由杨桃升级，300 阳光，5 颗追踪电能星星）
+    SEED_SNOW_GATLING_PEA,                          // 寒冰机枪射手（寒冰射手种在机枪射手上时合成）
     NUM_SEED_TYPES,
     SEED_BEGHOULED_BUTTON_SHUFFLE,
     SEED_BEGHOULED_BUTTON_CRATER,

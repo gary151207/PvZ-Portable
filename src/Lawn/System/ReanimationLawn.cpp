@@ -93,6 +93,11 @@ void ReanimatorCache::DrawReanimatorFrame(Graphics* g, float thePosX, float theP
 	{
 		ElectricStarfruitHasCustomArt();
 	}
+	// 寒冰机枪射手同样必须在临时动画实例建立前替换贴图；缺图时函数会保留原版机枪贴图兜底。
+	if (theSeedType == SeedType::SEED_SNOW_GATLING_PEA)
+	{
+		SnowGatlingHasCustomArt();
+	}
 
 	Reanimation aReanim;
 	aReanim.ReanimationInitializeType(thePosX, thePosY, theReanimationType);
@@ -266,6 +271,8 @@ MemoryImage* ReanimatorCache::MakeCachedPlantFrame(SeedType theSeedType, DrawVar
 		aReanimType = ElectricGatlingReanimType();
 	else if (theSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
 		aReanimType = ElectricStarfruitReanimType();
+	else if (theSeedType == SeedType::SEED_SNOW_GATLING_PEA)
+		aReanimType = SnowGatlingReanimType();
 
 	if (theSeedType == SeedType::SEED_POTATOMINE)
 	{
@@ -291,7 +298,7 @@ MemoryImage* ReanimatorCache::MakeCachedPlantFrame(SeedType theSeedType, DrawVar
 
 		if (theSeedType == SeedType::SEED_PEASHOOTER || theSeedType == SeedType::SEED_SNOWPEA || theSeedType == SeedType::SEED_REPEATER ||
 			theSeedType == SeedType::SEED_LEFTPEATER || theSeedType == SeedType::SEED_GATLINGPEA || theSeedType == SeedType::SEED_PEATER_1_5 ||
-			theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
+			theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || theSeedType == SeedType::SEED_SNOW_GATLING_PEA)
 		{
 			DrawReanimatorFrame(&aMemoryGraphics, -aOffsetX, -aOffsetY, aReanimType, "anim_head_idle", theDrawVariation, theSeedType);
 		}

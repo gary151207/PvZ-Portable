@@ -5130,7 +5130,7 @@ void Board::UpdateToolTip()
 	{
 		mToolTip->SetTitle(Plant::GetNameString(aPlant->mSeedType, aPlant->mImitaterType));
 		std::string aHPLabel = StrFormat("HP: %d/%d", aPlant->mPlantHealth, aPlant->mPlantMaxHealth);
-		if (aPlant->mSeedType == SeedType::SEED_GATLINGPEA || aPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
+		if (aPlant->mSeedType == SeedType::SEED_GATLINGPEA || aPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || aPlant->mSeedType == SeedType::SEED_SNOW_GATLING_PEA)
 		{
 			if (aPlant->mGatlingScatterCountdown > 0)
 			{
@@ -5748,7 +5748,14 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 	bool aIsUltimateSwitch = false;
 	if (aNormalPlant)
 	{
-		if (aPlantingSeedType == SeedType::SEED_STARFRUIT && aNormalPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
+		if (aPlantingSeedType == SeedType::SEED_SNOWPEA && aNormalPlant->mSeedType == SeedType::SEED_GATLINGPEA)
+		{
+			// 寒冰射手覆盖机枪射手：消耗的仍是光标中的寒冰射手卡；
+			// 仅把实际创建的植物改为隐藏的寒冰机枪射手。
+			aPlantSeedType = SeedType::SEED_SNOW_GATLING_PEA;
+			aPlantImitaterType = SeedType::SEED_NONE;
+		}
+		else if (aPlantingSeedType == SeedType::SEED_STARFRUIT && aNormalPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
 		{
 			aPlantSeedType = SeedType::SEED_ELECTRIC_STARFRUIT;
 			aPlantImitaterType = SeedType::SEED_NONE;

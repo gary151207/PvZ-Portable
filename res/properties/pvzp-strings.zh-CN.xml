@@ -33,4 +33,7 @@
 	<String id="REQUIRES_GATLINGPEA">需要先种下机枪射手</String>
 	<String id="ADVICE_PLANT_NEEDS_GATLINGPEA">需要先种下机枪射手，才能把它升级成究极电能机枪射手。</String>
 	<String id="ADVICE_ONLY_ON_GATLINGPEA">究极电能机枪射手只能种在机枪射手上面。</String>
+	<String id="GLOVE_LEVEL_TOOLTIP">手套（G 键）：把植物搬到本关能种下它的位置（南瓜可套在别的植物上、睡莲/花盆上也能站；冷却 10 秒）</String>
+	<String id="GLOVE_LEVEL_TOOLTIP_TRAVEL">手套（G 键）：把植物搬到本关能种下它的位置（南瓜可套在别的植物上、睡莲/花盆上也能站；旅行模式无冷却）</String>
+	<String id="ADVICE_GLOVE_CANT_MOVE">手套只能搬到能种下这株植物的格子。右键放下。</String>
 </Properties>

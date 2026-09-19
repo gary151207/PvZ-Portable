@@ -220,6 +220,7 @@ Board::Board(LawnApp* theApp)
 	mSukhbirMode = mApp->mSukhbirMode;
 	mZombieMultiplier = mApp->mZombieMultiplier;
 	mShowShovel = false;
+	mGloveCooldown = 0;
 	mToolTip = new ToolTipWidget();
 	//mDebugFont = new SysFont("Arial Unicode MS", 10, true, false, false);
 	mAdvice = new MessageWidget(mApp);
@@ -1588,6 +1589,232 @@ Rect Board::GetShovelButtonRect()
 	return aRect;
 }
 
+// =============================================================================================
+// ▼ 关卡手套：铲子旁边的搬植物道具（在禅境花园商店买下园艺手套后解锁）
+// =============================================================================================
+
+bool Board::CanUseLevelGlove()
+{
+	// 禅境花园/智慧树有自己的花园手套（OBJECT_TYPE_GLOVE + GetZenButtonRect），不重复提供
+	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN ||
+		mApp->mGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM)
+	{
+		return false;
+	}
+
+	// 我是僵尸关的鼠标按下会整体交给 IZombie 逻辑，搬植物在那里没有意义
+	if (mApp->IsIZombieLevel())
+	{
+		return false;
+	}
+
+	// 老虎机关卡根本没有可种的植物，手套无处可用
+	if (mApp->IsSlotMachineLevel())
+	{
+		return false;
+	}
+
+	return mApp->mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_GARDENING_GLOVE] > 0;
+}
+
+int Board::GetGloveCooldownDuration()
+{
+	// 厘秒：其他模式 10 秒；所有旅行模式无冷却
+	return IsTravelLevel(mApp->mGameMode) ? 0 : 1000;
+}
+
+bool Board::IsGloveToolbarReady()
+{
+	if (mApp->mGameScene != GameScenes::SCENE_PLAYING)
+	{
+		return false;
+	}
+	// 正常关卡跟随铲子的显隐；旅行模式（两个体验关 + 11 轮旅程）即使铲子被隐藏也照常提供手套
+	return mShowShovel || IsTravelLevel(mApp->mGameMode);
+}
+
+Rect Board::GetGloveButtonRect()
+{
+	Rect aRect = GetShovelButtonRect();
+	if (mApp->IsSlotMachineLevel() || mApp->IsSquirrelLevel())
+	{
+		// 这两种模式的铲子已经被挪到 x=600（右边就是暂停按钮），手套改放铲子左边
+		aRect.mX -= aRect.mWidth;
+	}
+	else
+	{
+		aRect.mX += aRect.mWidth;   // 铲子的右边一格
+	}
+	return aRect;
+}
+
+Plant* Board::GetGlovePlant()
+{
+	return mPlants.DataArrayTryToGet(static_cast<unsigned int>(mCursorObject->mGlovePlantID));
+}
+
+void Board::PickUpPlantWithGlove(Plant* thePlant)
+{
+	mCursorObject->mType = thePlant->mSeedType;
+	mCursorObject->mImitaterType = thePlant->mImitaterType;
+	mCursorObject->mCursorType = CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE;
+	mCursorObject->mGlovePlantID = (PlantID)mPlants.DataArrayGetID(thePlant);
+	mApp->PlayFoley(FoleyType::FOLEY_DROP);
+}
+
+bool Board::GloveCanMovePlantTo(Plant* thePlant, int theGridX, int theGridY)
+{
+	if (thePlant == nullptr || thePlant->NotOnGround())
+	{
+		return false;
+	}
+	if (theGridX < 0 || theGridX >= MAX_GRID_SIZE_X || theGridY < 0 || theGridY >= MAX_GRID_SIZE_Y)
+	{
+		return false;
+	}
+
+	SeedType aSeedType = thePlant->mSeedType;
+	if (aSeedType == SeedType::SEED_IMITATER && thePlant->mImitaterType != SeedType::SEED_NONE)
+	{
+		aSeedType = thePlant->mImitaterType;
+	}
+
+	bool aIsPumpkin = aSeedType == SeedType::SEED_PUMPKINSHELL;
+	bool aIsUnderPlant = aSeedType == SeedType::SEED_FLOWERPOT || aSeedType == SeedType::SEED_LILYPAD;
+	bool aIsTwoCellPlant = aSeedType == SeedType::SEED_COBCANNON || aSeedType == SeedType::SEED_GIANT_WALLNUT;
+
+	PlantsOnLawn aDestLawn;
+	GetPlantsOnLawn(theGridX, theGridY, &aDestLawn);
+
+	// 目标格的"植物位"必须是空的：手套只搬植物，不替换、不铲除别人的植物。
+	// 睡莲/花盆与南瓜壳可以留在那里当载体（前者让植物站上去，后者把植物装进南瓜里）
+	if (aIsPumpkin)
+	{
+		// 南瓜是唯一的例外：它本来就是"套在植物外面"的东西，
+		// 所以搬到"已经有植物、但还没套南瓜"的格子上是允许的（套上去就是）。
+		// "不能再套一层南瓜"以及"不能套在玉米加农炮/巨大坚果上"交给下面的 CanPlantAt 按种植规则否决
+		if (aDestLawn.mPumpkinPlant != nullptr)
+		{
+			return false;
+		}
+	}
+	else if (aDestLawn.mNormalPlant != nullptr || aDestLawn.mFlyingPlant != nullptr)
+	{
+		return false;
+	}
+	// 占两格的植物塞不进南瓜里（与 CanPlantAt 的南瓜规则一致；南瓜本身上面已单独处理）
+	if (aDestLawn.mPumpkinPlant != nullptr && aIsTwoCellPlant)
+	{
+		return false;
+	}
+	// 睡莲/花盆上还站着东西时不能把底座单独搬走（会把上面的植物留在原地悬空）
+	if (aIsUnderPlant)
+	{
+		PlantsOnLawn aSourceLawn;
+		GetPlantsOnLawn(thePlant->mPlantCol, thePlant->mRow, &aSourceLawn);
+		if (aSourceLawn.mNormalPlant != nullptr || aSourceLawn.mPumpkinPlant != nullptr)
+		{
+			return false;
+		}
+	}
+	// 占两格的植物（玉米加农炮/巨大坚果）：右边那格必须一整格空着
+	if (aIsTwoCellPlant)
+	{
+		if (theGridX + 1 >= MAX_GRID_SIZE_X)
+		{
+			return false;
+		}
+		PlantsOnLawn aSecondLawn;
+		GetPlantsOnLawn(theGridX + 1, theGridY, &aSecondLawn);
+		if (aSecondLawn.mNormalPlant != nullptr || aSecondLawn.mUnderPlant != nullptr ||
+			aSecondLawn.mPumpkinPlant != nullptr || aSecondLawn.mFlyingPlant != nullptr)
+		{
+			return false;
+		}
+	}
+
+	// 种植限制（水面/屋顶/弹坑/墓碑/罐子/冰面/关卡专属规则…）直接沿用 CanPlantAt，
+	// 保证"手套能搬过去的地方"= "这株植物本来能种下去的地方"。
+	// 只有"需要底座/需要升级"这类前提不算地形限制：被搬的植物本来就长在底座上、也早就升级过了。
+	PlantingReason aReason = CanPlantAt(theGridX, theGridY, aSeedType);
+	if (aReason != PlantingReason::PLANTING_OK &&
+		aReason != PlantingReason::PLANTING_NEEDS_UPGRADE &&
+		aReason != PlantingReason::PLANTING_NEEDS_TWO_WALLNUTS)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+void Board::MovePlantWithGlove(Plant* thePlant, int theGridX, int theGridY)
+{
+	int aPosX = GridToPixelX(theGridX, theGridY);
+	int aPosY = GridToPixelY(theGridX, theGridY);
+	float aDeltaX = aPosX - thePlant->mX;
+	float aDeltaY = aPosY - thePlant->mY;
+
+	// 只搬点中的那一株：睡莲/花盆/南瓜壳都留在原格（单独留一个底座或空壳都是合法局面）
+	thePlant->mX = aPosX;
+	thePlant->mY = aPosY;
+	thePlant->mPlantCol = theGridX;
+	thePlant->mRow = theGridY;
+	thePlant->mRenderOrder = thePlant->CalcRenderOrder();
+
+	// 跟随这株植物的粒子系统一起平移（与 ZenGarden::MovePlant 同款处理）
+	TodParticleSystem* aParticle = mApp->ParticleTryToGet(thePlant->mParticleID);
+	if (aParticle && aParticle->mEmitterList.mSize)
+	{
+		TodParticleEmitter* aEmitter = aParticle->mParticleHolder->mEmitters.DataArrayGet(
+			static_cast<unsigned int>(aParticle->mEmitterList.GetHead()->mValue));
+		aParticle->SystemMove(aEmitter->mSystemCenter.x + aDeltaX, aEmitter->mSystemCenter.y + aDeltaY);
+	}
+
+	DoPlantingEffects(theGridX, theGridY, thePlant);
+
+	mGloveCooldown = GetGloveCooldownDuration();
+}
+
+void Board::DrawGloveButton(Graphics* g)
+{
+	if (!IsGloveToolbarReady() || !CanUseLevelGlove())
+	{
+		return;
+	}
+
+	Rect aRect = GetGloveButtonRect();
+	g->DrawImage(Sexy::IMAGE_SHOVELBANK, aRect.mX, aRect.mY);
+
+	// 手套已拿在手上（或正搬着植物）时按钮留空，和禅境花园的处理一致
+	if (mCursorObject->mCursorType == CursorType::CURSOR_TYPE_GLOVE ||
+		mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE)
+	{
+		return;
+	}
+
+	bool aCooling = mGloveCooldown > 0;
+	if (aCooling)
+	{
+		g->SetColorizeImages(true);
+		g->SetColor(Color(96, 96, 96));
+	}
+	g->DrawImage(Sexy::IMAGE_ZEN_GARDENGLOVE, aRect.mX - 6, aRect.mY - 4);
+	g->SetColorizeImages(false);
+
+	if (aCooling)
+	{
+		g->SetColor(Color(0, 0, 0, 110));
+		g->FillRect(aRect.mX + 9, aRect.mY + 18, aRect.mWidth - 18, 34);
+
+		std::string aSeconds = StrFormat("%d", (mGloveCooldown + 99) / 100);
+		TodDrawString(g, aSeconds, aRect.mX + aRect.mWidth / 2, aRect.mY + 26, Sexy::FONT_HOUSEOFTERROR16, Color::White, DrawStringJustification::DS_ALIGN_CENTER);
+	}
+}
+
+// =============================================================================================
+// ▲ 关卡手套
+// =============================================================================================
+
 void Board::GetZenButtonRect(GameObjectType theObjectType, Rect& theRect)
 {
 	// 此函数与内测版的差异在于，内测版在此函数中通过下列语句先取得了铲子按钮矩形：
@@ -1654,7 +1881,14 @@ Rect Board::GetIceBagButtonRect()
 	// 放在顶部工具条的铲子按钮与暂停菜单按钮之间（仅冰冻沙盒关使用）
 	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ICE && mApp->mGameScene == GameScenes::SCENE_PLAYING)
 	{
-		return Rect(556, 4, 112, 40);
+		// 买了关卡手套时，铲子右边先让给手套按钮，背包按钮顺势右移一格
+		int aX = 556;
+		if (CanUseLevelGlove())
+		{
+			Rect aGloveRect = GetGloveButtonRect();
+			aX = aGloveRect.mX + aGloveRect.mWidth;
+		}
+		return Rect(aX, 4, 112, 40);
 	}
 	Rect aRect(GetSeedBankExtraWidth() + 530, 0, 130, IMAGE_SHOVELBANK->GetHeight() + 20);
 	return aRect;
@@ -3820,6 +4054,14 @@ ZombieType Board::PickGraveRisingZombieType()
 	return (ZombieType)TodPickFromWeightedArray(aZombieWeightArray, aCount);
 }
 
+bool Board::IsTravelForbiddenZombie(ZombieType theZombieType)
+{
+	// 投篮车（投石车）僵尸在旅行模式中一概不出现：
+	// 它隔着植物把投掷物砸到后排，而旅行的"按轮解锁"池没法像冒险关那样用关卡/波次限制它。
+	// 出怪池已在 Challenge::InitZombieWavesTravelJourney() 里排除；这里是随机抽取与刷怪两处的兜底。
+	return theZombieType == ZombieType::ZOMBIE_CATAPULT && IsTravelLevel(mApp->mGameMode);
+}
+
 ZombieType Board::PickZombieType(int theZombiePoints, int theWaveIndex, ZombiePicker* theZombiePicker)
 {
 	int aPickCount = 0;
@@ -3835,6 +4077,11 @@ ZombieType Board::PickZombieType(int theZombiePoints, int theWaveIndex, ZombiePi
 		// ▲ 将不符合出怪限制或超出剩余点数的僵尸类型排除
 		// ================================================================================================
 		GameMode aGameMode = mApp->mGameMode;
+		// 旅行模式禁出的僵尸直接跳过抽取（投篮车；出怪池里也已经没有它）
+		if (IsTravelForbiddenZombie((ZombieType)aZombieType))
+		{
+			continue;
+		}
 		// 蹦极僵尸在无尽模式与旅行模式中仅在旗帜波出现
 		if (aZombieType == ZombieType::ZOMBIE_BUNGEE && (mApp->IsSurvivalEndless(aGameMode) || IsTravelJourneyLevel(aGameMode)))
 		{
@@ -4953,6 +5200,17 @@ void Board::UpdateToolTip()
 		mToolTip->SetLabel("[CHOCOLATE_TOOLTIP]");
 		break;
 	case GameObjectType::OBJECT_TYPE_GLOVE:
+		// 关卡手套：提示挂在铲子旁边的手套按钮上；禅境花园/智慧树仍走 GetZenButtonRect
+		if (CanUseLevelGlove())
+		{
+			mToolTip->SetLabel(IsTravelLevel(mApp->mGameMode) ? "[GLOVE_LEVEL_TOOLTIP_TRAVEL]" : "[GLOVE_LEVEL_TOOLTIP]");
+			Rect aGloveButtonRect = GetGloveButtonRect();
+			mToolTip->mX = aGloveButtonRect.mX + 35;
+			mToolTip->mY = aGloveButtonRect.mY + 72;
+			mToolTip->mCenter = true;
+			mToolTip->mVisible = true;
+			return;
+		}
 		mToolTip->SetLabel("[GLOVE_TOOLTIP]");
 		break;
 	case GameObjectType::OBJECT_TYPE_MONEY_SIGN:
@@ -5230,6 +5488,44 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 	if (mApp->IsIZombieLevel())
 	{
 		mChallenge->IZombieMouseDownWithZombie(x, y, theClickCount);
+		return;
+	}
+
+	// 关卡手套搬植物：直接按像素格搬，不走 CanPlantAt（被搬的植物本来就不该再"种"一次），
+	// 因此要赶在 PlantingPixelToGridX/Y（会按种子类型做 y 偏移）之前用普通格子换算。
+	if (mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE &&
+		mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN)
+	{
+		Plant* aGlovePlant = GetGlovePlant();
+		if (aGlovePlant == nullptr)
+		{
+			ClearCursor();   // 手上的植物已经没了（被吃掉/被铲掉）
+			return;
+		}
+
+		int aMoveGridX = PixelToGridX(x, y);
+		int aMoveGridY = PixelToGridY(x, y);
+		if (aMoveGridX < 0 || aMoveGridX >= MAX_GRID_SIZE_X || aMoveGridY < 0 || aMoveGridY >= MAX_GRID_SIZE_Y)
+		{
+			ClearCursor();   // 点到草地外：原地放下
+			mApp->PlayFoley(FoleyType::FOLEY_DROP);
+			return;
+		}
+		if (aMoveGridX == aGlovePlant->mPlantCol && aMoveGridY == aGlovePlant->mRow)
+		{
+			ClearCursor();   // 原地放回：不算一次搬运，也就不进冷却
+			return;
+		}
+		if (!GloveCanMovePlantTo(aGlovePlant, aMoveGridX, aMoveGridY))
+		{
+			// 拒绝：响一声并把植物继续拿在手上，右键/点草地外可以放下
+			mApp->PlaySample(Sexy::SOUND_BUZZER);
+			DisplayAdvice("[ADVICE_GLOVE_CANT_MOVE]", MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_NONE);
+			return;
+		}
+
+		MovePlantWithGlove(aGlovePlant, aMoveGridX, aMoveGridY);
+		ClearCursor();
 		return;
 	}
 
@@ -5746,6 +6042,19 @@ void Board::MouseDownWithTool(int x, int y, int theClickCount, CursorType theCur
 			SetTutorialState(CountPlantByType(SeedType::SEED_PEASHOOTER) == 0 ? TutorialState::TUTORIAL_SHOVEL_COMPLETED : TutorialState::TUTORIAL_SHOVEL_KEEP_DIGGING);
 		}
 	}
+	else if (theCursorType == CursorType::CURSOR_TYPE_GLOVE)
+	{
+		// 关卡手套：把点到的植物拿在手里，下一次点击（MouseDownWithPlant）再决定放到哪一格。
+		// 已经被压扁/正被蹦极吊走/已死的植物不接手（拿起来也放不下去）
+		if (aPlant->NotOnGround())
+		{
+			mApp->PlayFoley(FoleyType::FOLEY_DROP);
+			ClearCursor();
+			return;
+		}
+		PickUpPlantWithGlove(aPlant);
+		return;
+	}
 
 	ClearCursor();
 }
@@ -5863,6 +6172,13 @@ bool Board::MouseHitTest(int x, int y, HitResult* theHitResult)
 	if (mShowShovel && aShovelButtonRect.Contains(x, y) && CanInteractWithBoardButtons())
 	{
 		theHitResult->mObjectType = GameObjectType::OBJECT_TYPE_SHOVEL;
+		return true;
+	}
+
+	Rect aGloveButtonRect = GetGloveButtonRect();
+	if (IsGloveToolbarReady() && CanUseLevelGlove() && aGloveButtonRect.Contains(x, y) && CanInteractWithBoardButtons())
+	{
+		theHitResult->mObjectType = GameObjectType::OBJECT_TYPE_GLOVE;
 		return true;
 	}
 
@@ -6049,6 +6365,12 @@ void Board::PickUpTool(GameObjectType theObjectType)
 		break;
 
 	case GameObjectType::OBJECT_TYPE_GLOVE:
+		// 关卡手套：冷却中点了只会响一声
+		if (CanUseLevelGlove() && mGloveCooldown > 0)
+		{
+			mApp->PlaySample(Sexy::SOUND_BUZZER);
+			break;
+		}
 		mCursorObject->mCursorType = CursorType::CURSOR_TYPE_GLOVE;
 		mApp->PlayFoley(FoleyType::FOLEY_DROP);
 		break;
@@ -6673,6 +6995,10 @@ void Board::SpawnZombieWave()
 			ZombieType aZombieType = mZombiesInWave[mCurrentWave][i];
 			if (aZombieType == ZombieType::ZOMBIE_INVALID)
 				break;
+
+			// 旅行模式禁出的僵尸不进战场（旧存档的波内列表里可能还留着投篮车）
+			if (IsTravelForbiddenZombie(aZombieType))
+				continue;
 
 			if (aZombieType == ZombieType::ZOMBIE_BOBSLED && !CanAddBobSled())
 			{
@@ -7458,6 +7784,10 @@ void Board::UpdateGame()
 		return;
 
 	mMainCounter++;
+	if (mGloveCooldown > 0)
+	{
+		mGloveCooldown--;   // 关卡手套冷却：按游戏刻走，暂停/过场时自然停摆
+	}
 	UpdateSunSpawning();
 	UpdateZombieSpawning();
 	UpdateIce();
@@ -9069,6 +9399,7 @@ void Board::DrawUIBottom(Graphics* g)
 	}
 
 	DrawShovel(g);
+	DrawGloveButton(g);
 	if (!StageHasFog())
 	{
 		DrawTopRightUI(g);
@@ -9575,6 +9906,21 @@ void Board::DoTypingCheck(KeyCode theKey)
 	}
 }
 
+namespace
+{
+	// 按 G 拿手套时，允许"先把手上的东西放回去"的光标类型：
+	// 卡牌（卡槽 / 传送带 / 可用硬币 / 复制者）与铲子。
+	// 其它特殊光标（玉米加农炮瞄准、锤子、独轮车等）不动，免得打断它们自己的流程。
+	bool IsGloveSwappableCursor(CursorType theCursorType)
+	{
+		return theCursorType == CursorType::CURSOR_TYPE_NORMAL ||
+			theCursorType == CursorType::CURSOR_TYPE_SHOVEL ||
+			theCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_BANK ||
+			theCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_USABLE_COIN ||
+			theCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_DUPLICATOR;
+	}
+}
+
 void Board::KeyDown(KeyCode theKey)
 {
 	if (mApp->mDebugKeysEnabled && (theKey == KeyCode('L') || theKey == KeyCode('l')))
@@ -9625,6 +9971,45 @@ void Board::KeyDown(KeyCode theKey)
 				IceSandboxDisarm();
 			}
 			PickUpTool(GameObjectType::OBJECT_TYPE_SHOVEL);
+		}
+	}
+	else if (theKey == KeyCode('G') || theKey == KeyCode('g'))
+	{
+		// G：拿 / 放关卡手套
+		if (CanUseLevelGlove() && mApp->mGameScene == GameScenes::SCENE_PLAYING && !IsScaryPotterDaveTalking())
+		{
+			if (mCursorObject->mCursorType == CursorType::CURSOR_TYPE_GLOVE ||
+				mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE)
+			{
+				// 再按一次 G：放下手套 / 手里的植物（植物留在原格，不算搬运也就不进冷却）
+				ClearCursor();
+				mApp->PlayFoley(FoleyType::FOLEY_DROP);
+			}
+			else if (IsGloveToolbarReady() && IsGloveSwappableCursor(mCursorObject->mCursorType))
+			{
+				if (mGloveCooldown > 0)
+				{
+					// 冷却中：只响一声，别把玩家手上的卡牌/铲子白白收走
+					mApp->PlaySample(Sexy::SOUND_BUZZER);
+				}
+				else
+				{
+					// 手里拿着卡牌（传送带关尤其常见）或铲子时，先把它们放回去再拿手套——
+					// 否则按 G 会像"没反应"（只处理 NORMAL 光标的那版就是这样）
+					if (IsIceSandboxLevel() && mIceArmKind != 0)
+					{
+						IceSandboxDisarm();
+					}
+					if (mCursorObject->mCursorType != CursorType::CURSOR_TYPE_NORMAL)
+					{
+						RefreshSeedPacketFromCursor();   // 卡牌归位 / 铲子放下，都走 ClearCursor
+					}
+					if (mCursorObject->mCursorType == CursorType::CURSOR_TYPE_NORMAL)
+					{
+						PickUpTool(GameObjectType::OBJECT_TYPE_GLOVE);
+					}
+				}
+			}
 		}
 	}
 	else if (theKey >= KeyCode::KEYCODE_ASCIIBEGIN && theKey <= KeyCode(0x39)) // '0' ~ '9'

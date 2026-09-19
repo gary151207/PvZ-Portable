@@ -2588,7 +2588,8 @@ void Challenge::InitZombieWavesTravelJourney()
 	if (aRound >= 6)  aList[ZOMBIE_JACK_IN_THE_BOX] = true;
 	if (aRound >= 7)  aList[ZOMBIE_LADDER] = true;
 	if (aRound >= 8)  aList[ZOMBIE_ZAMBONI] = true;
-	if (aRound >= 9)  aList[ZOMBIE_CATAPULT] = true;
+	// 投篮车（投石车）僵尸不进旅行模式的出怪池（它会隔着植物把投掷物砸到后排）。
+	// 兜底见 Board::IsTravelForbiddenZombie()：随机抽取与刷怪两处再各拦一道。
 	if (aRound >= 9)  aList[ZOMBIE_BUNGEE] = true;      // 旗帜波限定（见 Board::PickZombieType）
 	if (aRound >= 10) aList[ZOMBIE_DANCER] = true;
 	if (aRound >= 10) aList[ZOMBIE_GARGANTUAR] = true;

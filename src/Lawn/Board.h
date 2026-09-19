@@ -195,6 +195,7 @@ public:
 	AdviceType						mHelpIndex;
 	bool							mFinalBossKilled;
 	bool							mShowShovel;
+	int32_t							mGloveCooldown;      // 关卡手套剩余冷却（厘秒；0 = 可用）
 	int32_t							mCoinBankFadeCount;
 	DebugTextMode					mDebugTextMode;
 	bool							mLevelComplete;
@@ -271,6 +272,8 @@ public:
 	Coin*							AddCoin(int theX, int theY, CoinType theCoinType, CoinMotion theCoinMotion);
 	void							RefreshSeedPacketFromCursor();
 	ZombieType						PickGraveRisingZombieType();
+	// 旅行模式禁出的僵尸（当前：投篮车/投石车）。出怪池、随机抽取、刷怪三处共用
+	bool							IsTravelForbiddenZombie(ZombieType theZombieType);
 	ZombieType						PickZombieType(int theZombiePoints, int theWaveIndex, ZombiePicker* theZombiePicker);
 	int								PickRowForNewZombie(ZombieType theZombieType);
 	/*inline*/ Zombie*				AddZombie(ZombieType theZombieType, int theFromWave);
@@ -513,6 +516,21 @@ public:
 	/*inline*/ void					PutInMissingZombies(int theWaveNumber, ZombiePicker* theZombiePicker);
 	Rect							GetShovelButtonRect();
 	void							GetZenButtonRect(GameObjectType theObjectType, Rect& theRect);
+
+	// ============================================================
+	// 关卡手套：在禅境花园商店买下「园艺手套」后，任意关卡都能用的搬植物道具。
+	// 按钮画在铲子旁边；其他模式冷却 10 秒、所有旅行模式无冷却。
+	// 禅境花园/智慧树保留原有的花园手套（GetZenButtonRect 那一套），不走这里。
+	// ============================================================
+	bool							CanUseLevelGlove();
+	bool							IsGloveToolbarReady();
+	int								GetGloveCooldownDuration();
+	Rect							GetGloveButtonRect();
+	void							DrawGloveButton(Graphics* g);
+	void							PickUpPlantWithGlove(Plant* thePlant);
+	Plant*							GetGlovePlant();
+	bool							GloveCanMovePlantTo(Plant* thePlant, int theGridX, int theGridY);
+	void							MovePlantWithGlove(Plant* thePlant, int theGridX, int theGridY);
 	Plant*							NewPlant(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
 	void							DoPlantingEffects(int theGridX, int theGridY, Plant* thePlant);
 	bool							IsFinalSurvivalStage();

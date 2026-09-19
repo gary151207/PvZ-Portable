@@ -153,6 +153,15 @@ void CursorObject::Draw(Graphics* g)
 
     case CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE:
     {
+        // 关卡手套（任意关卡）：搬的是场上植物，画卡面即可
+        if (mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN)
+        {
+            float aOffsetY = PlantDrawHeightOffset(mBoard, nullptr, mType, -1, -1) - 25.0f;
+            Plant::DrawSeedType(g, mType, mImitaterType, DrawVariation::VARIATION_NORMAL, -10.0f, aOffsetY);
+            break;
+        }
+
+        // 禅境花园：搬的是花盆里的盆栽
         Plant* aPlant = mBoard->mPlants.DataArrayGet(static_cast<unsigned int>(mGlovePlantID));
         PottedPlant* aPottedPlant = &mApp->mPlayerInfo->mPottedPlant[aPlant->mPottedPlantIndex];
         if (mBoard->mBackground == BackgroundType::BACKGROUND_MUSHROOM_GARDEN || mBoard->mBackground == BackgroundType::BACKGROUND_ZOMBIQUARIUM)
@@ -245,12 +254,28 @@ void CursorPreview::Update()
     SeedType aSeedType = mBoard->GetSeedTypeInCursor();
     int aMouseX = mApp->mWidgetManager->mLastMouseX;
     int aMouseY = mApp->mWidgetManager->mLastMouseY;
-    mGridX = mBoard->PlantingPixelToGridX(aMouseX, aMouseY, aSeedType);
-    mGridY = mBoard->PlantingPixelToGridY(aMouseX, aMouseY, aSeedType);
+    bool aLevelGlove = mBoard->mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE &&
+        mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN;
+    if (aLevelGlove)
+    {
+        // 关卡手套不按种子类型做 y 偏移（与 Board::MouseDownWithPlant 的落点换算保持一致）
+        mGridX = mBoard->PixelToGridX(aMouseX, aMouseY);
+        mGridY = mBoard->PixelToGridY(aMouseX, aMouseY);
+    }
+    else
+    {
+        mGridX = mBoard->PlantingPixelToGridX(aMouseX, aMouseY, aSeedType);
+        mGridY = mBoard->PlantingPixelToGridY(aMouseX, aMouseY, aSeedType);
+    }
     if (mGridX >= 0 && mGridX < MAX_GRID_SIZE_X && mGridY >= 0 && mGridY <= MAX_GRID_SIZE_Y)
     {
         bool aShow = false;
-        if (mBoard->IsPlantInCursor() && mBoard->CanPlantAt(mGridX, mGridY, aSeedType) == PlantingReason::PLANTING_OK)
+        if (aLevelGlove)
+        {
+            // 关卡手套：能落下的空地才显示幽灵预览
+            aShow = mBoard->GloveCanMovePlantTo(mBoard->GetGlovePlant(), mGridX, mGridY);
+        }
+        else if (mBoard->IsPlantInCursor() && mBoard->CanPlantAt(mGridX, mGridY, aSeedType) == PlantingReason::PLANTING_OK)
         {
             aShow = true;
         }
@@ -288,7 +313,8 @@ void CursorPreview::Draw(Graphics* g)
     {
         aPottedPlant = mApp->mZenGarden->GetPottedPlantInWheelbarrow();
     }
-    else if (mBoard->mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE)
+    else if (mBoard->mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE &&
+             mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN)
     {
         aPottedPlant = &mApp->mPlayerInfo->mPottedPlant[mBoard->mPlants.DataArrayGet(static_cast<unsigned int>(mBoard->mCursorObject->mGlovePlantID))->mPottedPlantIndex];
     }

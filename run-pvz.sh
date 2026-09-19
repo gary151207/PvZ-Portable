@@ -1,3 +1,3 @@
 #!/bin/sh
 
-dist/pvz-portable.exe
+dist/pvz-portable

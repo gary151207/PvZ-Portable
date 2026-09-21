@@ -867,6 +867,9 @@ static void SyncZombieTailPortable(PortableSaveContext& theContext, Zombie& theZ
 	SyncEnumU32(theContext, theZombie.mMoweredReanimID);
 	theContext.SyncInt32(theZombie.mLastPortalX);
 	theContext.SyncBool(theZombie.mTorchwoodSummoned);
+	// 火豌豆易伤（紫火豌豆命中）：剩余游戏刻。**追加在 tail 最末尾**，旧存档读不到时按 0
+	// （= 没有易伤），因此既不动既有字段的读取顺序，也不需要提升 .v4 版本。
+	theContext.SyncInt32(theZombie.mFireVulnCounter);
 }
 
 static void SyncPlantTailPortable(PortableSaveContext& theContext, Plant& thePlant)
@@ -952,7 +955,7 @@ static void SyncProjectileTailPortable(PortableSaveContext& theContext, Projecti
 	theContext.SyncInt32(theProjectile.mCobTargetRow);
 	SyncEnumU32(theContext, theProjectile.mTargetZombieID);
 	theContext.SyncInt32(theProjectile.mLastPortalX);
-	// 究极电能杨桃的电能星星：钉住剩余刻数 + 是否正钉在僵尸上
+	// 究极电能星星果的电能星星：钉住剩余刻数 + 是否正钉在僵尸上
 	//（追加在末尾，旧存档读不到时按 0/false = 未钉住处理）
 	theContext.SyncInt32(theProjectile.mLingerCountdown);
 	theContext.SyncBool(theProjectile.mElectricStarStuck);

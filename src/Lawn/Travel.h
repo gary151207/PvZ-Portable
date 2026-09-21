@@ -72,8 +72,14 @@ extern const int NUM_TRAVEL_LEVELS;
 extern const TravelPlantDef gTravelPlantDefs[];
 extern const int NUM_TRAVEL_PLANTS;
 
+// 旅行专属僵尸：只在旅行模式里出场的类型（BOSS 路障射手僵尸等），
+// 常规关卡（含斗蛐蛐）默认不出，需要时按名单取用，避免把"旅行专属"写死在各个调用点。
+extern const ZombieType gTravelZombieDefs[];
+extern const int NUM_TRAVEL_ZOMBIES;
+
 bool IsTravelLevel(GameMode theGameMode);
 const TravelLevelDef& GetTravelLevelDef(GameMode theGameMode);
 bool IsTravelOnlySeed(SeedType theSeedType);
+bool IsTravelOnlyZombie(ZombieType theZombieType);
 
 #endif

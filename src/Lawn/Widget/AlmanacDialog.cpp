@@ -33,9 +33,56 @@
 #include "../System/PoolEffect.h"
 #include "../System/ReanimationLawn.h"
 #include "../../Sexy.TodLib/TodStringFile.h"
+#include "../../Sexy.TodLib/Reanimator.h"
 #include "widget/WidgetManager.h"
 
 bool gZombieDefeated[NUM_ZOMBIE_TYPES] = { false };
+
+namespace
+{
+	// 图鉴「植物」页第 2 页：本模组新增、原版 49 张卡之外的植物。
+	// 与种子卡池不同，这里不看解锁状态——图鉴是资料页，新内容一律可见。
+	constexpr SeedType gAlmanacExtraSeeds[NUM_ALMANAC_EXTRA_SEEDS] = {
+		SeedType::SEED_SNOW_GATLING_PEA,      // 寒冰机枪射手（寒冰射手 × 机枪射手 合成）
+		SeedType::SEED_FUMESHROOM_GROUP,      // 大喷菇群（旅行紫卡）
+		SeedType::SEED_GIANT_WALLNUT,         // 巨大坚果（旅行红卡）
+		SeedType::SEED_PEATER_1_5,            // 1.5 发射手（旅行红卡）
+		SeedType::SEED_ELECTRIC_GATLING_PEA,  // 究极电能机枪射手（旅行红卡）
+		SeedType::SEED_ELECTRIC_STARFRUIT,    // 究极电能星星果（旅行红卡）
+		SeedType::SEED_FIRE_PEASHOOTER,       // 火豌豆射手（旅行红卡：65 伤害紫火豌豆 + 命中后易伤 40% / 4 秒）
+	};
+
+	// 图鉴「僵尸」页末尾追加的僵尸：排在第 5 行（原版僵尸博士那一行）的空位上。
+	constexpr ZombieType gAlmanacExtraZombies[NUM_ALMANAC_EXTRA_ZOMBIES] = {
+		ZombieType::ZOMBIE_REDEYE_GARGANTUAR,  // 红眼巨人僵尸
+		ZombieType::ZOMBIE_DOOMSHROOM_HEAD,    // 毁灭菇头小丑僵尸
+		ZombieType::ZOMBIE_BOSS_CONHEAD_PEA,   // 路障射手僵尸
+	};
+
+	constexpr int ALMANAC_ZOMBIE_COUNT = NUM_ALMANAC_ZOMBIES + NUM_ALMANAC_EXTRA_ZOMBIES;
+
+	// 追加植物在植物页里的序号；不是追加植物时返回 -1
+	int AlmanacExtraSeedIndex(SeedType theSeedType)
+	{
+		for (int i = 0; i < NUM_ALMANAC_EXTRA_SEEDS; i++)
+		{
+			if (gAlmanacExtraSeeds[i] == theSeedType)
+				return i;
+		}
+		return -1;
+	}
+
+	// 追加僵尸在僵尸页里的序号；不是追加僵尸时返回 -1
+	int AlmanacExtraZombieIndex(ZombieType theZombieType)
+	{
+		for (int i = 0; i < NUM_ALMANAC_EXTRA_ZOMBIES; i++)
+		{
+			if (gAlmanacExtraZombies[i] == theZombieType)
+				return i;
+		}
+		return -1;
+	}
+}
 
 AlmanacDialog::AlmanacDialog(LawnApp* theApp) : LawnDialog(theApp, DIALOG_ALMANAC, true, "Almanac", "", "", BUTTONS_NONE)
 {
@@ -100,6 +147,21 @@ AlmanacDialog::AlmanacDialog(LawnApp* theApp) : LawnDialog(theApp, DIALOG_ALMANA
 	mZombieButton->mDrawStoneButton = true;
 	mZombieButton->mParentWidget = this;
 
+	// 植物页翻页按钮：页 0 = 原版 49 张卡，页 1 = 本模组新增植物
+	mPlantPage = 0;
+	mPlantPageButton = new GameButton(AlmanacDialog::ALMANAC_BUTTON_PLANT_PAGE);
+	mPlantPageButton->SetLabel("»");
+	mPlantPageButton->mButtonImage = Sexy::IMAGE_SEEDCHOOSER_BUTTON2;
+	mPlantPageButton->mOverImage = Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW;
+	mPlantPageButton->mDownImage = Sexy::IMAGE_SEEDCHOOSER_BUTTON2_GLOW;
+	mPlantPageButton->SetFont(Sexy::FONT_BRIANNETOD12);
+	mPlantPageButton->mColors[ButtonWidget::COLOR_LABEL] = aColor;
+	mPlantPageButton->mColors[ButtonWidget::COLOR_LABEL_HILITE] = aColor;
+	mPlantPageButton->Resize(392, 563, 46, 30);
+	mPlantPageButton->mTextOffsetY = 1;
+	mPlantPageButton->mParentWidget = this;
+	mPlantPageButton->mBtnNoDraw = true;
+
 	SetPage(ALMANAC_PAGE_INDEX);
 	if (!mApp->mBoard || !mApp->mBoard->mPaused)
 		mApp->mMusic->MakeSureMusicIsPlaying(MUSIC_TUNE_CHOOSE_YOUR_SEEDS);
@@ -111,6 +173,7 @@ AlmanacDialog::~AlmanacDialog()
 	if (mIndexButton)	delete mIndexButton;
 	if (mPlantButton)	delete mPlantButton;
 	if (mZombieButton)	delete mZombieButton;
+	if (mPlantPageButton)	delete mPlantPageButton;
 
 	ClearPlantsAndZombies();
 }
@@ -158,6 +221,14 @@ void AlmanacDialog::SetupPlant()
 	else if (mSelectedSeed == SEED_FLOWERPOT)		aPosY -= 20;
 	else if (mSelectedSeed == SEED_INSTANT_COFFEE)	aPosY += 20;
 	else if (mSelectedSeed == SEED_GRAVEBUSTER)		aPosY += 55;
+	else if (mSelectedSeed == SEED_GIANT_WALLNUT)
+	{
+		// 巨大坚果按 2 倍体型绘制、锚点在左上格：贴图占 x ∈ [锚点+18, 锚点+158]、
+		// y ∈ [锚点-57, 锚点+87]。原版锚点会让它顶出卡片右侧、上半部分跑到卡片外，
+		// 所以往左挪一格半、往下压一点，让它正好落在卡片预览区（地面图 521..721）中间。
+		aPosX -= 46;
+		aPosY += 24;
+	}
 
 	mPlant = new Plant();
 	mPlant->mBoard = nullptr;
@@ -165,6 +236,9 @@ void AlmanacDialog::SetupPlant()
 	mPlant->PlantInitialize(0, 0, mSelectedSeed, SEED_NONE);
 	mPlant->mX = aPosX;
 	mPlant->mY = aPosY;
+	// 大喷菇群：左右小喷菇是独立 reanim（游戏里按世界坐标绘制），图鉴里改成
+	// 相对植物原点的偏移，好跟着植物一起画在卡片预览区里。
+	mPlant->SyncFumeGroupPuffs(true);
 }
 
 // GOTY @Patoke: 0x402D90
@@ -202,6 +276,7 @@ void AlmanacDialog::SetPage(AlmanacPage thePage)
 		mIndexButton->mBtnNoDraw = true;
 		mPlantButton->mBtnNoDraw = false;
 		mZombieButton->mBtnNoDraw = false;
+		mPlantPageButton->mBtnNoDraw = true;
 	}
 	else
 	{
@@ -211,15 +286,29 @@ void AlmanacDialog::SetPage(AlmanacPage thePage)
 			SetupZombie();
 		else return;
 
+		// 翻页按钮只属于植物页（两页：原版 49 张卡 / 本模组新增植物）
+		mPlantPageButton->mBtnNoDraw = mOpenPage != AlmanacPage::ALMANAC_PAGE_PLANTS;
 		mIndexButton->mBtnNoDraw = false;
 		mPlantButton->mBtnNoDraw = true;
 		mZombieButton->mBtnNoDraw = true;
 	}
 }
 
+void AlmanacDialog::SetPlantPage(int thePage)
+{
+	if (mPlantPage == thePage)
+		return;
+
+	mPlantPage = thePage;
+	mPlantPageButton->SetLabel(mPlantPage == 0 ? "»" : "«");
+	MarkDirty();
+}
+
 void AlmanacDialog::ShowPlant(SeedType theSeedType)
 {
 	mSelectedSeed = theSeedType;
+	if (AlmanacExtraSeedIndex(theSeedType) >= 0)
+		SetPlantPage(1);
 	SetPage(ALMANAC_PAGE_PLANTS);
 }
 
@@ -235,7 +324,19 @@ void AlmanacDialog::Update()
 	mIndexButton->Update();
 	mPlantButton->Update();
 	mZombieButton->Update();
-	if (mPlant) mPlant->Update();
+	mPlantPageButton->Update();
+	if (mPlant)
+	{
+		mPlant->Update();
+
+		// 大喷菇群：左右小喷菇是独立 reanim，图鉴里没有 EffectSystem 统一更新，手动推一帧
+		Reanimation* aPuffLeft = mPlant->GetFumeGroupPuff(true);
+		if (aPuffLeft)
+			aPuffLeft->Update();
+		Reanimation* aPuffRight = mPlant->GetFumeGroupPuff(false);
+		if (aPuffRight)
+			aPuffRight->Update();
+	}
 	if (mZombie) mZombie->Update();
 	for (Zombie* aZombie : mZombiePerfTest)
 	{
@@ -248,7 +349,8 @@ void AlmanacDialog::Update()
 	int aMouseX = mApp->mWidgetManager->mLastMouseX;
 	int aMouseY = mApp->mWidgetManager->mLastMouseY;
 	if (SeedHitTest(aMouseX, aMouseY) != SeedType::SEED_NONE || ZombieHitTest(aMouseX, aMouseY) != ZombieType::ZOMBIE_INVALID || 
-		mCloseButton->IsMouseOver() || mIndexButton->IsMouseOver() || mPlantButton->IsMouseOver() || mZombieButton->IsMouseOver())
+		mCloseButton->IsMouseOver() || mIndexButton->IsMouseOver() || mPlantButton->IsMouseOver() || mZombieButton->IsMouseOver() ||
+		mPlantPageButton->IsMouseOver())
 	{
 		mApp->SetCursor(CURSOR_HAND);
 	}
@@ -263,7 +365,15 @@ void AlmanacDialog::Update()
 
 ZombieType AlmanacDialog::GetZombieType(int theIndex)
 {
-	return theIndex < NUM_ZOMBIE_TYPES ? (ZombieType)theIndex : ZOMBIE_INVALID;
+	if (theIndex < 0)
+		return ZOMBIE_INVALID;
+	// 前 NUM_ALMANAC_ZOMBIES 项就是原版僵尸（枚举序号即格子序号），
+	// 之后是本模组追加的僵尸。
+	if (theIndex < NUM_ALMANAC_ZOMBIES)
+		return (ZombieType)theIndex;
+
+	int aExtra = theIndex - NUM_ALMANAC_ZOMBIES;
+	return aExtra < NUM_ALMANAC_EXTRA_ZOMBIES ? gAlmanacExtraZombies[aExtra] : ZOMBIE_INVALID;
 }
 
 void AlmanacDialog::DrawIndex(Graphics* g)
@@ -291,24 +401,40 @@ void AlmanacDialog::DrawPlants(Graphics* g)
 	TodDrawString(g, "[SUBURBAN_ALMANAC_PLANTS]", BOARD_WIDTH / 2, 48, Sexy::FONT_HOUSEOFTERROR20, Color(213, 159, 43), DrawStringJustification::DS_ALIGN_CENTER);
 
 	SeedType aSeedMouseOn = SeedHitTest(mApp->mWidgetManager->mLastMouseX, mApp->mWidgetManager->mLastMouseY);
-	for (SeedType aSeedType = SeedType::SEED_PEASHOOTER; aSeedType < NUM_ALMANAC_SEEDS; aSeedType = (SeedType)(aSeedType + 1))
+	if (mPlantPage == 0)
 	{
-		int aPosX, aPosY;
-		GetSeedPosition(aSeedType, aPosX, aPosY);
-		if (mApp->HasSeedType(aSeedType))
+		for (SeedType aSeedType = SeedType::SEED_PEASHOOTER; aSeedType < NUM_ALMANAC_SEEDS; aSeedType = (SeedType)(aSeedType + 1))
 		{
-			if (aSeedType == SeedType::SEED_IMITATER)
+			int aPosX, aPosY;
+			GetSeedPosition(aSeedType, aPosX, aPosY);
+			if (mApp->HasSeedType(aSeedType))
 			{
-				if (aSeedType == aSeedMouseOn)
+				if (aSeedType == SeedType::SEED_IMITATER)
+				{
+					if (aSeedType == aSeedMouseOn)
+						g->DrawImage(Sexy::IMAGE_ALMANAC_IMITATER, aPosX, aPosY);
 					g->DrawImage(Sexy::IMAGE_ALMANAC_IMITATER, aPosX, aPosY);
-				g->DrawImage(Sexy::IMAGE_ALMANAC_IMITATER, aPosX, aPosY);
+				}
+				else
+				{
+					DrawSeedPacket(g, aPosX, aPosY, aSeedType, SeedType::SEED_NONE, 0, 255, true, false);
+					if (aSeedType == aSeedMouseOn)
+						g->DrawImage(Sexy::IMAGE_SEEDPACKETFLASH, aPosX, aPosY);
+				}
 			}
-			else
-			{
-				DrawSeedPacket(g, aPosX, aPosY, aSeedType, SeedType::SEED_NONE, 0, 255, true, false);
-				if (aSeedType == aSeedMouseOn)
-					g->DrawImage(Sexy::IMAGE_SEEDPACKETFLASH, aPosX, aPosY);
-			}
+		}
+	}
+	else
+	{
+		// 第 2 页：本模组新增植物。图鉴是资料页，不看解锁状态，一律可见。
+		for (int i = 0; i < NUM_ALMANAC_EXTRA_SEEDS; i++)
+		{
+			SeedType aSeedType = gAlmanacExtraSeeds[i];
+			int aPosX, aPosY;
+			GetPlantPagePosition(i, aPosX, aPosY);
+			DrawSeedPacket(g, aPosX, aPosY, aSeedType, SeedType::SEED_NONE, 0, 255, true, false);
+			if (aSeedType == aSeedMouseOn)
+				g->DrawImage(Sexy::IMAGE_SEEDPACKETFLASH, aPosX, aPosY);
 		}
 	}
 
@@ -340,7 +466,14 @@ void AlmanacDialog::DrawPlants(Graphics* g)
 	{
 		Graphics aPlantGraphics = Graphics(*g);
 		mPlant->BeginDraw(&aPlantGraphics);
+		// 大喷菇群：右小喷菇在主体之下、左小喷菇在主体之上（与游戏内 renderOrder 一致）
+		Reanimation* aPuffRight = mPlant->GetFumeGroupPuff(false);
+		if (aPuffRight)
+			aPuffRight->Draw(&aPlantGraphics);
 		mPlant->Draw(&aPlantGraphics);
+		Reanimation* aPuffLeft = mPlant->GetFumeGroupPuff(true);
+		if (aPuffLeft)
+			aPuffLeft->Draw(&aPlantGraphics);
 	}
 
 	g->DrawImage(Sexy::IMAGE_ALMANAC_PLANTCARD, 459, 86);
@@ -363,6 +496,9 @@ void AlmanacDialog::DrawPlants(Graphics* g)
 		aRechargeStr = TodReplaceString(aRechargeStr, "{WAIT_TIME}", "[WAIT_TIME]");
 		TodDrawStringWrapped(g, aRechargeStr, Rect(600, 520, 139, 50), Sexy::FONT_BRIANNETOD12, Color(40, 50, 90), DS_ALIGN_RIGHT);
 	}
+
+	// 翻页提示：页码与语言无关，直接画数字（共 2 页）
+	TodDrawString(g, StrFormat("%d/2", mPlantPage + 1), 446, 571, Sexy::FONT_BRIANNETOD12, Color(40, 50, 90), DS_ALIGN_LEFT);
 }
 
 // GOTY @Patoke: 0x403DE0
@@ -372,7 +508,7 @@ void AlmanacDialog::DrawZombies(Graphics* g)
 	TodDrawString(g, "[SUBURBAN_ALMANAC_ZOMBIES]", BOARD_WIDTH / 2, 54, Sexy::FONT_DWARVENTODCRAFT24, Color(0, 196, 0), DS_ALIGN_CENTER);
 
 	ZombieType aZombieMouseOn = ZombieHitTest(mApp->mWidgetManager->mLastMouseX, mApp->mWidgetManager->mLastMouseY);
-	for (int i = 0; i < NUM_ALMANAC_ZOMBIES; i++)
+	for (int i = 0; i < ALMANAC_ZOMBIE_COUNT; i++)
 	{
 		ZombieType aZombieType = GetZombieType(i);
 		int aPosX, aPosY;
@@ -413,6 +549,7 @@ void AlmanacDialog::DrawZombies(Graphics* g)
 				case ZombieType::ZOMBIE_DOLPHIN_RIDER:	aZombieGraphics.TranslateF(-2, -10);	break;
 				case ZombieType::ZOMBIE_POGO:			aZombieGraphics.TranslateF(0, -3);	break;
 				case ZombieType::ZOMBIE_GARGANTUAR:		aZombieGraphics.TranslateF(15, 17);	break;
+				case ZombieType::ZOMBIE_REDEYE_GARGANTUAR:	aZombieGraphics.TranslateF(15, 17);	break;
 				case ZombieType::ZOMBIE_IMP:			aZombieGraphics.TranslateF(-8, -7);	break;
 				case ZombieType::ZOMBIE_BUNGEE:			aZombieGraphics.TranslateF(-4, 3);	break;
 				case ZombieType::ZOMBIE_DANCER:			aZombieGraphics.TranslateF(0, 15);	break;
@@ -422,6 +559,7 @@ void AlmanacDialog::DrawZombies(Graphics* g)
 				case ZombieType::ZOMBIE_CATAPULT:		aZombieGraphics.TranslateF(-24, -1);	break;
 				case ZombieType::ZOMBIE_BOBSLED:		aZombieGraphics.TranslateF(0, -8);	break;
 				case ZombieType::ZOMBIE_LADDER:			aZombieGraphics.TranslateF(0, -3);	break;
+				case ZombieType::ZOMBIE_BOSS_CONHEAD_PEA:	aZombieGraphics.TranslateF(0, 12);	break;
 				default: break;
 				}
 				if (ZombieHasSilhouette(aZombieType))
@@ -457,11 +595,14 @@ void AlmanacDialog::DrawZombies(Graphics* g)
 		{
 		case ZombieType::ZOMBIE_ZAMBONI:		aZombieGraphics.TranslateF(-30, 5);		break;
 		case ZombieType::ZOMBIE_GARGANTUAR:		aZombieGraphics.TranslateF(0, 40);		break;
+		case ZombieType::ZOMBIE_REDEYE_GARGANTUAR:	aZombieGraphics.TranslateF(0, 40);	break;
 		case ZombieType::ZOMBIE_FOOTBALL:		aZombieGraphics.TranslateF(-10, 0);		break;
 		case ZombieType::ZOMBIE_BALLOON:		aZombieGraphics.TranslateF(0, -20);		break;
 		case ZombieType::ZOMBIE_BUNGEE:			aZombieGraphics.TranslateF(15, 0);		break;
 		case ZombieType::ZOMBIE_CATAPULT:		aZombieGraphics.TranslateF(-10, 0);		break;
 		case ZombieType::ZOMBIE_BOSS:			aZombieGraphics.TranslateF(-540, -175);	break;
+		// BOSS 路障射手僵尸按 2 倍体型绘制，往左下挪才能落进卡片预览区
+		case ZombieType::ZOMBIE_BOSS_CONHEAD_PEA:	aZombieGraphics.TranslateF(-64, 46);	break;
 		default: break;
 		}
 		if (mZombie->mZombieType != ZombieType::ZOMBIE_BUNGEE && mZombie->mZombieType != ZombieType::ZOMBIE_BOSS &&
@@ -531,6 +672,7 @@ void AlmanacDialog::Draw(Graphics* g)
 	mIndexButton->Draw(g);
 	mPlantButton->Draw(g);
 	mZombieButton->Draw(g);
+	mPlantPageButton->Draw(g);
 }
 
 void AlmanacDialog::GetSeedPosition(SeedType theSeedType, int& x, int& y)
@@ -544,18 +686,38 @@ void AlmanacDialog::GetSeedPosition(SeedType theSeedType, int& x, int& y)
 	}
 }
 
+void AlmanacDialog::GetPlantPagePosition(int theIndex, int& x, int& y)
+{
+	// 追加植物页沿用原版网格（8 列），序号即格子序号
+	x = theIndex % 8 * 52 + 26;
+	y = theIndex / 8 * 78 + 92;
+}
+
 SeedType AlmanacDialog::SeedHitTest(int x, int y)
 {
 	if (mMouseVisible && mOpenPage == AlmanacPage::ALMANAC_PAGE_PLANTS)
 	{
-		for (SeedType aSeedType = SeedType::SEED_PEASHOOTER; aSeedType < NUM_ALMANAC_SEEDS; aSeedType = (SeedType)(aSeedType + 1))
+		if (mPlantPage == 0)
 		{
-			if (mApp->HasSeedType(aSeedType))
+			for (SeedType aSeedType = SeedType::SEED_PEASHOOTER; aSeedType < NUM_ALMANAC_SEEDS; aSeedType = (SeedType)(aSeedType + 1))
+			{
+				if (mApp->HasSeedType(aSeedType))
+				{
+					int aSeedX, aSeedY;
+					GetSeedPosition(aSeedType, aSeedX, aSeedY);
+					Rect aSeedRect = aSeedType == SeedType::SEED_IMITATER ? Rect(aSeedX, aSeedY, 34, 46) : Rect(aSeedX, aSeedY, SEED_PACKET_WIDTH, SEED_PACKET_HEIGHT);
+					if (aSeedRect.Contains(x, y)) return aSeedType;
+				}
+			}
+		}
+		else
+		{
+			for (int i = 0; i < NUM_ALMANAC_EXTRA_SEEDS; i++)
 			{
 				int aSeedX, aSeedY;
-				GetSeedPosition(aSeedType, aSeedX, aSeedY);
-				Rect aSeedRect = aSeedType == SeedType::SEED_IMITATER ? Rect(aSeedX, aSeedY, 34, 46) : Rect(aSeedX, aSeedY, SEED_PACKET_WIDTH, SEED_PACKET_HEIGHT);
-				if (aSeedRect.Contains(x, y)) return aSeedType;
+				GetPlantPagePosition(i, aSeedX, aSeedY);
+				if (Rect(aSeedX, aSeedY, SEED_PACKET_WIDTH, SEED_PACKET_HEIGHT).Contains(x, y))
+					return gAlmanacExtraSeeds[i];
 			}
 		}
 	}
@@ -578,6 +740,11 @@ bool AlmanacDialog::ZombieIsShown(ZombieType theZombieType)
 	// 试玩模式下，仅展示潜水僵尸及其之前出现的僵尸
 	if (mApp->IsTrialStageLocked() && theZombieType > ZombieType::ZOMBIE_SNORKEL)
 		return false;
+
+	// 本模组追加的僵尸（红眼巨人/毁灭菇头/路障射手）：图鉴里始终可见
+	// —— 它们的 mStartingLevel 是占位值（99 等），照原版规则会永远被藏起来。
+	if (AlmanacExtraZombieIndex(theZombieType) >= 0)
+		return true;
 
 	// 对于雪人僵尸，要求其可以在刷怪中出现（已经到达或完成冒险模式二周目 4-10 关卡），
 	// 或已得知其存在但未解锁其形象（已经完成冒险模式一周目 4-10 关卡，但未到达二周目 4-10 关卡）
@@ -604,6 +771,10 @@ bool AlmanacDialog::ZombieIsShown(ZombieType theZombieType)
 // GOTY @Patoke: 0x404D50
 bool AlmanacDialog::ZombieHasDescription(ZombieType theZombieType)
 {
+	// 本模组追加的僵尸：图鉴里始终带描述
+	if (AlmanacExtraZombieIndex(theZombieType) >= 0)
+		return true;
+
 	int aLevel = mApp->mPlayerInfo->GetLevel();
 	int aStart = GetZombieDefinition(theZombieType).mStartingLevel;
 
@@ -629,12 +800,22 @@ bool AlmanacDialog::ZombieHasDescription(ZombieType theZombieType)
 void AlmanacDialog::GetZombiePosition(ZombieType theZombieType, int& x, int& y)
 {
 	if (theZombieType == ZombieType::ZOMBIE_BOSS)
-		x = 192, y = 486;
-	else
 	{
-		x = theZombieType % 5 * 85 + 22;
-		y = theZombieType / 5 * 80 + 86;
+		x = 192, y = 486;
+		return;
 	}
+
+	// 追加僵尸摆进原版最后一行的空位：僵尸博士居中，左右各留两格
+	int aExtra = AlmanacExtraZombieIndex(theZombieType);
+	if (aExtra >= 0)
+	{
+		x = aExtra < 2 ? 22 + aExtra * 85 : 277 + (aExtra - 2) * 85;
+		y = 486;
+		return;
+	}
+
+	x = theZombieType % 5 * 85 + 22;
+	y = theZombieType / 5 * 80 + 86;
 }
 
 // GOTY @Patoke: 0x404DD0
@@ -642,7 +823,7 @@ ZombieType AlmanacDialog::ZombieHitTest(int x, int y)
 {
 	if (mMouseVisible && mOpenPage == AlmanacPage::ALMANAC_PAGE_ZOMBIES)
 	{
-		for (int i = 0; i < NUM_ALMANAC_ZOMBIES; i++)
+		for (int i = 0; i < ALMANAC_ZOMBIE_COUNT; i++)
 		{
 			ZombieType aZombieType = GetZombieType(i);
 			// @Patoke: added IsShown check
@@ -665,13 +846,16 @@ void AlmanacDialog::MouseUp(int x, int y, int theClickCount)
 	else if (mZombieButton->IsMouseOver())	SetPage(ALMANAC_PAGE_ZOMBIES);
 	else if (mCloseButton->IsMouseOver())	mApp->KillAlmanacDialog();
 	else if (mIndexButton->IsMouseOver())	SetPage(ALMANAC_PAGE_INDEX);
+	else if (!mPlantPageButton->mBtnNoDraw && mPlantPageButton->IsMouseOver())
+		SetPlantPage(mPlantPage == 0 ? 1 : 0);
 }
 
 // GOTY @Patoke: 0x404F10
 void AlmanacDialog::MouseDown(int x, int y, int theClickCount)
 {
 	(void)theClickCount;
-	if (mPlantButton->IsMouseOver() || mCloseButton->IsMouseOver() || mIndexButton->IsMouseOver())
+	if (mPlantButton->IsMouseOver() || mCloseButton->IsMouseOver() || mIndexButton->IsMouseOver() ||
+		(!mPlantPageButton->mBtnNoDraw && mPlantPageButton->IsMouseOver()))
 		mApp->PlaySample(Sexy::SOUND_TAP);
 	if (mZombieButton->IsMouseOver())
 		mApp->PlaySample(Sexy::SOUND_GRAVEBUTTON);

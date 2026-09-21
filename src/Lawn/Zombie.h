@@ -144,6 +144,9 @@ public:
     int32_t                         mChilledCounter;
     int32_t                         mButteredCounter;
     int32_t                         mIceTrapCounter;
+    // 火豌豆易伤（紫火豌豆命中）：> 0 时该僵尸受到的**任何**伤害 +FIRE_PEA_VULN_PERCENT%，
+    // 并且整体染红；每帧自减，归零即恢复原样。重复命中只刷新为满 FIRE_PEA_VULN_TICKS（不叠加）。
+    int32_t                         mFireVulnCounter;
     bool                            mMindControlled;
     bool                            mTorchwoodSummoned;   // 火炬树桩召唤的魅惑僵尸（死亡时不爆炸）
     bool                            mBlowingAway;
@@ -213,6 +216,8 @@ public:
     void                            KnockBack(float theAmount);
     float                           GetPosYBasedOnRow(int theRow);
     void                            ApplyChill(bool theIsIceTrap);
+    // 紫火豌豆命中：把"受到的伤害 +40%"的易伤计时刷新为满 FIRE_PEA_VULN_TICKS（4 秒）。
+    void                            ApplyFireVulnerability();
     void                            UpdateZombieBungee();
     void                            BungeeLanding();
     bool                            EffectedByDamage(unsigned int theDamageRangeFlags);

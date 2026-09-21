@@ -1158,7 +1158,7 @@ void SeedPacket::SetPacketType(SeedType theSeedType, SeedType theImitaterType)
 		aUseSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || aUseSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
 	{
 		// Gatling Pea / Giant Wall-nut use their own base cooldown (30.01 s / 50 s); do not apply the generic upgrade overrides.
-		// 究极电能机枪射手同样沿用机枪射手的 30.01 s 档位；究极电能杨桃也是 30 秒档。
+		// 究极电能机枪射手同样沿用机枪射手的 30.01 s 档位；究极电能星星果也是 30 秒档。
 	}
 	else if ((Plant::IsUpgrade(aUseSeedType) && !gLawnApp->IsSurvivalMode()) || Plant::GetRefreshTime(mPacketType, mImitaterType) == 5000)
 	{

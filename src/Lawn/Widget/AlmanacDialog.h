@@ -26,6 +26,9 @@
 
 #define NUM_ALMANAC_SEEDS 49
 #define NUM_ALMANAC_ZOMBIES 26
+// 图鉴追加内容：植物页第 2 页（本模组新增植物）与僵尸页末尾追加的僵尸种类数
+#define NUM_ALMANAC_EXTRA_SEEDS 7
+#define NUM_ALMANAC_EXTRA_ZOMBIES 3
 
 constexpr const float			ALMANAC_PLANT_POSITION_X		= 578.0f;
 constexpr const float			ALMANAC_PLANT_POSITION_Y		= 140.0f;
@@ -49,7 +52,8 @@ private:
 		ALMANAC_BUTTON_CLOSE = 0,
 		ALMANAC_BUTTON_PLANT = 1,
 		ALMANAC_BUTTON_ZOMBIE = 2,
-		ALMANAC_BUTTON_INDEX = 3
+		ALMANAC_BUTTON_INDEX = 3,
+		ALMANAC_BUTTON_PLANT_PAGE = 4
 	};
 
 public:
@@ -58,6 +62,8 @@ public:
 	GameButton*					mIndexButton;
 	GameButton*					mPlantButton;
 	GameButton*					mZombieButton;
+	GameButton*					mPlantPageButton;
+	int							mPlantPage;
 	AlmanacPage					mOpenPage;
 	Reanimation*				mReanim[4];
 	SeedType					mSelectedSeed;
@@ -75,12 +81,14 @@ public:
 	void						SetupPlant();
 	void						SetupZombie();
 	void						SetPage(AlmanacPage thePage);
+	void						SetPlantPage(int thePage);
 	virtual void				Update();
 	void						DrawIndex(Graphics* g);
 	void						DrawPlants(Graphics* g);
 	void						DrawZombies(Graphics* g);
 	virtual void				Draw(Graphics* g);
 	void						GetSeedPosition(SeedType theSeedType, int& x, int& y);
+	void						GetPlantPagePosition(int theIndex, int& x, int& y);
 	SeedType					SeedHitTest(int x, int y);
 	/*inline*/ bool				ZombieHasSilhouette(ZombieType theZombieType);
 	bool						ZombieIsShown(ZombieType theZombieType);

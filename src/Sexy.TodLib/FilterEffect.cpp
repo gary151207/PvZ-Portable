@@ -23,6 +23,7 @@
 #include "TodCommon.h"
 #include "FilterEffect.h"
 #include "graphics/MemoryImage.h"
+#include "../GameConstants.h"   // FIRE_PEA_PURPLE_HUE / FIRE_PEA_PURPLE_SAT
 
 void RGB_to_HSL(float r, float g, float b, float& h, float& s, float& l)
 {
@@ -130,6 +131,31 @@ void FilterEffectDoLumSat(MemoryImage* theImage, float theLum, float theSat)
 	}
 }
 
+void FilterEffectDoHueSat(MemoryImage* theImage, float theHueSector, float theSatMul)
+{
+	uint32_t* ptr = theImage->mBits;
+	for (int y = 0; y < theImage->mHeight; y++)
+	{
+		for (int x = 0; x < theImage->mWidth; x++)
+		{
+			float b = static_cast<float>(*ptr & 255) / 255;
+			float g = static_cast<float>(*ptr >> 8 & 255) / 255;
+			float r = static_cast<float>(*ptr >> 16 & 255) / 255;
+			int a = *ptr >> 24 & 255;
+
+			float h, s, l;
+			RGB_to_HSL(r, g, b, h, s, l);
+			if (theHueSector >= 0.0f)
+				h = theHueSector / 6.0f;   // RGB_to_HSL / HSL_to_RGB 的 h 都是 0..1（sextant = h * 6）
+			s = ClampFloat(s * theSatMul, 0.0f, 1.0f);
+			HSL_to_RGB(h, s, l, r, g, b);
+
+			*ptr = a << 24 | ClampInt(r * 255, 0, 255) << 16 | ClampInt(g * 255, 0, 255) << 8 | ClampInt(b * 255, 0, 255);
+			ptr++;
+		}
+	}
+}
+
 void FilterEffectDoWashedOut(MemoryImage* theImage)
 {
 	FilterEffectDoLumSat(theImage, 1.8f, 0.2f);
@@ -169,6 +195,7 @@ MemoryImage* FilterEffectCreateImage(Image* theImage, FilterEffect theFilterEffe
 	case FilterEffect::FILTER_EFFECT_WASHED_OUT:		FilterEffectDoWashedOut(aImage);		break;
 	case FilterEffect::FILTER_EFFECT_LESS_WASHED_OUT:	FilterEffectDoLessWashedOut(aImage);	break;
 	case FilterEffect::FILTER_EFFECT_WHITE:				FilterEffectDoWhite(aImage);			break;
+	case FilterEffect::FILTER_EFFECT_FIREPEA_PURPLE:	FilterEffectDoHueSat(aImage, FIRE_PEA_PURPLE_HUE, FIRE_PEA_PURPLE_SAT);	break;
 	case FilterEffect::NUM_FILTER_EFFECTS:
 	case FilterEffect::FILTER_EFFECT_NONE:
 		break;

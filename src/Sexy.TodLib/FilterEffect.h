@@ -38,6 +38,9 @@ enum FilterEffect : int32_t
     FILTER_EFFECT_WASHED_OUT,
     FILTER_EFFECT_LESS_WASHED_OUT,
     FILTER_EFFECT_WHITE,
+    // 紫火豌豆：把原版橙红色火豌豆贴图整体换成"色相 5.03（0..6 扇区）/ 饱和度 ×1.47"的紫火。
+    // 与 FILTER_EFFECT_WHITE 一样按 (原图, 滤镜) 全局缓存，因此每颗弹丸共用同一份结果，无额外开销。
+    FILTER_EFFECT_FIREPEA_PURPLE,
     NUM_FILTER_EFFECTS
 };
 
@@ -47,6 +50,9 @@ extern ImageFilterMap gFilterMap[FilterEffect::NUM_FILTER_EFFECTS];
 void                FilterEffectInitForApp();
 void                FilterEffectDisposeForApp();
 void                FilterEffectDoLumSat(MemoryImage* theImage, float theLum, float theSat);
+// 直接把整张图的色相设成 theHueSector（0..6 扇区，与 RGB_to_HSL 的 h*6 同一单位），并缩放饱和度。
+// theHueSector < 0 表示保留原色相（只调饱和度）。
+void                FilterEffectDoHueSat(MemoryImage* theImage, float theHueSector, float theSatMul);
 /*inline*/ void     FilterEffectDoWashedOut(MemoryImage* theImage);
 /*inline*/ void     FilterEffectDoLessWashedOut(MemoryImage* theImage);
 void                FilterEffectDoWhite(MemoryImage* theImage);

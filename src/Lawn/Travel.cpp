@@ -38,9 +38,15 @@ const TravelPlantDef gTravelPlantDefs[] = {
     { SeedType::SEED_GIANT_WALLNUT,    false },   // 巨大坚果（红卡：双坚果底座融合，见 2026-09-06-giant-wallnut）
     { SeedType::SEED_PEATER_1_5,       false },   // 1.5 发射手（红卡：无眉毛双发射手，可直接种下）
     { SeedType::SEED_ELECTRIC_GATLING_PEA, true }, // 究极电能机枪射手（红卡 + 升级卡：由机枪射手升级，200 阳光，100% 电能豌豆）
-    { SeedType::SEED_ELECTRIC_STARFRUIT,   true }, // 究极电能杨桃（红卡 + 升级卡：由杨桃升级，300 阳光，5 颗追踪电能星星）
+    { SeedType::SEED_ELECTRIC_STARFRUIT,   true }, // 究极电能星星果（红卡 + 升级卡：由杨桃升级，300 阳光，5 颗追踪电能星星）
+    { SeedType::SEED_FIRE_PEASHOOTER,      false }, // 火豌豆射手（红卡：带火的豌豆射手，175 阳光，可直接种下）
 };
 const int NUM_TRAVEL_PLANTS = sizeof(gTravelPlantDefs) / sizeof(gTravelPlantDefs[0]);
+
+const ZombieType gTravelZombieDefs[] = {
+    ZombieType::ZOMBIE_BOSS_CONHEAD_PEA,   // 路障射手僵尸：只在旅行路线第 11 轮的旗帜大波固定出怪
+};
+const int NUM_TRAVEL_ZOMBIES = sizeof(gTravelZombieDefs) / sizeof(gTravelZombieDefs[0]);
 
 bool IsTravelLevel(GameMode theGameMode)
 {
@@ -63,6 +69,14 @@ bool IsTravelOnlySeed(SeedType theSeedType)
 {
     for (int i = 0; i < NUM_TRAVEL_PLANTS; i++)
         if (gTravelPlantDefs[i].mSeedType == theSeedType)
+            return true;
+    return false;
+}
+
+bool IsTravelOnlyZombie(ZombieType theZombieType)
+{
+    for (int i = 0; i < NUM_TRAVEL_ZOMBIES; i++)
+        if (gTravelZombieDefs[i] == theZombieType)
             return true;
     return false;
 }

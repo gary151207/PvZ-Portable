@@ -88,7 +88,7 @@ void ReanimatorCache::DrawReanimatorFrame(Graphics* g, float thePosX, float theP
 	{
 		ElectricGatlingHasCustomArt();
 	}
-	// 究极电能杨桃：同样要在建临时动画之前把专用贴图换进定义里
+	// 究极电能星星果：同样要在建临时动画之前把专用贴图换进定义里
 	if (theSeedType == SeedType::SEED_ELECTRIC_STARFRUIT && ELECTRIC_STARFRUIT_USE_CUSTOM_ART)
 	{
 		ElectricStarfruitHasCustomArt();
@@ -98,9 +98,25 @@ void ReanimatorCache::DrawReanimatorFrame(Graphics* g, float thePosX, float theP
 	{
 		SnowGatlingHasCustomArt();
 	}
+	// 火豌豆射手：同样先换好专用贴图（卡面/图鉴/光标预览都会走这条路径）。
+	// 定义槽位用 REANIM_NO_ATLAS，换图本来就不挑时机，这里只是保持与其它专用贴图一致的写法。
+	if (theSeedType == SeedType::SEED_FIRE_PEASHOOTER)
+	{
+		FirePeaShooterHasCustomArt();
+	}
 
 	Reanimation aReanim;
 	aReanim.ReanimationInitializeType(thePosX, thePosY, theReanimationType);
+
+	// 火豌豆射手：卡面预览用第 0 张火焰静态覆盖脑袋后面那撮小叶子（缓存帧不会每帧重画，
+	// 所以这里不做 fire1/fire2 交替 —— 场上的植物才交替，见 Plant::Update），
+	// 同时去掉原版才有的眉毛与那撮叶子里除锚点以外的几支。
+	// 临时动画同时要画 anim_idle（身体）与 anim_head_idle（头），一个实例就够。
+	if (theSeedType == SeedType::SEED_FIRE_PEASHOOTER)
+	{
+		FirePeaShooterHideTracks(&aReanim);
+		FirePeaShooterApplyFireOverride(&aReanim, 0);
+	}
 
 	// 1.5 发射手：卡面/图鉴/光标预览同样使用去掉眉毛的双发射手贴图
 	if (theSeedType == SeedType::SEED_PEATER_1_5 && aReanim.TrackExists("PeaShooter_eyebrow"))
@@ -125,7 +141,7 @@ void ReanimatorCache::DrawReanimatorFrame(Graphics* g, float thePosX, float theP
 		}
 	}
 
-	// 究极电能杨桃：同样只在没有专用贴图时兜底染色。杨桃只有一个实例（头/脸/眼/叶/茎同在一个
+	// 究极电能星星果：同样只在没有专用贴图时兜底染色。杨桃只有一个实例（头/脸/眼/叶/茎同在一个
 	// reanim 里），卡面/图鉴就是这一层的绘制，所以整株上电能蓝叠加即可。
 	if (theSeedType == SeedType::SEED_ELECTRIC_STARFRUIT && !ElectricStarfruitUsesCustomArt())
 	{
@@ -298,7 +314,8 @@ MemoryImage* ReanimatorCache::MakeCachedPlantFrame(SeedType theSeedType, DrawVar
 
 		if (theSeedType == SeedType::SEED_PEASHOOTER || theSeedType == SeedType::SEED_SNOWPEA || theSeedType == SeedType::SEED_REPEATER ||
 			theSeedType == SeedType::SEED_LEFTPEATER || theSeedType == SeedType::SEED_GATLINGPEA || theSeedType == SeedType::SEED_PEATER_1_5 ||
-			theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || theSeedType == SeedType::SEED_SNOW_GATLING_PEA)
+			theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || theSeedType == SeedType::SEED_SNOW_GATLING_PEA ||
+			theSeedType == SeedType::SEED_FIRE_PEASHOOTER)
 		{
 			DrawReanimatorFrame(&aMemoryGraphics, -aOffsetX, -aOffsetY, aReanimType, "anim_head_idle", theDrawVariation, theSeedType);
 		}

@@ -65,24 +65,24 @@ constexpr const int   ELECTRIC_GATLING_TINT_A = 245;
 // （reanim 按帧索引，尺寸不一致会串帧）。程序里仍有兜底校验：任何一张不合格就整体回退到
 // "机枪射手贴图 + 电能蓝叠加"。
 constexpr const bool  ELECTRIC_GATLING_USE_CUSTOM_ART = true;
-// 究极电能机枪射手 / 究极电能杨桃共用的"电能伤害节奏"：
+// 究极电能机枪射手 / 究极电能星星果共用的"电能伤害节奏"：
 //   两只究极植物的弹丸都是持续接触型伤害（电能豌豆无限穿透、电能星星钉住目标），
 //   但不再"每游戏刻（10ms）结算一次"，而是每 ELECTRIC_DAMAGE_INTERVAL_TICKS 刻
 //   （15 刻 → 0.15 秒）对接触中的目标结算一次 30 点伤害。
 constexpr const int   ELECTRIC_DAMAGE_INTERVAL_TICKS = 15;    // 两次电能伤害之间的游戏刻数（100fps → 0.15 秒）
-// 究极电能杨桃（旅行红卡 + 升级卡：由杨桃升级，300 阳光 / 30.01s 冷却）：
+// 究极电能星星果（旅行红卡 + 升级卡：由杨桃升级，300 阳光 / 30.01s 冷却）：
 //   5 颗追踪的电能星星，命中后钉在该僵尸身上 2.5 秒，期间每 0.15 秒（与电能豌豆同一口径）
 //   造成 30 点伤害；其余机制与杨桃完全一致。
 constexpr const int   ELECTRIC_STAR_HIT_DAMAGE   = 30;    // 钉住期间每次电能伤害的数值
 constexpr const int   ELECTRIC_STAR_LINGER_TICKS = 250;   // 钉住时长（游戏刻；100fps → 2.5 秒）
 // 究极形态互换：把"另一种基础植物"种在究极形态上 = 原地变身，并返还这么多阳光。
-//   杨桃(125)@究极电能机枪射手 → 究极电能杨桃；机枪射手(250)@究极电能杨桃 → 究极电能机枪射手。
+//   杨桃(125)@究极电能机枪射手 → 究极电能星星果；机枪射手(250)@究极电能星星果 → 究极电能机枪射手。
 constexpr const int   ELECTRIC_STARFRUIT_SWITCH_REFUND = 225;
-// 究极电能杨桃专用贴图（reanim/Electric_Starfruit_*.png）接入开关。
+// 究极电能星星果专用贴图（reanim/Electric_Starfruit_*.png）接入开关。
 // 与究极电能机枪射手同一套规则：三张图必须带透明通道且尺寸与同名原图一致，
 // 任何一张不合格就整体回退到"杨桃贴图 + 电能蓝叠加"。
 constexpr const bool  ELECTRIC_STARFRUIT_USE_CUSTOM_ART = true;
-// 究极电能机枪射手 / 究极电能杨桃的弹丸（电能豌豆、电能星星）共用的"链式闪电"：
+// 究极电能机枪射手 / 究极电能星星果的弹丸（电能豌豆、电能星星）共用的"链式闪电"：
 //   弹丸在飞行/钉住期间，持续向周围半径 ELECTRIC_CHAIN_RADIUS 像素内**最近**的
 //   至多 ELECTRIC_CHAIN_MAX_TARGETS 只僵尸放电，伤害与频率都只有弹丸本身的一半
 //   （本身为每 15 刻 30 点 → 闪电为每 30 刻 15 点），因此链式闪电是纯粹的额外收益。
@@ -94,6 +94,38 @@ constexpr const int   ELECTRIC_CHAIN_INTERVAL_TICKS = 2 * ELECTRIC_DAMAGE_INTERV
 constexpr const float ELECTRIC_CHAIN_RADIUS         = 160.0f;   // 两格
 constexpr const int   ELECTRIC_CHAIN_MAX_TARGETS    = 5;
 constexpr const int   ELECTRIC_CHAIN_ARC_TICKS      = 26;       // 每次结算后电弧可见的刻数（≈间隔-4，留一点熄灭间隙）
+
+// ===== 火豌豆射手（旅行红卡 SEED_FIRE_PEASHOOTER）=====
+// 射速：1.125 秒一发。100 逻辑帧/秒 → 112.5 帧，向上取整成 113；
+// 实际间隔与豌豆射手同一口径，是 `mLaunchRate - Rand(15)`（99~113 帧 ≈ 0.99~1.13 秒）。
+constexpr const int   FIRE_PEASHOOTER_LAUNCH_RATE     = 113;
+// 叶子位置那两张火焰图（reanim/FirePeaShooter_fire1/fire2.png）的切换节奏：
+// 每 8 逻辑帧（0.08 秒）在两张之间来回切，形成火苗跳动的观感。
+constexpr const int   FIRE_PEASHOOTER_FIRE_FLIP_TICKS = 8;
+// 命中效果：紫火豌豆命中后，该僵尸 4 秒（400 逻辑帧）内**受到的任何伤害 +40%**，
+// 4 秒后自动恢复原样；期间被再次命中只把计时刷新为满 4 秒（不叠加倍率）。
+// 群伤：紫火豌豆现在是溅射弹（命中点周围一片 + 相邻行都会吃到 1/3 伤害），
+// 被溅射到的僵尸同样会被点着。
+constexpr const int   FIRE_PEA_VULN_TICKS   = 400;
+constexpr const int   FIRE_PEA_VULN_PERCENT = 40;
+// 溅射范围：以命中点为中心的矩形宽度（高度沿用弹丸自身 40，行方向允许上下各 1 行）。
+constexpr const int   FIRE_PEA_SPLASH_WIDTH = 100;
+// "变红"用的**和"冰冻/减速"完全同一套画法**：动画的覆写色（正片叠底）+ 同色加色叠加。
+// 冰冻那套是 (75,75,255)（蓝），这里把蓝色通道搬到红色通道上 → (255,75,75)。
+// 想让红更淡就把 G/B 往 255 抬（越接近 255 越灰白），想更红就往下压。
+constexpr const int   FIRE_PEA_VULN_R = 255;
+constexpr const int   FIRE_PEA_VULN_G = 75;
+constexpr const int   FIRE_PEA_VULN_B = 75;
+// 火焰在脑袋后面那撮小叶子上的位置微调（屏幕像素；植物 1:1 绘制，所以 1 单位 = 1 像素）。
+// 正数向右、正数向下。挂在轨道实例的 mShakeX 上（只挪这一条轨道，不动整株动画）。
+constexpr const float FIRE_PEASHOOTER_FIRE_OFFSET_X = 10.0f;
+constexpr const float FIRE_PEASHOOTER_FIRE_OFFSET_Y = 0.0f;
+// 紫火豌豆的观感：把原版橙红色火豌豆贴图整体按 HSL 换色。
+// 两个数值取自仓库根目录的「火豌豆射手的颜色.txt」：色相扇区 5.03（0..6 扇区 → 301.8°，紫）、饱和度 ×1.47。
+// 走新增的缓存滤镜 FilterEffect::FILTER_EFFECT_FIREPEA_PURPLE，所以明暗层次（火球亮斑）都保留。
+constexpr const float FIRE_PEA_PURPLE_HUE = 5.03f;
+constexpr const float FIRE_PEA_PURPLE_SAT = 1.47f;
+
 constexpr const int HIGH_GROUND_HEIGHT = 30;
 
 constexpr const int SEEDBANK_MAX = 10;

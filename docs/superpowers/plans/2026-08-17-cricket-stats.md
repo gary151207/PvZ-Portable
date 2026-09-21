@@ -459,3 +459,23 @@ Expected: 编译链接通过，产物 `build/pvz-portable.exe` 更新。
 - **规格覆盖**：数据模型（T1）、记录时机/阵容快照（T2）、持久化文件与格式（T1）、Tab 三态面板（T3）、滚动（T3）、排序与过滤（T3）、启动加载（T1）、不暂停/纯 overlay（T3 设计）、非斗蛐蛐回归（T3 的 `IsCricketFightLevel` 门控 + T4 清单）。
 - **占位符扫描**：无 TBD/TODO；所有插入点给出精确锚点与完整代码。
 - **类型一致性**：`RecordCricketMatchResult(bool)`、`mCricketBattlePlants[5]`、`mCricketStatsPanel`、`MouseWheel(int)`、`DrawCricketStatsPanel(Graphics*)` 在定义与调用处签名一致；`mApp->mCricketPlantWins` 等与 Task 1 成员名一致。
+
+---
+
+## 后续修订（发现三个问题后返工）
+
+1. **存档不能用名字做键** —— `SEED_LEFTPEATER`（左向双发射手）与 `SEED_REPEATER`（双发射手）
+   的 `mPlantName` **都是 `"REPEATER"`**。用名字当键的后果：读档时只能命中第一个，
+   第二种的记录既读不回来、又会在存档里写成两行同名 —— 表现就是"某些植物的胜率消失 / 对不上号"。
+   **现行格式**：`SEED_<枚举序号> / ZOMBIE_<枚举序号>`（序号天然唯一），行尾可跟 `# 名字` 注释；
+   旧的名字格式仍然可读（重名项必然丢一半），读进来后按新格式写回。
+2. **读档必须逐行解析** —— 早期写法是 `while (aFile >> key >> wins >> losses)` 的纯 token 流，
+   行尾多写一列名字会被下一次读取当成下一行的键，**从第二行起全部错位**（第一种正常、其余全 0）。
+   现在用 `std::getline` + `std::istringstream` 逐行解析，行内多余 token 不再影响后续行。
+3. **面板要显示本地化名字** —— 僵尸名原本直接显示内部名（`CONEHEAD_ZOMBIE`），
+   现在与图鉴一致走 `TodStringTranslate("[<内部名>]")`；植物名沿用 `Plant::GetNameString`，
+   并对重名类型追加 `#2` 之类的序号，避免两行同名分不清谁是谁。
+
+验证方式（项目无自动化测试）：一次性离线程序（编译在 `build/`，不留在仓库）读**真实的旧存档**，
+逐序号比对 `53 植物 + 35 僵尸` 的"旧档迁移 + 新格式写盘读回"是否全部无损；面板显示需人工按 Tab 确认。
+

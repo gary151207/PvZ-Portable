@@ -22,6 +22,7 @@
 //#include <corecrt.h>
 #include <time.h>
 #include <fstream>
+#include <sstream>
 #include "LawnApp.h"
 #include "Lawn/Board.h"
 #include "Lawn/Plant.h"
@@ -2477,31 +2478,65 @@ void LawnApp::LoadCricketStats()
 	if (!aFile.is_open())
 		return;
 
-	std::string aName;
+	// 逐行解析（不是 `in >> 键 >> 胜 >> 负` 的纯 token 流）：
+	// 行尾允许带 `# 名字` 之类的注释，多出来的 token 不会污染下一行的键。
+	std::string aLine;
 	int aWins = 0, aLosses = 0;
-	while (aFile >> aName >> aWins >> aLosses)
+	while (std::getline(aFile, aLine))
 	{
-		if (aName == "__MATCH_COUNT__")
+		std::istringstream aLineStream(aLine);
+		std::string aKey;
+		if (!(aLineStream >> aKey >> aWins >> aLosses))
+			continue;
+
+		if (aKey == "__MATCH_COUNT__")
 		{
 			mCricketMatchCount = aWins;
 			continue;
 		}
-		for (int i = 0; i < SeedType::NUM_SEED_TYPES; i++)
+
+		// 现行格式：SEED_<序号> / ZOMBIE_<序号>（枚举序号天然唯一）。
+		// 用名字做键会撞车：自定义植物复用原版名（SEED_LEFTPEATER 与 SEED_REPEATER 都叫 "REPEATER"），
+		// 读档时只能命中第一个，第二种的记录既读不回来、又会在存档里写成重复行。
+		if (aKey.compare(0, 5, "SEED_") == 0)
 		{
-			if (aName == GetPlantDefinition((SeedType)i).mPlantName)
+			int aIndex = atoi(aKey.c_str() + 5);
+			if (aIndex >= 0 && aIndex < SeedType::NUM_SEED_TYPES)
+			{
+				mCricketPlantWins[aIndex] = aWins;
+				mCricketPlantLosses[aIndex] = aLosses;
+			}
+			continue;
+		}
+		if (aKey.compare(0, 7, "ZOMBIE_") == 0)
+		{
+			int aIndex = atoi(aKey.c_str() + 7);
+			if (aIndex >= 0 && aIndex < ZombieType::NUM_ZOMBIE_TYPES)
+			{
+				mCricketZombieWins[aIndex] = aWins;
+				mCricketZombieLosses[aIndex] = aLosses;
+			}
+			continue;
+		}
+
+		// 旧格式（纯名字，按名字找人）：重名类型只能认到第一个，其余记录就此丢失 —— 兼容用，不再写回。
+		bool aMatched = false;
+		for (int i = 0; i < SeedType::NUM_SEED_TYPES && !aMatched; i++)
+		{
+			if (aKey == GetPlantDefinition((SeedType)i).mPlantName)
 			{
 				mCricketPlantWins[i] = aWins;
 				mCricketPlantLosses[i] = aLosses;
-				break;
+				aMatched = true;
 			}
 		}
-		for (int i = 0; i < ZombieType::NUM_ZOMBIE_TYPES; i++)
+		for (int i = 0; i < ZombieType::NUM_ZOMBIE_TYPES && !aMatched; i++)
 		{
-			if (aName == GetZombieDefinition((ZombieType)i).mZombieName)
+			if (aKey == GetZombieDefinition((ZombieType)i).mZombieName)
 			{
 				mCricketZombieWins[i] = aWins;
 				mCricketZombieLosses[i] = aLosses;
-				break;
+				aMatched = true;
 			}
 		}
 	}
@@ -2527,13 +2562,16 @@ void LawnApp::SaveCricketStats()
 	aFile << "__MATCH_COUNT__ " << mCricketMatchCount << " 0\n";
 	for (int i = 0; i < SeedType::NUM_SEED_TYPES; i++)
 	{
-		aFile << GetPlantDefinition((SeedType)i).mPlantName << " "
-			<< mCricketPlantWins[i] << " " << mCricketPlantLosses[i] << "\n";
+		// 键用枚举序号（唯一）—— 名字会撞车：SEED_LEFTPEATER 与 SEED_REPEATER 的 mPlantName 都是
+		// "REPEATER"，用名字当键会让第二种的记录既写重复行又读不回来。
+		// 行尾的 `# 名字` 纯粹给人看：读档逐行解析，多出来的 token 不会影响后面的行。
+		aFile << "SEED_" << i << " " << mCricketPlantWins[i] << " " << mCricketPlantLosses[i]
+			<< "  # " << GetPlantDefinition((SeedType)i).mPlantName << "\n";
 	}
 	for (int i = 0; i < ZombieType::NUM_ZOMBIE_TYPES; i++)
 	{
-		aFile << GetZombieDefinition((ZombieType)i).mZombieName << " "
-			<< mCricketZombieWins[i] << " " << mCricketZombieLosses[i] << "\n";
+		aFile << "ZOMBIE_" << i << " " << mCricketZombieWins[i] << " " << mCricketZombieLosses[i]
+			<< "  # " << GetZombieDefinition((ZombieType)i).mZombieName << "\n";
 	}
 }
 
@@ -2761,6 +2799,8 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 		return IsTravelLevel(mGameMode);   // 旅行专属红卡（升级卡）：仅旅行关可选/拥有
 	case SeedType::SEED_ELECTRIC_STARFRUIT:
 		return IsTravelLevel(mGameMode);   // 旅行专属红卡（升级卡）：仅旅行关可选/拥有
+	case SeedType::SEED_FIRE_PEASHOOTER:
+		return IsTravelLevel(mGameMode);   // 旅行专属红卡：仅旅行关可选/拥有
 	default:
 		return theSeedType < GetSeedsAvailable();
 	}

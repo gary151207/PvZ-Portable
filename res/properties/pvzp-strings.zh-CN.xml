@@ -24,16 +24,33 @@
 	<String id="BOSS_CONHEAD_PEA_ZOMBIE">路障射手僵尸</String>
 	<String id="ELECTRIC_GATLING_PEA">究极电能机枪射手</String>
 	<String id="ELECTRIC_GATLING_PEA_TOOLTIP">由机枪射手升级而成的究极形态：每一发都是电能豌豆（接触持续伤害、无限穿透）。其余机制与机枪射手完全一致。</String>
-	<String id="ELECTRIC_STARFRUIT">究极电能杨桃</String>
+	<String id="ELECTRIC_STARFRUIT">究极电能星星果</String>
 	<String id="ELECTRIC_STARFRUIT_TOOLTIP">由杨桃升级而成的究极形态：每次发射 5 颗追踪僵尸的电能星星，命中后在僵尸那里停留 5 秒，期间每一游戏刻造成 30 点电能伤害。其余机制与杨桃完全一致。</String>
 	<String id="REQUIRES_STARFRUIT">需要先种下杨桃</String>
-	<String id="ADVICE_PLANT_NEEDS_STARFRUIT">需要先种下杨桃，才能把它升级成究极电能杨桃。</String>
-	<String id="ADVICE_ONLY_ON_STARFRUIT">究极电能杨桃只能种在杨桃上面。</String>
+	<String id="ADVICE_PLANT_NEEDS_STARFRUIT">需要先种下杨桃，才能把它升级成究极电能星星果。</String>
+	<String id="ADVICE_ONLY_ON_STARFRUIT">究极电能星星果只能种在杨桃上面。</String>
 	<String id="ULTIMATE_SWITCH_REFUND">究极形态已切换，返还 {SUN} 阳光！</String>
 	<String id="REQUIRES_GATLINGPEA">需要先种下机枪射手</String>
 	<String id="ADVICE_PLANT_NEEDS_GATLINGPEA">需要先种下机枪射手，才能把它升级成究极电能机枪射手。</String>
 	<String id="ADVICE_ONLY_ON_GATLINGPEA">究极电能机枪射手只能种在机枪射手上面。</String>
+	<String id="FIRE_PEASHOOTER">火豌豆射手</String>
+	<String id="FIRE_PEASHOOTER_TOOLTIP">每 1.125 秒发射一颗紫火豌豆，直击造成 65 点伤害并溅射周围（两侧和相邻行各 1/3 伤害），让命中与溅射到的僵尸变红 4 秒：这 4 秒内它们受到的伤害提高 40%。</String>
 	<String id="GLOVE_LEVEL_TOOLTIP">手套（G 键）：把植物搬到本关能种下它的位置（南瓜可套在别的植物上、睡莲/花盆上也能站；冷却 10 秒）</String>
 	<String id="GLOVE_LEVEL_TOOLTIP_TRAVEL">手套（G 键）：把植物搬到本关能种下它的位置（南瓜可套在别的植物上、睡莲/花盆上也能站；旅行模式无冷却）</String>
 	<String id="ADVICE_GLOVE_CANT_MOVE">手套只能搬到能种下这株植物的格子。右键放下。</String>
+
+	<!-- 图鉴：僵尸名（悬停提示与图鉴都按 [内部名] 取用；原版 LawnStrings 里缺的在这里补齐） -->
+	<String id="DOOMSHROOM_HEAD_ZOMBIE">毁灭菇头小丑僵尸</String>
+	<String id="DOOMSHROOM_HEAD_ZOMBIE_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}强度：{STAT}中等&cr;{KEYWORD}由小丑僵尸变化而来，死亡时炸掉周围一大片植物&cr;{SHORTLINE}&cr;{FLAVOR}毁灭菇头小丑僵尸自己也说不清，他到底是小丑背了个蘑菇，还是蘑菇学会了讲笑话。反正周围的植物都不觉得好笑。</String>
+	<String id="BOSS_CONHEAD_PEA_ZOMBIE_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}强度（受路障盔保护）：{STAT}极高&cr;{KEYWORD}会一边巡逻一边朝植物喷射豌豆&cr;{SHORTLINE}&cr;{FLAVOR}路障射手僵尸戴着自己的路障、顶着别人的脑袋，坚信"最好的防御就是进攻"。植物们只想问：那头豌豆射手到底同不同意？</String>
+	<String id="REDEYED_GARGANTUAR_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}强度：{STAT}极高&cr;{KEYWORD}血量比普通巨人僵尸更厚&cr;{SHORTLINE}&cr;{FLAVOR}红眼巨人僵尸的眼睛之所以是红的，是因为他昨晚又没睡。别问他为什么没睡——他只是在想，明天该拆谁的草坪。</String>
+
+	<!-- 图鉴：本模组新增植物的条目描述（名称沿用上面的 [XXX] 键） -->
+	<String id="SNOW_GATLING_PEA_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}中等（每颗豌豆），并让僵尸减速&cr;{KEYWORD}发射速度：{STAT}四倍&cr;{KEYWORD}由机枪射手与寒冰射手合成&cr;{SHORTLINE}&cr;{FLAVOR}寒冰机枪射手把"冷静"和"火力全开"同时做到了极致：四连发打得僵尸直哆嗦，一半是因为疼，一半是因为冷。</String>
+	<String id="FUMESHROOM_GROUP_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}普通，可以穿透铁丝网门&cr;{KEYWORD}范围：{STAT}被气泡喷中的僵尸；两侧的小喷菇各打各的&cr;{NOCTURNAL}白天要睡觉&cr;{SHORTLINE}&cr;{FLAVOR}大喷菇群原本只是大喷菇想找两个搭伙的，结果左右两只小喷菇把"搭伙"理解成了"三头六臂"。</String>
+	<String id="GIANT_WALLNUT_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}强度：{STAT}极高&cr;{KEYWORD}占两格，撑杆跳僵尸与跳跳僵尸都跳不过去&cr;{KEYWORD}替周围 3 行 4 列的植物挨打&cr;{SHORTLINE}&cr;{FLAVOR}两颗坚果手挽手站在一起，就成了巨大坚果。它说："我们不是胖，我们只是把安全感做成了两格宽。"</String>
+	<String id="PEATER_1_5_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}中等（每颗豌豆）&cr;{KEYWORD}发射速度：{STAT}平均一点五倍&cr;{SHORTLINE}&cr;{FLAVOR}1.5 发射手每次开火前都要掷一次骰子：正面一发，反面两发。他从不算概率，他只算今天运气好不好。</String>
+	<String id="ELECTRIC_GATLING_PEA_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}极高（电能豌豆持续电击）&cr;{KEYWORD}发射速度：{STAT}四倍，每一发都是电能豌豆&cr;{KEYWORD}只能种植在机枪射手上&cr;{SHORTLINE}&cr;{FLAVOR}究极电能机枪射手给每一颗豌豆都充上了电。僵尸们私下里管他叫"移动高压线"。</String>
+	<String id="ELECTRIC_STARFRUIT_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}极高（星星钉在僵尸身上持续放电）&cr;{KEYWORD}范围：{STAT}五个方向，目标倒下后自动改追下一个&cr;{SHORTLINE}&cr;{FLAVOR}究极电能星星果说："以前我只会'砰'，现在我还会'嗞——'。"</String>
+	<String id="FIRE_PEASHOOTER_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}直击 65 点，周围与相邻行各 1/3&cr;{KEYWORD}特效：{STAT}命中与溅射到的僵尸变红 4 秒，这 4 秒内它们受到的伤害提高 40%&cr;{KEYWORD}发射速度：{STAT}每 1.125 秒一发&cr;{SHORTLINE}&cr;{FLAVOR}火豌豆射手把叶子换成了火苗。他坚称这叫"轻装上阵"，僵尸们则一致认为这叫"烧到眉毛"。</String>
 </Properties>

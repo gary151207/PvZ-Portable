@@ -233,6 +233,9 @@ public:
     bool                    mIsElite;
     bool                    mHasFiredFirstPea = false;
     bool                    mPeater15DoubleShot = false;   // 1.5 发射手：本轮攻击是否发射第二发（每轮开始时掷骰）
+    int32_t                 mPultBurstCountdown = 0;       // 西瓜投手/冰瓜连发：>0 等待中，<0 动画已重放、待出弹，0 空闲
+    bool                    mPultFiredThisCycle = false;   // 本轮攻击是否已掷骰开火（投手每轮只掷一次）
+    PlantWeapon             mPultBurstWeapon = PlantWeapon::WEAPON_PRIMARY;  // 连发第二发沿用的武器
     int32_t                 mPeater15UpgradeCountdown = 0; // 1.5 发射手：距可点击免费升级为双发射手还剩多少帧（0 = 已可升级）
 
 public:
@@ -304,6 +307,8 @@ public:
     void                    UpdateShooting();
     void                    UpdateTravelPuffHeads();
     void                    UpdateTravelPuffHead(int& theCounter, ReanimationID theReanimID, int theYDirection, bool aHasTarget);
+    /*inline*/ Reanimation* GetFumeGroupPuff(bool theLeft);
+    void                    SyncFumeGroupPuffs(bool theLocalToPlant = false);
     void                    FireTravelPuff(int theYDirection);
     void                    PlayTravelPuffShoot(Reanimation* thePuffReanim);
     void                    PlayTravelPuffIdle(Reanimation* thePuffReanim);
@@ -372,13 +377,38 @@ bool                        ElectricGatlingUsesCustomArt();
 // 同时避免为同一套贴图多建一份 Atlas。
 ReanimationType             ElectricGatlingReanimType();
 
-// 寒冰机枪射手专用贴图（reanim/SnowGatling_head/barrel/helmet.png）。嘴部和眨眼继续使用
-// 机枪射手原版贴图；缺图、无透明通道或尺寸不符时返回 false 并退回普通机枪射手外观。
+// 寒冰机枪射手专用贴图（reanim/SnowGatling_head/mouth/mouth_overlay/barrel/blink1/blink2/helmet.png）。
+// 眉毛（PeaShooter_eyebrow）没有寒冰版本，仍复用原版；缺图、无透明通道或尺寸不符时返回 false
+// 并退回普通机枪射手外观。
 bool                        SnowGatlingHasCustomArt();
 bool                        SnowGatlingUsesCustomArt();
 ReanimationType             SnowGatlingReanimType();
 
-// 究极电能杨桃专用贴图（打包在 main.pak 的 reanim/ 下：Electric_Starfruit_body/eyes1/eyes2）。
+// 火豌豆射手专用贴图（reanim/FirePeaShooter_head/mouth/blink1/blink2.png）。
+// 与既有专用贴图同一套安全阀：首次调用时把四张图按"原图指针"替换进 REANIM_FIRE_PEASHOOTER
+// 的定义里（尺寸必须与 PeaShooter 同名图一致、必须带透明通道），任何一张不合格就整体回退 ——
+// 该 reanim 槽位会保持 PeaShooter 原版贴图，于是植物看起来就是普通豌豆射手。
+// 注意：PeaShooter.reanim 并不引用 PeaShooter_Lips，所以 FirePeaShooter_lips.png 不参与替换。
+// 幂等，可随时调用。
+bool                        FirePeaShooterHasCustomArt();
+
+// 叶子位置交替显示的两张火焰（0 = FirePeaShooter_fire1，1 = FirePeaShooter_fire2）。
+// 专用贴图不可用时返回 nullptr。
+Image*                      FirePeaShooterFireImage(int theIndex);
+
+// 隐藏火豌豆射手不要的六条原版装饰轨道：PeaShooter_eyebrow（新头没眉毛）与
+// 头顶后面那撮小叶子中除锚点（idle_headleaf_tip_top）以外的五支
+// （整撮被火取代了，留着会戳在火里/盖在火上）。
+// 场上植物（body + head 两个实例）与卡面/图鉴/光标预览都要调一次。
+void                        FirePeaShooterHideTracks(Reanimation* theReanim);
+
+// 把上面那张火焰覆盖到**头顶后面那撮小叶子最上面的一支**（idle_headleaf_tip_top）上 ——
+// 这条轨道属于 head 实例、且排在 anim_face（脸）**之前**，所以火画在脑袋左上后方。
+// 位置/缩放/摇摆全部沿用该轨道。theReanim 为空、轨道不存在或贴图不可用时什么都不做。
+// 每帧调用即可实现两张图来回切换（场上植物传 head 实例）。
+void                        FirePeaShooterApplyFireOverride(Reanimation* theReanim, int theFireIndex);
+
+// 究极电能星星果专用贴图（打包在 main.pak 的 reanim/ 下：Electric_Starfruit_body/eyes1/eyes2）。
 // 与究极电能机枪射手同一套机制与同一套安全阀：首次调用时把三张图替换进
 // REANIM_ELECTRIC_STARFRUIT 的定义里；缺一张 / 无透明通道 / 尺寸不符都返回 false，
 // 此时调用方应回退到"杨桃贴图 + 电能蓝叠加"。幂等，可随时调用。
@@ -387,13 +417,13 @@ bool                        ElectricStarfruitHasCustomArt();
 // 专用贴图是否真正启用（= 开关打开 且 贴图可用）。染色兜底与 reanim 类型选择都以它为准。
 bool                        ElectricStarfruitUsesCustomArt();
 
-// 究极电能杨桃实际使用的 reanim 类型：专用贴图可用时用 REANIM_ELECTRIC_STARFRUIT（并换好贴图），
+// 究极电能星星果实际使用的 reanim 类型：专用贴图可用时用 REANIM_ELECTRIC_STARFRUIT（并换好贴图），
 // 否则退回 REANIM_STARFRUIT。
 ReanimationType             ElectricStarfruitReanimType();
 
 // 该植物射出的弹丸是否是"究极电能"弹丸（链式闪电只挂在这两只植物身上）：
 //   - 究极电能机枪射手（100% 电能豌豆）
-//   - 究极电能杨桃（5 颗电能星星）
+//   - 究极电能星星果（5 颗电能星星）
 // 故意不认"普通机枪射手 3% 概率的那颗电能豌豆"：那颗是机枪射手打出来的，不属于究极形态。
 bool                        PlantFiresElectricChainProjectile(const Plant* thePlant);
 

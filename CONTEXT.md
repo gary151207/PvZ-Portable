@@ -104,7 +104,7 @@ _避免_：散射植物列表
 
 ## 旅行模式子系统
 
-数据驱动的旅行模式框架：`src/Lawn/Travel.h/.cpp` 提供关卡表与旅行专属植物表及查询 API，
+数据驱动的旅行模式框架：`src/Lawn/Travel.h/.cpp` 提供关卡表、旅行专属植物表、旅行专属僵尸表及查询 API，
 Board/LawnApp/SeedChooserScreen 只通过查询取参，不为每个旅行关卡堆叠模式分支。
 
 ### 语言
@@ -119,9 +119,18 @@ Board/LawnApp/SeedChooserScreen 只通过查询取参，不为每个旅行关卡
   使用传送带关音乐 `MUSIC_TUNE_CONVEYER`）
 _避免_：旅关卡、旅游关
 
+**旅行专属僵尸 (Travel-Only Zombie)**：
+只在旅行模式出场的僵尸类型，由 `gTravelZombieDefs` 登记、`IsTravelOnlyZombie()` 查询；
+当前只有 **路障射手僵尸**（`ZOMBIE_BOSS_CONHEAD_PEA`，见 **BOSS 大波**）。
+常规关卡默认不出；**斗蛐蛐**的随机僵尸池把它并进常规池等概率抽取（≈0.21 只/场，且每场至多 1 只），
+作为偶发的"旅行来客"。
+_避免_：旅行僵尸、专属僵尸
+
 **旅行专属植物 (Travel-Only Plant)**：
 只出现在旅行关卡选卡器**页 1** 的植物，由 `TravelPlantDef` 表（`gTravelPlantDefs`）登记。
-普通模式不可见/不可拥有（`LawnApp::HasSeedType` 对旅行专属仅旅行关返回真）。
+普通模式不可见/不可拥有（`LawnApp::HasSeedType` 对旅行专属仅旅行关返回真）；
+**斗蛐蛐**的植物池是全量自动收集（只排除南瓜头/花盆/玉米加农炮/模仿者/爆炸坚果/左向双发射手），
+因此旅行专属植物与其它植物**等概率**出场。
 _避免_：旅行植物、页二植物
 
 **翻页 (Paging)**：
@@ -140,8 +149,9 @@ _避免_：喷菇群、三头喷菇、Fume 群
 
 **红卡 (Red Card)**：
 卡包底色渲染为红色系的旅行高阶卡级（对标紫卡升级卡）。由 `Plant::IsRedCard` 判定；
-当前四张 = **巨大坚果**（`SEED_GIANT_WALLNUT`）、**1.5 发射手**（`SEED_PEATER_1_5`）、
-**究极电能机枪射手**（`SEED_ELECTRIC_GATLING_PEA`）与 **究极电能杨桃**（`SEED_ELECTRIC_STARFRUIT`）。
+当前五张 = **巨大坚果**（`SEED_GIANT_WALLNUT`）、**1.5 发射手**（`SEED_PEATER_1_5`）、
+**究极电能机枪射手**（`SEED_ELECTRIC_GATLING_PEA`）、**究极电能星星果**（`SEED_ELECTRIC_STARFRUIT`）
+与 **火豌豆射手**（`SEED_FIRE_PEASHOOTER`）。
 _避免_：红卡植物、稀有卡
 
 **巨大坚果 (Giant Wall-nut)**：
@@ -201,7 +211,7 @@ Atlas 建立之前，也不与机枪射手共用同一批源贴图。专用贴�
 `mIgnoreExtraAdditiveColor` + 新增的 `mIgnoreExtraOverlayColor` 双重豁免，body 实例（叶/茎）完全不着色。
 _避免_：电能机枪、雷电机枪、电豌豆射手
 
-**究极电能杨桃 (Electric Starfruit)**：
+**究极电能星星果 (Electric Starfruit)**：
 旅行专属**红卡 + 升级卡**（`SEED_ELECTRIC_STARFRUIT`）：300 阳光、30 秒冷却（`mRefreshTime=3000`）、
 300 生命。只能拖到已种的**杨桃**上升级（`IsUpgrade` + `IsUpgradableTo`）。
 **发射 5 颗追踪的电能星星**（`PROJECTILE_ELECTRIC_STAR`）：米字方向与杨桃完全一致，
@@ -222,24 +232,69 @@ _避免_：电能机枪、雷电机枪、电豌豆射手
 `src/GameConstants.h` 的 `ELECTRIC_STARFRUIT_USE_CUSTOM_ART`（当前 `true`）。
 **兜底**：专用贴图不可用时，整株（杨桃只有一个 reanim 实例）叠加电能蓝（`mExtraOverlayColor` +
 共用的 `ELECTRIC_BLUE_R/G/B` + `ELECTRIC_GATLING_TINT_A`）。
-_避免_：电能杨桃、雷电杨桃
+_避免_：电能星星果、雷电星星果，以及旧名"究极电能杨桃"
 
 **究极形态互换 (Ultimate Switch)**：
 两只究极植物可以**原地互相变身**，并**返还 `ELECTRIC_STARFRUIT_SWITCH_REFUND`（225）阳光**：
 
-- **杨桃**卡（125）拖到 **究极电能机枪射手** → 变成 **究极电能杨桃**（净 +100 阳光）
-- **机枪射手**卡（250）拖到 **究极电能杨桃** → 变成 **究极电能机枪射手**（净 −25 阳光）
+- **杨桃**卡（125）拖到 **究极电能机枪射手** → 变成 **究极电能星星果**（净 +100 阳光）
+- **机枪射手**卡（250）拖到 **究极电能星星果** → 变成 **究极电能机枪射手**（净 −25 阳光）
 
 实现：`Plant::IsUpgradableTo` 加两条互换规则（同时让手持卡片的目标高亮生效），
 `Board::MouseDownWithPlant` 在"原植物已销毁"之后**改写要种的种子**（`aPlantSeedType`）并
-`AddSunMoney(225)`；`Board::PlantingRequirementsMet` 里机枪射手放宽为"场上有双发射手**或**究极电能杨桃"，
+`AddSunMoney(225)`；`Board::PlantingRequirementsMet` 里机枪射手放宽为"场上有双发射手**或**究极电能星星果"，
 否则反向互换的卡面会被判灰而拿不起来。
 _避免_：转职、究极切换、形态转换
+
+**火豌豆射手 (Fire Pea Shooter)**：
+旅行专属**红卡**（`SEED_FIRE_PEASHOOTER`）：175 阳光、普通短冷却（`mRefreshTime=750`）、300 生命，
+**可直接种下**（普通射手，无底座/升级前提）。**射速 1.125 秒一发**（`mLaunchRate=113`，
+实际间隔 `mLaunchRate - Rand(15)`），发射**特制紫火豌豆**（`PROJECTILE_PURPLE_FIRE_PEA`）：
+**群伤**（溅射弹，走引擎既有 splash 通道：直接命中的僵尸吃满 **65 点**，命中点周围
+`FIRE_PEA_SPLASH_WIDTH`（100px）宽、上下各 1 行内的其它僵尸各吃 **1/3 ≈ 21 点**），
+并让**命中与溅射到的**僵尸都**变红 4 秒**（`Zombie::mFireVulnCounter = FIRE_PEA_VULN_TICKS`），
+这 4 秒内它们**受到的任何伤害 +40%**（`FIRE_PEA_VULN_PERCENT`，在 `Zombie::TakeDamage` 里按
+`伤害 × 140 / 100` 结算，护盾/头盔/本体与所有伤害来源一视同仁）；4 秒后自动恢复原样。
+**这一发本身吃不到自己的易伤**（先结算伤害再挂标记）；4 秒内再被命中只把计时刷新为满 4 秒，**不叠加**。
+变红用的**和"冰冻/减速"完全同一套画法**（动画覆写色正片叠底 + 同色加色叠加），
+只是把冰冻的 `(75,75,255)` 的蓝色通道搬到红色通道上 → `FIRE_PEA_VULN_R/G/B = 255/75/75`
+（改 G/B 就能调浓淡：越接近 255 越灰白）。
+**贴图**：新增 `ReanimationType::REANIM_FIRE_PEASHOOTER`（与豌豆射手**同一个 reanim 文件**、
+**独立定义槽**、`REANIM_NO_ATLAS`），装载后由 `FirePeaShooterHasCustomArt()` 把定义里的
+`PeaShooter_head/mouth/blink1/blink2` 换成 `reanim/FirePeaShooter_*.png`
+（与原图**同尺寸**且必须带透明通道；注意 `PeaShooter.reanim` 并不引用 `PeaShooter_Lips`，
+所以玩家提供的 `FirePeaShooter_lips.png` 与原版 `PeaShooter_Lips.png` 一样是闲置素材）。
+**脑袋后面那撮小叶子的火**：`FirePeaShooter_fire1/fire2.png`（128×128）**不替换定义里的图**，而是每帧
+`SetImageOverride("idle_headleaf_tip_top", ...)` **覆盖头顶后面那撮小叶子（headleaf 组）最上面的一支**
+——"背后的火"指的是豌豆射手**脑袋左上后方那一小块叶子**（不是底下的大叶子）。那两张图正是照着该轨道的
+描点/缩放（`0.555` 倍）画的，覆盖上去正好落在那一块并白拿这撮小叶子的摇摆动画。
+**必须挂在 head 实例上**：headleaf 轨道只在头部层（帧 `29..53`）有数据，body 实例这一层是空白帧。
+层级也刚好：head 实例挂在身体 `anim_stem` 上、在茎/前叶**之后**绘制，而 headleaf 又排在
+`anim_face`（脸）**之前** —— 于是火焰是"脑袋背后烧、脸挡着前面"。
+`Plant::Update` 每 `FIRE_PEASHOOTER_FIRE_FLIP_TICKS`（8 刻）在两张之间切换（相位按格子错开），
+卡面/图鉴/光标预览走 `ReanimatorCache::DrawReanimatorFrame` 的静态第 0 张。
+**位置微调**：`FIRE_PEASHOOTER_FIRE_OFFSET_X/Y`（屏幕像素，正数右/下）—— 通过轨道实例的
+`mShakeX/mShakeY` 施加，只挪这一条轨道（`mShakeOverride` 为 0，所以 `Reanimation::Update`
+不会把它随机覆盖掉），整株动画不受影响；当前 +10px。
+**没有眉毛、没有多余叶尖**：`FirePeaShooterHideTracks()` 把六条"原版豌豆射手才有"的装饰轨道设为
+`RENDER_GROUP_HIDDEN` —— `PeaShooter_eyebrow`（新头本身没画眉毛，与 1.5 发射手同款处理）与
+那撮小叶子里除锚点以外的五支（`idle_headleaf_farthest` / `_3rdfarthest` / `_2ndfarthest` /
+`_tip_bottom` / `_nearest`，整撮都被火取代了，留着会戳在火里/盖在火上）。
+场上植物的 body 与 head 两个实例、以及卡面/图鉴/光标预览的临时实例都要各调一次。
+**紫火观感**：弹丸复用原版火豌豆的火球 reanim（`REANIM_FIRE_PEA`），整株过新增的缓存滤镜
+`FilterEffect::FILTER_EFFECT_FIREPEA_PURPLE`（HSL 换色：色相扇区 `FIRE_PEA_PURPLE_HUE = 5.03`
+= 301.8°、饱和度 `×FIRE_PEA_PURPLE_SAT = 1.47`，取自根目录「火豌豆射手的颜色.txt」），
+**不是**平涂叠加，所以火球的明暗/亮斑都保留。**命中不炸火**（曾经挂过 `PARTICLE_FIREBALL_DEATH`，
+那是僵尸博士火球的爆燃粒子：20 颗 2 倍大小的火焰糊一整屏），只留 `FOLEY_IGNITE` 的"呼"声。
+它**穿透**吗？不。**穿过火炬树桩不转化**（`PeaAboutToHitTorchwood` 只认 PEA/SNOWPEA）。
+**兜底**：任一专用贴图缺失/无透明通道即整体回退（该槽位保持原版豌豆射手贴图），缺火焰图则只跳过火焰覆盖。
+数值常量全部在 `src/GameConstants.h` 的 `FIRE_PEA_*` / `FIRE_PEASHOOTER_*`。
+_避免_：火焰豌豆射手、火豆射手、紫火射手
 
 ### 关系
 
 - **旅行关卡** 的选卡器可**翻页**；**翻页**第 1 页放**旅行专属植物**（当前：**大喷菇群**、**巨大坚果**、
-  **1.5 发射手**、**究极电能机枪射手**、**究极电能杨桃**）
+  **1.5 发射手**、**究极电能机枪射手**、**究极电能星星果**、**火豌豆射手**）
 - **大喷菇群** = 紫卡升级卡：拖到已种**大喷菇**格执行升级；选卡时必须同选**大喷菇**（否则开始被拦）
 - **大喷菇群**三个头各喷各的：中间**大喷菇**烟雾（本行 3×3 穿透），两侧**小喷菇**孢子（单体、微斜、340px 内命中邻行边缘）
 - **巨大坚果** = **红卡** = **双坚果底座**产物：只出现在旅行关（传送带/页 1）；占两格、挡跳跃、
@@ -251,12 +306,16 @@ _避免_：转职、究极切换、形态转换
 - **究极电能机枪射手** = **红卡 + 升级卡**：拖到已种的**机枪射手**上，花 **200 阳光**升级
   （走引擎既有升级卡路径，下层睡莲/花盆/南瓜不受影响）；升级后每发都是**电能豌豆**，
   其余（4 连发、**开大**散射大招）与**机枪射手**完全一致
-- **究极电能杨桃** = **红卡 + 升级卡**：拖到已种的**杨桃**上，花 **300 阳光**升级；
+- **究极电能星星果** = **红卡 + 升级卡**：拖到已种的**杨桃**上，花 **300 阳光**升级；
   发射 5 颗**追踪**电能星星，命中后钉在僵尸身上 **2.5 秒**、每 **0.15 秒** **30 点**伤害，
   其余与**杨桃**完全一致
-- **究极电能杨桃** 与 **究极电能机枪射手** 之间可通过**究极形态互换**互相变身（各返还 225 阳光）：
-  **杨桃**卡 → 究极电能杨桃、**机枪射手**卡 → 究极电能机枪射手
-- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]` 标准键）
+- **究极电能星星果** 与 **究极电能机枪射手** 之间可通过**究极形态互换**互相变身（各返还 225 阳光）：
+  **杨桃**卡 → 究极电能星星果、**机枪射手**卡 → 究极电能机枪射手
+- **火豌豆射手** = **红卡**：只出现在旅行关（页 1/沙盒旅行页）；**可直接种下**、175 阳光；
+  脑袋左上后方那撮小叶子是交替闪烁的两张火焰，发射 **65 伤害**的紫火豌豆（**群伤**：周围与相邻行各吃 1/3）
+  并让命中/溅射到的僵尸 **4 秒内 +40% 易伤**（变红提示，4 秒后自行恢复）；
+  普通模式不可选/不可拥有（`HasSeedType` 旅行特判）
+- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]`/`[FIRE_PEASHOOTER]` 标准键）
   - **必须把该文件复制到当前 `-resdir` 的 `properties/` 里**，否则所有 mod 字符串都显示成
     `<Missing [XXX]>`。`run-pvz.bat` 的 `RESDIR` 就是"当前资源目录"——它换一次，这里就要跟着装一次。
   - 加载顺序（`LawnApp::LoadingThreadProc`）：`TodStringListLoad(LawnStrings.txt)` → `LoadProperties(pvzp-strings.xml)`，

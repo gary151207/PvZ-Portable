@@ -46,6 +46,11 @@
 #include "Widget/AchievementsScreen.h"
 #include <vector>
 
+// 大喷菇群：左右两只小喷菇是独立 reanim（游戏里由 EffectSystem 按世界坐标绘制）。
+// 这两个偏移同时被 PlantInitialize（创建）与 SyncFumeGroupPuffs（重定位）使用，集中在这里方便调参。
+static constexpr float FUME_GROUP_PUFF_OFFSET_X = 20.0f;
+static constexpr float FUME_GROUP_PUFF_OFFSET_Y = 22.0f;
+
 PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_PEASHOOTER,        nullptr, ReanimationType::REANIM_PEASHOOTER,    0,  100,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "PEASHOOTER" },
     { SeedType::SEED_SUNFLOWER,         nullptr, ReanimationType::REANIM_SUNFLOWER,     1,  50,     750,    PlantSubClass::SUBCLASS_NORMAL,     1250,   "SUNFLOWER" },
@@ -103,8 +108,9 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_FUMESHROOM_GROUP,  nullptr, ReanimationType::REANIM_FUMESHROOM,    9,  0,      3000,   PlantSubClass::SUBCLASS_SHOOTER,    90,     "FUMESHROOM_GROUP" },
     { SeedType::SEED_PEATER_1_5,        nullptr, ReanimationType::REANIM_REPEATER,      5,  150,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "PEATER_1_5" },   // 1.5 发射手：150 阳光 / 普通冷却（旅行红卡，贴图 = 去掉眉毛的双发射手）
     { SeedType::SEED_ELECTRIC_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5,  200,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    100,    "ELECTRIC_GATLING_PEA" },   // 究极电能机枪射手：200 阳光 / 30.01s 冷却（旅行红卡，由机枪射手升级，100% 电能豌豆）
-    { SeedType::SEED_ELECTRIC_STARFRUIT, nullptr, ReanimationType::REANIM_STARFRUIT, 30, 300,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    100,    "ELECTRIC_STARFRUIT" },  // 究极电能杨桃：300 阳光 / 30.01s 冷却（旅行红卡，由杨桃升级，5 颗追踪电能星星）
-    { SeedType::SEED_SNOW_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 175,    750,    PlantSubClass::SUBCLASS_SHOOTER,    100,    "SNOW_GATLING_PEA" }  // 隐藏合成态：消耗寒冰射手卡，属性与机枪射手一致
+    { SeedType::SEED_ELECTRIC_STARFRUIT, nullptr, ReanimationType::REANIM_STARFRUIT, 30, 300,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    100,    "ELECTRIC_STARFRUIT" },  // 究极电能星星果：300 阳光 / 30.01s 冷却（旅行红卡，由杨桃升级，5 颗追踪电能星星）
+    { SeedType::SEED_SNOW_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 175,    750,    PlantSubClass::SUBCLASS_SHOOTER,    100,    "SNOW_GATLING_PEA" },  // 隐藏合成态：消耗寒冰射手卡，属性与机枪射手一致
+    { SeedType::SEED_FIRE_PEASHOOTER, nullptr, ReanimationType::REANIM_FIRE_PEASHOOTER, 0, 175, 750,  PlantSubClass::SUBCLASS_SHOOTER,    FIRE_PEASHOOTER_LAUNCH_RATE, "FIRE_PEASHOOTER" }  // 火豌豆射手（旅行红卡）：175 阳光，每 1.125 秒一发 65 伤害紫火豌豆 + 命中易伤
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -114,7 +120,7 @@ Plant::Plant()
 {
 }
 
-// 专用"部位贴图"接入的公共实现（究极电能机枪射手 / 究极电能杨桃共用）：
+// 专用"部位贴图"接入的公共实现（究极电能机枪射手 / 究极电能星星果共用）：
 // 逐帧把 REANIM_ELECTRIC_* 定义里的原版贴图换成 main.pak 里那一套专用贴图
 // （例如 reanim/ElectricGatling_* / reanim/Electric_Starfruit_*）。
 //
@@ -250,10 +256,18 @@ bool SnowGatlingHasCustomArt()
         return sSnowGatlingArtApplied;
     sSnowGatlingArtChecked = true;
 
+    // 与究极电能机枪射手同一套部件（排列顺序也一致）：head/mouth/mouth_overlay/barrel/blink1/blink2 + 头盔。
+    // 其中 blink1/blink2 必须逐帧按"原图指针"换：anim_blink 与 idle_shoot_blink 各引用两张 blink 图，
+    // 挂 mImageOverride（一条轨道一张图）会把眨眼压成同一张。眉毛 PeaShooter_eyebrow 没有寒冰版本，继续复用原版。
     static const ReanimArtSwap aSwaps[] = {
-        { "reanim/GATLINGPEA_HEAD",   "reanim/SNOWGATLING_HEAD",   "IMAGE_REANIM_SNOWGATLING_HEAD" },
-        { "reanim/GATLINGPEA_BARREL", "reanim/SNOWGATLING_BARREL", "IMAGE_REANIM_SNOWGATLING_BARREL" },
-        { "reanim/GATLINGPEA_HELMET", "reanim/SNOWGATLING_HELMET", "IMAGE_REANIM_SNOWGATLING_HELMET" },
+        { "reanim/GATLINGPEA_HEAD",          "reanim/SNOWGATLING_HEAD",          "IMAGE_REANIM_SNOWGATLING_HEAD" },
+        { "reanim/GATLINGPEA_MOUTH",         "reanim/SNOWGATLING_MOUTH",         "IMAGE_REANIM_SNOWGATLING_MOUTH" },
+        { "reanim/GATLINGPEA_MOUTH_OVERLAY", "reanim/SNOWGATLING_MOUTH_OVERLAY", "IMAGE_REANIM_SNOWGATLING_MOUTH_OVERLAY" },
+        { "reanim/GATLINGPEA_BARREL",        "reanim/SNOWGATLING_BARREL",        "IMAGE_REANIM_SNOWGATLING_BARREL" },
+        // 注意：寒冰这两张在 pak 里的拼写是完整的 SnowGatling（电能那套是 EletricGatling，少了 c）
+        { "reanim/GATLINGPEA_BLINK1",        "reanim/SNOWGATLING_BLINK1",        "IMAGE_REANIM_SNOWGATLING_BLINK1" },
+        { "reanim/GATLINGPEA_BLINK2",        "reanim/SNOWGATLING_BLINK2",        "IMAGE_REANIM_SNOWGATLING_BLINK2" },
+        { "reanim/GATLINGPEA_HELMET",        "reanim/SNOWGATLING_HELMET",        "IMAGE_REANIM_SNOWGATLING_HELMET" },
     };
 
     sSnowGatlingArtApplied = ApplyReanimArtSwaps(
@@ -273,7 +287,131 @@ ReanimationType SnowGatlingReanimType()
         : ReanimationType::REANIM_GATLINGPEA;
 }
 
-// 究极电能杨桃专用贴图：只换星形主体与两张眼睛图（叶/茎/嘴/笑保持原版）。
+// 火豌豆射手：两套"部位贴图"共用同一个装载函数（都是 REANIM_FIRE_PEASHOOTER 这个独立槽位）。
+//   1) head / mouth / blink1 / blink2 —— 走公共的 ApplyReanimArtSwaps（必须与 PeaShooter 同名图尺寸一致）。
+//   2) fire1 / fire2 —— 不替换定义里的任何图，而是**覆盖头顶后面那撮小叶子最上面的一支
+//      （idle_headleaf_tip_top）**："背后的火"指的就是豌豆射手脑袋左上后方那一小块叶子
+//      （不是底下的大叶子）。这两张 128x128 的火焰正是照着这条轨道的描点/缩放（0.555 倍）画的，
+//      覆盖上去正好落在那一块，并且白拿这撮小叶子的摇摆动画；每帧在两张之间切换就是火苗跳动。
+//      这条轨道属于 **head 实例**（帧区间 29..53），body 实例在这一层是空白帧，所以覆盖要挂在 head 上。
+//      层级也正合适：head 实例挂在身体 anim_stem 上、在 body 的茎/前叶**之后**绘制，
+//      而 headleaves 又排在 anim_face（脸）**之前** —— 于是火焰刚好是"脑袋后面烧、脸挡着前面"。
+// 因此火焰图**不参与尺寸校验**（本来就不等于那片小叶子的 17x22），只要求带透明通道。
+static bool sFirePeaShooterArtChecked = false;
+static bool sFirePeaShooterArtApplied = false;
+static Image* sFirePeaShooterFireImage[2] = { nullptr, nullptr };
+
+// 火覆盖的那条轨道（脑袋后面那撮小叶子最上面的一支）：它同时充当火焰的定位锚点。
+// 这一支的描点中心在 (16.7, 21.5)，于是 128x128 火焰的可见部分落在 (-5.8,12.9)-(27.0,37.3) ——
+// 正好是"脑袋左上后方"那一块（换 2ndfarthest 会整体低 13 单位，贴在头下缘）。
+static const char* FIRE_PEASHOOTER_FIRE_TRACK = "idle_headleaf_tip_top";
+
+bool FirePeaShooterHasCustomArt()
+{
+    if (sFirePeaShooterArtChecked)
+        return sFirePeaShooterArtApplied;
+    sFirePeaShooterArtChecked = true;
+
+    // 注意：PeaShooter.reanim 并不引用 PeaShooter_Lips，所以 FirePeaShooter_lips.png 没有可替换的目标，
+    // 与原版 PeaShooter_Lips.png 一样是未使用素材。
+    static const ReanimArtSwap aSwaps[] = {
+        { "reanim/PEASHOOTER_HEAD",   "reanim/FIREPEASHOOTER_HEAD",   "IMAGE_FIREPEASHOOTER_HEAD" },
+        { "reanim/PEASHOOTER_MOUTH",  "reanim/FIREPEASHOOTER_MOUTH",  "IMAGE_FIREPEASHOOTER_MOUTH" },
+        { "reanim/PEASHOOTER_BLINK1", "reanim/FIREPEASHOOTER_BLINK1", "IMAGE_FIREPEASHOOTER_BLINK1" },
+        { "reanim/PEASHOOTER_BLINK2", "reanim/FIREPEASHOOTER_BLINK2", "IMAGE_FIREPEASHOOTER_BLINK2" },
+    };
+
+    bool aApplied = ApplyReanimArtSwaps(
+        ReanimationType::REANIM_FIRE_PEASHOOTER, aSwaps, LENGTH(aSwaps), "Fire Pea Shooter");
+
+    if (aApplied)
+    {
+        static const char* aFirePaths[] = { "reanim/FIREPEASHOOTER_FIRE1", "reanim/FIREPEASHOOTER_FIRE2" };
+        static const char* aFireNames[] = { "IMAGE_FIREPEASHOOTER_FIRE1", "IMAGE_FIREPEASHOOTER_FIRE2" };
+        for (int i = 0; i < 2; i++)
+        {
+            SharedImageRef aImageRef = gSexyAppBase->GetSharedImage(aFirePaths[i]);
+            MemoryImage* aImage = dynamic_cast<MemoryImage*>((Image*)aImageRef);
+            if (aImage == nullptr)
+            {
+                TodTrace("Fire Pea Shooter fire art missing: %s", aFirePaths[i]);
+                aApplied = false;   // 缺一张就整体回退，避免"只闪一半"
+                break;
+            }
+            aImage->CommitBits();
+            if (!aImage->mHasTrans && !aImage->mHasAlpha)
+            {
+                TodTrace("Fire Pea Shooter fire art has no transparency: %s", aFirePaths[i]);
+                aApplied = false;
+                break;
+            }
+
+            TodAddImageToMap(&aImageRef, aFireNames[i]);   // 交给资源管理器长期持有，避免被回收
+            TodMarkImageForSanding(aImage);
+            sFirePeaShooterFireImage[i] = aImage;
+        }
+    }
+
+    if (!aApplied)
+    {
+        sFirePeaShooterFireImage[0] = nullptr;
+        sFirePeaShooterFireImage[1] = nullptr;
+    }
+
+    sFirePeaShooterArtApplied = aApplied;
+    return aApplied;
+}
+
+Image* FirePeaShooterFireImage(int theIndex)
+{
+    if (!FirePeaShooterHasCustomArt())
+        return nullptr;
+    return sFirePeaShooterFireImage[theIndex & 1];
+}
+
+void FirePeaShooterHideTracks(Reanimation* theReanim)
+{
+    if (theReanim == nullptr)
+        return;
+
+    // 火豌豆射手一律不要的六条"原版豌豆射手才有"的装饰轨道：
+    //   - PeaShooter_eyebrow：新头本身没画眉毛，留着会多出一条原版的绿眉毛（与 1.5 发射手同款处理）
+    //   - 头顶那撮小叶子里**除锚点（idle_headleaf_tip_top）以外**的五支：整撮都被火取代了，
+    //     留着就是火里戳出来的几片绿叶（它们有的排在火之前、有的排在火之后，
+    //     也就是有的会被火盖住、有的会盖在火上面）
+    static const char* aHiddenTracks[] = {
+        "PeaShooter_eyebrow",
+        "idle_headleaf_farthest",
+        "idle_headleaf_3rdfarthest",
+        "idle_headleaf_2ndfarthest",
+        "idle_headleaf_tip_bottom",
+        "idle_headleaf_nearest",
+    };
+
+    for (size_t i = 0; i < LENGTH(aHiddenTracks); i++)
+    {
+        if (theReanim->TrackExists(aHiddenTracks[i]))
+            theReanim->AssignRenderGroupToTrack(aHiddenTracks[i], RENDER_GROUP_HIDDEN);
+    }
+}
+
+void FirePeaShooterApplyFireOverride(Reanimation* theReanim, int theFireIndex)
+{
+    if (theReanim == nullptr || !theReanim->TrackExists(FIRE_PEASHOOTER_FIRE_TRACK))
+        return;
+
+    // 覆盖的是"脑袋左上后方那撮小叶子"里最上面的一支：那支的叶子图被整体替换成火焰，
+    // 位置/缩放/摇摆都跟着轨道走，并且沿用轨道原本的图层（在脸之前 → 火在脑袋背后）。
+    theReanim->SetImageOverride(FIRE_PEASHOOTER_FIRE_TRACK, FirePeaShooterFireImage(theFireIndex));
+
+    // 想让火再挪一点就改 FIRE_PEASHOOTER_FIRE_OFFSET_*：那两条轨道位移只作用在这条轨道上
+    // （mShakeOverride 为 0，所以 Reanimation::Update 不会把 mShakeX/Y 随机覆盖掉）。
+    ReanimatorTrackInstance* aTrackInstance = theReanim->GetTrackInstanceByName(FIRE_PEASHOOTER_FIRE_TRACK);
+    aTrackInstance->mShakeX = FIRE_PEASHOOTER_FIRE_OFFSET_X;
+    aTrackInstance->mShakeY = FIRE_PEASHOOTER_FIRE_OFFSET_Y;
+}
+
+// 究极电能星星果专用贴图：只换星形主体与两张眼睛图（叶/茎/嘴/笑保持原版）。
 // 玩家若没打包这三张图，就回退到"杨桃贴图 + 电能蓝叠加"。
 static bool sElectricStarfruitArtChecked = false;
 static bool sElectricStarfruitArtApplied = false;
@@ -395,6 +533,9 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mHasFiredFirstPea = false;
     mPeater15DoubleShot = false;
     mPeater15UpgradeCountdown = 0;   // 非 1.5 发射手保持 0；1.5 发射手在下面按种子置为升级等待帧数
+    mPultBurstCountdown = 0;         // 投手连发状态：植物对象可能被复用，必须显式清干净
+    mPultFiredThisCycle = false;
+    mPultBurstWeapon = PlantWeapon::WEAPON_PRIMARY;
 
     Reanimation* aBodyReanim = nullptr;
     if (aReanimType != ReanimationType::REANIM_NONE)
@@ -462,6 +603,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     case SeedType::SEED_PEATER_1_5:
     case SeedType::SEED_ELECTRIC_GATLING_PEA:
     case SeedType::SEED_SNOW_GATLING_PEA:
+    case SeedType::SEED_FIRE_PEASHOOTER:
         if (aBodyReanim)
         {
             aBodyReanim->mAnimRate = RandRangeFloat(15.0f, 20.0f);
@@ -475,6 +617,18 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
                 aHeadReanim->AttachToAnotherReanimation(aBodyReanim, "anim_stem");
             else if (aBodyReanim->TrackExists("anim_idle"))
                 aHeadReanim->AttachToAnotherReanimation(aBodyReanim, "anim_idle");
+
+            // 火豌豆射手：脑袋后面那撮小叶子换成火焰
+            // （FirePeaShooter_fire1/fire2 交替覆盖 idle_headleaf_2ndfarthest），
+            // 并去掉原版才有的眉毛与那撮叶子里除锚点以外的几支。
+            // 火焰挂在 **head 实例** 上：headleaves 只在这一层（帧 29..53）有数据。
+            // 这里先按第 0 张铺一次，保证种下的第一帧就有火；之后每帧由 Plant::Update 切换。
+            if (mSeedType == SeedType::SEED_FIRE_PEASHOOTER)
+            {
+                FirePeaShooterHideTracks(aBodyReanim);
+                FirePeaShooterHideTracks(aHeadReanim);
+                FirePeaShooterApplyFireOverride(aHeadReanim, 0);
+            }
 
             // 究极电能机枪射手：贴图 = 机枪射手，但"主体 + 枪管变成电能白、底下（叶/茎）与头盔不变"。
             // body 实例只播 anim_idle（叶/茎），天然保持原色；着色只作用于 head 实例，由
@@ -552,10 +706,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         mPlantHealth = 300;
         if (aBodyReanim)
         {
-            const float aSideOffsetX = 20.0f;   // 左右小喷菇相对大喷菇的横向间距（调参）
-            const float aPuffOffsetY  = 22.0f;   // 小喷菇站地微调（调参）
-
-            Reanimation* aPuffL = mApp->AddReanimation(mX - aSideOffsetX, mY + aPuffOffsetY, mRenderOrder + 2, ReanimationType::REANIM_PUFFSHROOM);
+            Reanimation* aPuffL = mApp->AddReanimation(mX - FUME_GROUP_PUFF_OFFSET_X, mY + FUME_GROUP_PUFF_OFFSET_Y, mRenderOrder + 2, ReanimationType::REANIM_PUFFSHROOM);
             aPuffL->mLoopType = ReanimLoopType::REANIM_LOOP;
             aPuffL->mAnimRate = aBodyReanim->mAnimRate;
             if (aPuffL->TrackExists("anim_idle"))
@@ -563,7 +714,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
             aPuffL->OverrideScale(1.0f, 1.0f);   // 原版大小
             mTravelPuffLReanimID = mApp->ReanimationGetID(aPuffL);
 
-            Reanimation* aPuffR = mApp->AddReanimation(mX + aSideOffsetX, mY + aPuffOffsetY, mRenderOrder - 1, ReanimationType::REANIM_PUFFSHROOM);
+            Reanimation* aPuffR = mApp->AddReanimation(mX + FUME_GROUP_PUFF_OFFSET_X, mY + FUME_GROUP_PUFF_OFFSET_Y, mRenderOrder - 1, ReanimationType::REANIM_PUFFSHROOM);
             aPuffR->mLoopType = ReanimLoopType::REANIM_LOOP;
             aPuffR->mAnimRate = aBodyReanim->mAnimRate;
             if (aPuffR->TrackExists("anim_idle"))
@@ -1042,6 +1193,30 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
     if (aZombie == nullptr)
         return false;
 
+    // 投手：一轮攻击只掷一次骰，决定本轮是否散射 / 是否连发。
+    // 必须在 mShootingCounter == 0（新一轮起手）时掷，否则 UpdateShooter 每帧都会
+    // 重复掷骰，把本轮已经定下的结果反复改写。
+    // 掷骰落空直接返回，连投掷动画都不播——否则会出现"播了投掷动作却没投出东西"。
+    if ((mSeedType == SeedType::SEED_CABBAGEPULT || mSeedType == SeedType::SEED_KERNELPULT ||
+         mSeedType == SeedType::SEED_MELONPULT || mSeedType == SeedType::SEED_WINTERMELON) &&
+        mShootingCounter == 0)
+    {
+        constexpr int PULT_SCATTER_CHANCE = 42;
+        constexpr int PULT_BURST_CHANCE = 42;
+
+        const bool aScatter = Rand(100) < PULT_SCATTER_CHANCE;
+        // 连射只对西瓜投手 / 冰瓜生效，卷心菜投手 / 玉米投手没有。
+        const bool aBurst = (mSeedType == SeedType::SEED_MELONPULT || mSeedType == SeedType::SEED_WINTERMELON) &&
+                            Rand(100) < PULT_BURST_CHANCE;
+        if (!aScatter && !aBurst)
+        {
+            return false;   // 本轮整轮不出手
+        }
+
+        mPultFiredThisCycle = aScatter;   // 本轮首发是否真的要投出去
+        return true;
+    }
+
     EndBlink();
     Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
     Reanimation* aHeadReanim = mApp->ReanimationTryToGet(mHeadReanimID);
@@ -1218,7 +1393,7 @@ void Plant::StarFruitFire()
     }
 }
 
-// 究极电能杨桃：与杨桃完全相同的 5 颗米字星，但弹丸换成"电能星星"
+// 究极电能星星果：与杨桃完全相同的 5 颗米字星，但弹丸换成"电能星星"
 // （追踪 + 命中后钉住 2.5 秒、期间每 0.15 秒 30 点伤害，见 Projectile::StartElectricStarLinger）。
 void Plant::ElectricStarFruitFire()
 {
@@ -1252,6 +1427,9 @@ void Plant::UpdateShooter()
     mLaunchCounter--;
     if (mLaunchCounter <= 0)
     {
+        // 投手的一轮攻击只在这里起手：FindTargetAndFire 内部会掷骰，且只在
+        // mShootingCounter == 0 时掷。起手后 mShootingCounter 立刻变成非 0，
+        // 下一帧即便 mLaunchCounter 归零，这次起手也不会重复掷骰。
         if (mSeedType == SeedType::SEED_SCAREDYSHROOM)
         {
             mLaunchCounter = mScaredyShroomLaunchRate - Sexy::Rand(15);
@@ -1300,6 +1478,16 @@ void Plant::UpdateShooter()
         }
         else
         {
+            // 投手：一轮攻击尚未收尾时不要再起手（否则会重复掷骰、把本轮结果改写）。
+            // 这里保留 mLaunchCounter 为 1，下一帧继续检查，本轮一收尾就能立刻进入下一轮。
+            if ((mSeedType == SeedType::SEED_CABBAGEPULT || mSeedType == SeedType::SEED_KERNELPULT ||
+                 mSeedType == SeedType::SEED_MELONPULT || mSeedType == SeedType::SEED_WINTERMELON) &&
+                (mShootingCounter != 0 || mPultBurstCountdown != 0))
+            {
+                mLaunchCounter = 1;
+                return;
+            }
+
             FindTargetAndFire(mRow, PlantWeapon::WEAPON_PRIMARY);
         }
     }
@@ -3219,8 +3407,8 @@ bool Plant::IsUpgradableTo(SeedType theUpgradedType)
         return true;
     }
     // 究极形态互换（旅行红卡）：把"另一种基础植物"种在究极形态上 = 原地变身。
-    //   杨桃     @ 究极电能机枪射手 → 究极电能杨桃（Board::MouseDownWithPlant 会改写要种的种子并返还阳光）
-    //   机枪射手 @ 究极电能杨桃       → 究极电能机枪射手
+    //   杨桃     @ 究极电能机枪射手 → 究极电能星星果（Board::MouseDownWithPlant 会改写要种的种子并返还阳光）
+    //   机枪射手 @ 究极电能星星果       → 究极电能机枪射手
     if (theUpgradedType == SeedType::SEED_STARFRUIT && mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
     {
         return true;
@@ -3389,7 +3577,7 @@ void Plant::UpdateReanimColor()
         }
     }
 
-    // 究极电能杨桃：同样只在**没有**可用专用贴图时才靠染色兜底。
+    // 究极电能星星果：同样只在**没有**可用专用贴图时才靠染色兜底。
     // 杨桃只有一个实例（头/脸/眼/叶/茎都在同一个 reanim 里），因此整个实例一起上电能蓝叠加即可；
     // 没有需要豁免"保持原色"的轨道（专用贴图方案下叶/茎本来也是原色，兜底方案只能整体变蓝）。
     // 变量名故意不复用 aBodyReanim：那条 body 实例是机枪射手专用的（叶/茎必须保持原色）。
@@ -3589,6 +3777,20 @@ void Plant::Update()
             }
         }
 
+        // 火豌豆射手：脑袋后面那撮小叶子上的火在 FirePeaShooter_fire1/fire2 之间来回切换。
+        // 相位按格子错开（+ mPlantCol * 3 + mRow），免得一片植物整齐划一地一起闪。
+        if (mSeedType == SeedType::SEED_FIRE_PEASHOOTER)
+        {
+            // 这条轨道只在 head 实例的这一层有数据
+            Reanimation* aHeadReanim = mApp->ReanimationTryToGet(mHeadReanimID);
+            if (aHeadReanim)
+            {
+                int aCounter = (mBoard && IsOnBoard()) ? mBoard->mMainCounter : mApp->mAppCounter;
+                int aFireIndex = (aCounter / FIRE_PEASHOOTER_FIRE_FLIP_TICKS + mPlantCol * 3 + mRow) & 1;
+                FirePeaShooterApplyFireOverride(aHeadReanim, aFireIndex);
+            }
+        }
+
         UpdateAbilities();
         Animate();
 
@@ -3684,7 +3886,7 @@ Reanimation* Plant::AttachBlinkAnim(Reanimation* theReanimBody)
             aTrackToAttach = "anim_face2";
         }
     }
-    else if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_LEFTPEATER || mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_PEATER_1_5 || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || mSeedType == SeedType::SEED_SNOW_GATLING_PEA)
+    else if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_LEFTPEATER || mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_PEATER_1_5 || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_FIRE_PEASHOOTER)
     {
         if (theReanimBody->TrackExists("anim_stem"))
         {
@@ -3982,6 +4184,34 @@ void Plant::AnimatePumpkin()
     }
 }
 
+Reanimation* Plant::GetFumeGroupPuff(bool theLeft)
+{
+    if (mSeedType != SeedType::SEED_FUMESHROOM_GROUP)
+        return nullptr;
+
+    return mApp->ReanimationTryToGet(theLeft ? mTravelPuffLReanimID : mTravelPuffRReanimID);
+}
+
+// 大喷菇群：把左右小喷菇对回植物当前位置。
+// theLocalToPlant = false：世界坐标（游戏内 EffectSystem 按世界坐标绘制，手套搬运后需要重定位）；
+// theLocalToPlant = true ：相对植物原点的偏移（图鉴预览：与植物共用 translate 后的画布）。
+void Plant::SyncFumeGroupPuffs(bool theLocalToPlant)
+{
+    if (mSeedType != SeedType::SEED_FUMESHROOM_GROUP)
+        return;
+
+    float aBaseX = theLocalToPlant ? 0.0f : mX;
+    float aBaseY = theLocalToPlant ? 0.0f : mY;
+
+    Reanimation* aPuffL = mApp->ReanimationTryToGet(mTravelPuffLReanimID);
+    if (aPuffL != nullptr)
+        aPuffL->SetPosition(aBaseX - FUME_GROUP_PUFF_OFFSET_X, aBaseY + FUME_GROUP_PUFF_OFFSET_Y);
+
+    Reanimation* aPuffR = mApp->ReanimationTryToGet(mTravelPuffRReanimID);
+    if (aPuffR != nullptr)
+        aPuffR->SetPosition(aBaseX + FUME_GROUP_PUFF_OFFSET_X, aBaseY + FUME_GROUP_PUFF_OFFSET_Y);
+}
+
 void Plant::UpdateTravelPuffHeads()
 {
     if (mSeedType != SeedType::SEED_FUMESHROOM_GROUP)
@@ -4081,6 +4311,16 @@ void Plant::UpdateShooting()
 
     mShootingCounter--;
 
+    // 西瓜投手 / 冰瓜的连发补射。节奏照双发射手：首发之后延迟若干帧，再完整重放一次投掷动作。
+    // 投手的出弹帧固定是 mShootingCounter == 1，而动画是异步播放的，所以这里只做两件事：
+    // 冻住计时（不让它跑到 0 触发提前返回），到期后重新装填到出弹帧。
+    // 动画重放与真正出弹都交给下面 mShootingCounter == 1 的分支，与首次发射共用同一条路径。
+    if (mPultBurstCountdown > 0)
+    {
+        mPultBurstCountdown--;
+        mShootingCounter = 1;   // 冻住计时；到期那一帧正好是出弹帧
+    }
+
     if ((mSeedType == SeedType::SEED_FUMESHROOM || mSeedType == SeedType::SEED_FUMESHROOM_GROUP) && mShootingCounter == 15)
     {
         int aRenderPosition = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PARTICLE, mRow, 0);
@@ -4177,19 +4417,55 @@ void Plant::UpdateShooting()
                 aPlantWeapon = PlantWeapon::WEAPON_SECONDARY;
             }
 
-            bool aFiredAtAny = false;
-            Zombie* aZombie = nullptr;
-            while (mBoard->IterateZombies(aZombie))
+            // 散射：向本行每一只僵尸各投一发；本行无僵尸则向空处投一发（原版行为）。
+            // 连射：像双发射手那样延迟若干帧再补一发。
+            // 两个掷骰都在 FindTargetAndFire 里每轮各做一次，互相独立、可单独出现：
+            //   只散射 / 只连射 / 两者同时 / 都不出现。
+            constexpr int PULT_BURST_GAP = 36;
+
+            auto ShootAtEveryZombieInRow = [this, aTargetRow = static_cast<int>(mRow)](PlantWeapon theWeapon)
             {
-                if (aZombie->mRow == mRow)
+                bool aFiredAtAny = false;
+                Zombie* aZombie = nullptr;
+                while (mBoard->IterateZombies(aZombie))
                 {
-                    Fire(aZombie, mRow, aPlantWeapon);
-                    aFiredAtAny = true;
+                    if (aZombie->mRow == aTargetRow)
+                    {
+                        Fire(aZombie, aTargetRow, theWeapon);
+                        aFiredAtAny = true;
+                    }
+                }
+                if (!aFiredAtAny)
+                {
+                    Fire(nullptr, aTargetRow, theWeapon);
+                }
+            };
+
+            if (mPultFiredThisCycle)
+            {
+                // 本轮首发：FindTargetAndFire 已掷过骰，走到这里就是要真的投出去
+                mPultFiredThisCycle = false;
+                ShootAtEveryZombieInRow(aPlantWeapon);
+
+                if (mPultBurstCountdown == 0)
+                {
+                    mPultBurstWeapon = aPlantWeapon;
+                    mPultBurstCountdown = PULT_BURST_GAP;
+                    mShootingCounter = 1;   // 连发期间保持射击态，保证补发分支会走到
                 }
             }
-            if (!aFiredAtAny)
+            else if (mPultBurstCountdown > 0)
             {
-                Fire(nullptr, mRow, aPlantWeapon);
+                // 连发的第二发：重放投掷动画，与首次发射落在同一个动画节点上。
+                // 只重放身体动画、不碰 mState，以免冲掉 STATE_KERNELPULT_BUTTER。
+                Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
+                if (aBodyReanim && aBodyReanim->TrackExists("anim_shooting"))
+                {
+                    PlayBodyReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 35.0f);
+                }
+
+                ShootAtEveryZombieInRow(mPultBurstWeapon);
+                mShootingCounter = 1;   // 补发完成，恢复装填
             }
         }
         else
@@ -5458,6 +5734,11 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     case SeedType::SEED_SNOW_GATLING_PEA:
         aProjectileType = ProjectileType::PROJECTILE_SNOWPEA;
         break;
+    case SeedType::SEED_FIRE_PEASHOOTER:
+        // 火豌豆射手：特制紫火豌豆。单体命中 65 伤害 + 命中后僵尸易伤 4 秒（见 Projectile::DoImpact）。
+        // 它是"打着火的豌豆"，不是火炬树桩点燃的火球：不溅射、不穿透，穿过火炬树桩也不会转化。
+        aProjectileType = ProjectileType::PROJECTILE_PURPLE_FIRE_PEA;
+        break;
     case SeedType::SEED_ELECTRIC_GATLING_PEA:
         // 究极电能机枪射手：100% 电能豌豆。
         // PROJECTILE_FIREPEA_RED 即"纯白闪电豌豆"（接触每 0.15 秒 30 伤害 + 无限穿透），
@@ -5557,7 +5838,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aOriginX = mX + 12;
         aOriginY = mY - 56;
     }
-    else if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_PEATER_1_5)
+    else if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_PEATER_1_5 || mSeedType == SeedType::SEED_FIRE_PEASHOOTER)
     {
         int aOffsetX, aOffsetY;
         GetPeaHeadOffset(aOffsetX, aOffsetY);
@@ -5751,10 +6032,26 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     {
         if (theRow != mRow)
         {
-            int aRowDiff = theRow - mRow;
+            // 目标行与本行的"车道高度"之差。必须查棋盘的实际行高：
+            // 草坪行距 100，泳池 / 雾夜 / 屋顶只有 85（屋顶还带斜坡），
+            // 而三线射手会对全场每一行开火（行差最大 ±5）。
+            float aLaneDeltaY = mBoard->GetPosYBasedOnRow(aOriginX, theRow) - mBoard->GetPosYBasedOnRow(aOriginX, mRow);
+
             aProjectile->mMotionType = ProjectileMotion::MOTION_THREEPEATER;
-            aProjectile->mVelY = 3.0f * aRowDiff;
-            aProjectile->mShadowY -= 80.0f * aRowDiff;
+
+            // UpdateNormalMotion 里 mVelY 每帧乘 0.97，总位移 = v0 / (1 - 0.97) = v0 * 33.33，
+            // 所以由位移反推初速度，保证弹丸正好停到目标行的车道上。
+            // 旧写法写死 "3.0 * 行差"（等于 100 * 行差）：85 行高的关卡会飞过头，
+            // 行差大于 1 时误差被成倍放大。
+            aProjectile->mVelY = aLaneDeltaY * 0.03f;
+
+            // 影子必须和弹丸保持"本行豌豆"的那个固定间距（草坪约 55px）：
+            // CheckForCollision 用 mShadowY - mPosY > 90 判定"弹丸还没落到这一行"而整帧跳过碰撞
+            // （弹丸会直接穿过僵尸飞到屏幕外），CheckForHighGround 又用 < 28 判定"已经贴地"
+            // 而让弹丸当场消散 —— 两者都会表现为"子弹莫名其妙消失"。
+            // 弹丸出生时影子是按目标行摆的，这里先按发射行修正回来；之后影子随 mVelY 与弹丸
+            // 同步移动，间距全程不变。
+            aProjectile->mShadowY -= aLaneDeltaY;
         }
     }
     else if (mSeedType == SeedType::SEED_PUFFSHROOM || mSeedType == SeedType::SEED_SEASHROOM)
@@ -6181,11 +6478,13 @@ bool Plant::IsRedCard(SeedType theSeedtype)
     // 巨大坚果（旅行专属；保龄球 2 作为滚球出现时同样显示红卡，同物种同卡）、
     // 1.5 发射手（旅行专属，贴图 = 去掉眉毛的双发射手）、
     // 究极电能机枪射手（旅行专属，贴图 = 主体/枪管变白的机枪射手）、
-    // 究极电能杨桃（旅行专属，贴图 = 主体/眼睛变电光蓝的杨桃）。
+    // 究极电能星星果（旅行专属，贴图 = 主体/眼睛变电光蓝的杨桃）、
+    // 火豌豆射手（旅行专属，贴图 = 带火的豌豆射手，叶子位置被火焰取代）。
     return theSeedtype == SeedType::SEED_GIANT_WALLNUT ||
            theSeedtype == SeedType::SEED_PEATER_1_5 ||
            theSeedtype == SeedType::SEED_ELECTRIC_GATLING_PEA ||
-           theSeedtype == SeedType::SEED_ELECTRIC_STARFRUIT;
+           theSeedtype == SeedType::SEED_ELECTRIC_STARFRUIT ||
+           theSeedtype == SeedType::SEED_FIRE_PEASHOOTER;
 }
 
 Rect Plant::GetPlantRect()
@@ -6280,6 +6579,13 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
     {
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_FIRE_PEA, true);
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_JALAPENO_FIRE, true);
+    }
+    else if (theSeedType == SeedType::SEED_FIRE_PEASHOOTER)
+    {
+        // 火豌豆射手：先换好专用贴图（定义槽位是 REANIM_NO_ATLAS，换图不挑时机，只是尽早定下来），
+        // 再预载弹丸用的火球 reanim —— 场上可能压根没有火炬树桩，不能指望它替我们加载。
+        FirePeaShooterHasCustomArt();
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_FIRE_PEA, true);
     }
     else if (Plant::IsNocturnal(theSeedType))
     {

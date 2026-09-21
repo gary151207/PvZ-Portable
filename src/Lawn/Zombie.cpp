@@ -130,6 +130,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mChilledCounter = 0;
     mIceTrapCounter = 0;
     mButteredCounter = 0;
+    mFireVulnCounter = 0;
     mMindControlled = false;
     mTorchwoodSummoned = false;
     mBlowingAway = false;
@@ -2574,21 +2575,26 @@ void Zombie::UpdateZombieBossConheadPea()
             if (mPosX <= aCol2X)
             {
                 mConheadPatrolState = 1;
-                // 到第 2 列折返时随机换行：只在当前地图有效（非 DIRT）且不同于当前行的行中选
-                int aNewRow = mRow;
-                for (int i = 0; i < MAX_GRID_SIZE_Y; i++)
+                // 到第 2 列折返时随机换行：只在当前地图有效（非 DIRT）且不同于当前行的行中选。
+                // 斗蛐蛐例外：整场只有第 3 行有植物，换到空行就再也吃不到东西、也不会越过小推车触发判负，
+                // 战斗会永远悬在那里——所以斗蛐蛐里保持原行，始终待在有植物的那一行。
+                if (!mApp->IsCricketFightLevel())
                 {
-                    int aCandidate = Rand(MAX_GRID_SIZE_Y);
-                    if (aCandidate != mRow && mBoard->RowCanHaveZombies(aCandidate))
+                    int aNewRow = mRow;
+                    for (int i = 0; i < MAX_GRID_SIZE_Y; i++)
                     {
-                        aNewRow = aCandidate;
-                        break;
+                        int aCandidate = Rand(MAX_GRID_SIZE_Y);
+                        if (aCandidate != mRow && mBoard->RowCanHaveZombies(aCandidate))
+                        {
+                            aNewRow = aCandidate;
+                            break;
+                        }
                     }
+                    SetRow(aNewRow);
+                    mPosY = GetPosYBasedOnRow(aNewRow);
+                    mX = static_cast<int>(mPosX);
+                    mY = static_cast<int>(mPosY);
                 }
-                SetRow(aNewRow);
-                mPosY = GetPosYBasedOnRow(aNewRow);
-                mX = static_cast<int>(mPosX);
-                mY = static_cast<int>(mPosY);
                 StartWalkAnim(20);
             }
         }
@@ -4664,6 +4670,10 @@ void Zombie::Update()
         }
 
         mJustGotShotCounter--;
+        if (mFireVulnCounter > 0)
+        {
+            mFireVulnCounter--;
+        }
         if (mShieldJustGotShotCounter > 0)
         {
             mShieldJustGotShotCounter--;
@@ -6053,6 +6063,16 @@ void Zombie::DrawReanim(Graphics* g, const ZombieDrawPosition& theDrawPos, int t
     {
         aColorOverride = ZOMBIE_MINDCONTROLLED_COLOR;
         aColorOverride.mAlpha = aFadeAlpha;
+        aExtraAdditiveColor = aColorOverride;
+        aEnableExtraAdditiveDraw = true;
+    }
+    else if (mFireVulnCounter > 0)
+    {
+        // 火豌豆易伤：整体泛红，画法与"冰冻/减速"那套**完全一致**（覆写色正片叠底 + 同色加色），
+        // 只是把冰冻的蓝色通道换到红色通道上 → 看起来就像"中了红色的减速"。
+        // 故意排在冰冻前面：这是"被打上了易伤标记"的提示，必须看得见；
+        // 速度仍然按已经施加的冰冻/减速走，只是颜色以红为准。
+        aColorOverride = Color(FIRE_PEA_VULN_R, FIRE_PEA_VULN_G, FIRE_PEA_VULN_B, aFadeAlpha);
         aExtraAdditiveColor = aColorOverride;
         aEnableExtraAdditiveDraw = true;
     }
@@ -8071,6 +8091,13 @@ void Zombie::ApplyChill(bool theIsIceTrap)
     UpdateAnimSpeed();
 }
 
+void Zombie::ApplyFireVulnerability()
+{
+    // 紫火豌豆命中：4 秒内受到的伤害 +40%，同时整体染红。
+    // 只刷新计时、不叠加倍率；已被点燃的僵尸再挨一发就是把 4 秒重新拉满。
+    mFireVulnCounter = FIRE_PEA_VULN_TICKS;
+}
+
 void Zombie::DropShield(unsigned int theDamageFlags)
 {
     if (mShieldType == ShieldType::SHIELDTYPE_NONE)
@@ -8527,6 +8554,14 @@ void Zombie::TakeDamage(int theDamage, unsigned int theDamageFlags)
         aDamageRemaining = 2000;
     }
 
+    // 火豌豆易伤（紫火豌豆命中）：4 秒内受到的**任何**伤害 +40%。
+    // 放在最前面、护盾/头盔/本体拆分之前，所以这一份加伤对护盾、头盔、本体一视同仁；
+    // 整数向下取整（1 点伤害 ×1.4 仍是 1）。
+    if (mFireVulnCounter > 0)
+    {
+        aDamageRemaining = (aDamageRemaining * (100 + FIRE_PEA_VULN_PERCENT)) / 100;
+    }
+
     // Boss aura: 60% damage reduction for all zombies when Boss is on the field
     if (mZombieType != ZombieType::ZOMBIE_BOSS)
     {
@@ -8561,6 +8596,12 @@ void Zombie::TakeDamage(int theDamage, unsigned int theDamageFlags)
             if (mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA && aDamageRemaining > 2000)
             {
                 aDamageRemaining = 2000;
+            }
+            // 火豌豆易伤：这一路的"同时打盾与本体"同样会把伤害重置回原始值，
+            // 所以在这里补一次加成 —— 否则火球/西瓜这类弹丸打易伤僵尸时本体那份会白丢 40%。
+            if (mFireVulnCounter > 0)
+            {
+                aDamageRemaining = (aDamageRemaining * (100 + FIRE_PEA_VULN_PERCENT)) / 100;
             }
         }
     }

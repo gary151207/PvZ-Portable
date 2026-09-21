@@ -27,8 +27,10 @@
 #include "Image.h"
 #include "SexyAppBase.h"
 #include "MemoryImage.h"
+#include "SysFontFallback.h"
 #include "graphics/GLImage.h"
 #include <algorithm>
+#include <cmath>
 #include <mutex>
 #include "fcaseopen/fcaseopen.h"
 
@@ -1175,6 +1177,7 @@ ActiveFontLayer::~ActiveFontLayer()
 ImageFont::ImageFont(SexyAppBase* theSexyApp, const std::string& theFontDescFileName)
 {
 	mScale = 1.0;
+	mFallbackPixelHeight = 0;
 	mFontData = new FontData();
 	mFontData->Ref();
 	mFontData->Load(theSexyApp, theFontDescFileName);
@@ -1187,6 +1190,7 @@ ImageFont::ImageFont(SexyAppBase* theSexyApp, const std::string& theFontDescFile
 ImageFont::ImageFont(Image* theFontImage)
 {
 	mScale = 1.0;
+	mFallbackPixelHeight = 0;
 	mFontData = new FontData();
 	mFontData->Ref();
 	mFontData->mInitialized = true;
@@ -1212,7 +1216,8 @@ ImageFont::ImageFont(const ImageFont& theImageFont) :
 	mTagVector(theImageFont.mTagVector),
 	mActiveListValid(theImageFont.mActiveListValid),
 	mScale(theImageFont.mScale),
-	mForceScaledImagesWhite(theImageFont.mForceScaledImagesWhite)
+	mForceScaledImagesWhite(theImageFont.mForceScaledImagesWhite),
+	mFallbackPixelHeight(theImageFont.mFallbackPixelHeight)
 {
 	mFontData->Ref();
 
@@ -1224,6 +1229,7 @@ ImageFont::ImageFont(Image* theFontImage, const std::string& theFontDescFileName
 {
 
 	mScale = 1.0;
+	mFallbackPixelHeight = 0;
 	mFontData = new FontData();
 	mFontData->Ref();
 	mFontData->LoadLegacy(theFontImage, theFontDescFileName);
@@ -1416,6 +1422,17 @@ int ImageFont::CharWidthKern(char32_t theChar, char32_t thePrevChar)
 	if (thePrevChar != 0)
 		thePrevChar = GetMappedChar(thePrevChar);
 
+	// 字库里没有这个字：按系统字体兜底字形的步进算宽度，
+	// 否则该字宽度为 0（排版会少一格、文字挤在一起）。
+	if (!HasGlyph(theChar))
+	{
+		double aFallbackScale = 1.0;
+		int aPixelHeight = GetFallbackScaledPixelHeight(aFallbackScale);
+		SysFontFallback::Glyph* aGlyph = SysFontFallback::Get()->GetGlyph(theChar, aPixelHeight);
+		if (aGlyph != nullptr)
+			return static_cast<int>(std::lround(aGlyph->mAdvance * aFallbackScale));
+	}
+
 	ActiveFontLayerList::iterator anItr = mActiveLayerList.begin();
 	while (anItr != mActiveLayerList.end())
 	{
@@ -1576,6 +1593,53 @@ void ImageFont::DrawStringEx(Graphics* g, int theX, int theY, const std::string&
 			aColor.mGreen = std::min((theColor.mGreen * anActiveFontLayer->mBaseFontLayer->mColorMult.mGreen / 255) + anActiveFontLayer->mBaseFontLayer->mColorAdd.mGreen, 255);
 			aColor.mBlue = std::min((theColor.mBlue * anActiveFontLayer->mBaseFontLayer->mColorMult.mBlue / 255) + anActiveFontLayer->mBaseFontLayer->mColorAdd.mBlue, 255);
 			aColor.mAlpha = std::min((theColor.mAlpha * anActiveFontLayer->mBaseFontLayer->mColorMult.mAlpha / 255) + anActiveFontLayer->mBaseFontLayer->mColorAdd.mAlpha, 255);
+
+			// 字库里没有这个字：改用系统字体兜底字形（宽度、基线都按兜底字形算）
+			if (!HasGlyph(aChar))
+			{
+				double aFallbackScale = 1.0;
+				int aPixelHeight = GetFallbackScaledPixelHeight(aFallbackScale);
+				SysFontFallback::Glyph* aGlyph = SysFontFallback::Get()->GetGlyph(aChar, aPixelHeight);
+				if (aGlyph != nullptr && aCurPoolIdx < POOL_SIZE)
+				{
+					RenderCommand* aRenderCommand = &gRenderCommandPool[aCurPoolIdx++];
+					aRenderCommand->mImage = aGlyph->mImage;
+					aRenderCommand->mColor = aColor;
+					aRenderCommand->mDest[0] = aLayerXPos;
+					aRenderCommand->mDest[1] = theY - static_cast<int>(std::lround(aGlyph->mAscent * aFallbackScale));
+					aRenderCommand->mSrc[0] = 0;
+					aRenderCommand->mSrc[1] = 0;
+					aRenderCommand->mSrc[2] = aGlyph->mImage->mWidth;
+					aRenderCommand->mSrc[3] = aGlyph->mImage->mHeight;
+					aRenderCommand->mMode = anActiveFontLayer->mBaseFontLayer->mDrawMode;
+					aRenderCommand->mNext = nullptr;
+
+					int anOrderIdx = std::min(std::max(aLayerOrderOffset + anActiveFontLayer->mBaseFontLayer->mBaseOrder + 128, 0), 255);
+					if (gRenderTail[anOrderIdx] == nullptr)
+					{
+						gRenderTail[anOrderIdx] = aRenderCommand;
+						gRenderHead[anOrderIdx] = aRenderCommand;
+					}
+					else
+					{
+						gRenderTail[anOrderIdx]->mNext = aRenderCommand;
+						gRenderTail[anOrderIdx] = aRenderCommand;
+					}
+
+					if (theDrawnAreas != nullptr)
+					{
+						theDrawnAreas->push_back(Rect(aRenderCommand->mDest[0], aRenderCommand->mDest[1], aGlyph->mImage->mWidth, aGlyph->mImage->mHeight));
+					}
+
+					aLayerXPos += static_cast<int>(std::lround(aGlyph->mAdvance * aFallbackScale));
+					if (aLayerXPos > aMaxXPos)
+						aMaxXPos = aLayerXPos;
+				}
+
+				anItr++;
+				aLayerOrderOffset++;
+				continue;
+			}
 
 			int anOrder = aLayerOrderOffset + anActiveFontLayer->mBaseFontLayer->mBaseOrder + anActiveFontLayer->mBaseFontLayer->GetCharData(aChar)->mOrder;
 
@@ -1751,4 +1815,65 @@ char32_t ImageFont::GetMappedChar(char32_t theChar)
 		return anItr->second;
 	}
 	return theChar;
+}
+
+// 位图字库里有这个字的字形吗？
+// 注意：GetCharData 对没有的字会插入一个空条目（mWidth == 0 / 空矩形），
+// 所以这里用字宽判断，而不是「map 里有没有这个键」。
+bool ImageFont::HasGlyph(char32_t theChar)
+{
+	Prepare();
+
+	for (ActiveFontLayerList::iterator anItr = mActiveLayerList.begin(); anItr != mActiveLayerList.end(); anItr++)
+	{
+		if (anItr->mBaseFontLayer->GetCharData(theChar)->mWidth > 0)
+			return true;
+	}
+
+	return false;
+}
+
+// 缺字兜底的字号：中文字在字库里都是等宽的（BrianneTod12 是 14px），
+// 用这个宽度当系统字体的像素高，兜底字形的步进就和原生中文完全一致；
+// 字库里没有中文（纯西文字体）时退回行高。
+int ImageFont::GetFallbackPixelHeight()
+{
+	if (mFallbackPixelHeight > 0)
+		return mFallbackPixelHeight;
+
+	Prepare();
+
+	int aHeight = 0;
+	for (ActiveFontLayerList::iterator anItr = mActiveLayerList.begin(); anItr != mActiveLayerList.end(); anItr++)
+	{
+		CharDataMap& aCharDataMap = anItr->mBaseFontLayer->mCharDataMap;
+		for (CharDataMap::iterator aCharItr = aCharDataMap.begin(); aCharItr != aCharDataMap.end(); aCharItr++)
+		{
+			char32_t aChar = aCharItr->first;
+			bool aIsWideChar = (aChar >= 0x2E80 && aChar <= 0x9FFF) ||	// 中日韩
+				(aChar >= 0xAC00 && aChar <= 0xD7AF) ||					// 谚文
+				(aChar >= 0xF900 && aChar <= 0xFAFF);					// 兼容汉字
+			if (aIsWideChar && aCharItr->second.mWidth > aHeight)
+				aHeight = aCharItr->second.mWidth;
+		}
+	}
+
+	mFallbackPixelHeight = aHeight > 0 ? aHeight : std::max(1, GetHeight());
+	return mFallbackPixelHeight;
+}
+
+int ImageFont::GetFallbackScaledPixelHeight(double& theScale)
+{
+	theScale = mScale;
+
+	for (ActiveFontLayerList::iterator anItr = mActiveLayerList.begin(); anItr != mActiveLayerList.end(); anItr++)
+	{
+		int aLayerPointSize = anItr->mBaseFontLayer->mPointSize;
+		if (aLayerPointSize != 0)
+			theScale = mScale * static_cast<double>(mPointSize) / static_cast<double>(aLayerPointSize);
+		break;   // 兜底只按第一层算
+	}
+
+	int aPixelHeight = static_cast<int>(std::lround(GetFallbackPixelHeight() * theScale));
+	return std::max(1, aPixelHeight);
 }

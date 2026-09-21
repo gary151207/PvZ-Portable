@@ -78,7 +78,7 @@ public:
     float                   mRenderScale = 1.0f;
     int32_t                 mPenetrations = 0;
     ZombieID                mLastHitZombieID = ZombieID::ZOMBIEID_NULL;
-    // 究极电能杨桃的电能星星：命中后"钉"在该僵尸上的剩余游戏刻（0 = 尚未命中，正常飞行）。
+    // 究极电能星星果的电能星星：命中后"钉"在该僵尸上的剩余游戏刻（0 = 尚未命中，正常飞行）。
     // 追加在 SaveGame 的 SyncProjectileTailPortable 末尾，旧存档读不到时按 0 处理。
     int32_t                 mLingerCountdown = 0;
     // 电能星星当前是否正"钉"在僵尸身上（false 且 mLingerCountdown > 0 = 目标已死、正在改追下一个）
@@ -89,7 +89,7 @@ public:
     // 0 = 本帧可以结算（刚钉住时先打一次，之后按 0.15 秒的间隔）。
     // 电能豌豆不用这个计数器：它直接按 mProjectileAge % ELECTRIC_DAMAGE_INTERVAL_TICKS 结算。
     int32_t                 mElectricDamageCountdown = 0;
-    // 究极电能机枪射手 / 究极电能杨桃的电能弹丸：链式闪电。
+    // 究极电能机枪射手 / 究极电能星星果的电能弹丸：链式闪电。
     // 节奏完全不新增存档字段，直接由 mProjectileAge 推导：
     //   - mProjectileAge % ELECTRIC_CHAIN_INTERVAL_TICKS == 0 → 本帧向周围最近 5 只僵尸放电
     //   - 同一次结算之后的 ELECTRIC_CHAIN_ARC_TICKS 刻内，Draw 里画出电弧
@@ -97,7 +97,7 @@ public:
     // 该字段只是观感状态：每帧按它算电弧亮度，读档后按 0 = 本帧无电弧处理即可。
     int32_t                 mElectricChainFlash = 0;    // 本次放电的电弧还能亮几刻（每帧自减）
     // 射出这颗弹丸的植物（PLANTID_NULL = 不是植物射的，例如僵尸豌豆 / 火球转化）。
-    // 链式闪电只认"究极电能机枪射手 / 究极电能杨桃"，而电能豌豆（PROJECTILE_FIREPEA_RED）
+    // 链式闪电只认"究极电能机枪射手 / 究极电能星星果"，而电能豌豆（PROJECTILE_FIREPEA_RED）
     // 普通机枪射手也有 3% 概率打出来，光看弹丸类型区分不了，所以必须记来源。
     PlantID                 mSourcePlantID = PlantID::PLANTID_NULL;
     // 发射瞬间就定死的"这颗弹丸是不是究极电能形态射出来的"。

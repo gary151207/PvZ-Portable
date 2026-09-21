@@ -990,10 +990,25 @@ void Board::PickZombieWaves()
 			ZombieType::ZOMBIE_PEA_HEAD, ZombieType::ZOMBIE_WALLNUT_HEAD, ZombieType::ZOMBIE_JALAPENO_HEAD,
 			ZombieType::ZOMBIE_GATLING_HEAD, ZombieType::ZOMBIE_SQUASH_HEAD, ZombieType::ZOMBIE_TALLNUT_HEAD
 		};
-		const int aPoolSize = static_cast<int>(sizeof(gCricketZombiePool) / sizeof(gCricketZombiePool[0]));
+		// 名单（Travel.cpp 的 gTravelZombieDefs）里的旅行专属僵尸也算作池中一员：等概率抽取、每场至多 1 只。
+		// 新增旅行专属僵尸只改名单即可，这里自动跟上。
+		const int aBasePoolSize = static_cast<int>(sizeof(gCricketZombiePool) / sizeof(gCricketZombiePool[0]));
+		const int aPoolSize = aBasePoolSize + NUM_TRAVEL_ZOMBIES;
+
+		bool aTravelZombieTaken = false;
 		for (int i = 0; i < 6; i++)
 		{
-			ZombieType aZombieType = gCricketZombiePool[Rand(aPoolSize)];
+			int aPick = Rand(aPoolSize);
+			ZombieType aZombieType = (aPick < aBasePoolSize)
+				? gCricketZombiePool[aPick]
+				: gTravelZombieDefs[aPick - aBasePoolSize];
+			// 旅行专属僵尸每场至多 1 只（BOSS 啃掉植物后会原地再变出一只，两只同场会失控）：
+			// 第二次抽中就地改成普通僵尸。
+			if (aTravelZombieTaken && IsTravelOnlyZombie(aZombieType))
+			{
+				aZombieType = ZombieType::ZOMBIE_NORMAL;
+			}
+			aTravelZombieTaken = aTravelZombieTaken || IsTravelOnlyZombie(aZombieType);
 			mCricketBattleZombies[i] = aZombieType;   // 记录本场僵尸阵容
 			mZombiesInWave[0][i] = aZombieType;
 		}
@@ -1761,6 +1776,9 @@ void Board::MovePlantWithGlove(Plant* thePlant, int theGridX, int theGridY)
 	thePlant->mRow = theGridY;
 	thePlant->mRenderOrder = thePlant->CalcRenderOrder();
 
+	// 大喷菇群：左右两只小喷菇是独立 reanim（按世界坐标绘制），搬完要跟着一起过去
+	thePlant->SyncFumeGroupPuffs();
+
 	// 跟随这株植物的粒子系统一起平移（与 ZenGarden::MovePlant 同款处理）
 	TodParticleSystem* aParticle = mApp->ParticleTryToGet(thePlant->mParticleID);
 	if (aParticle && aParticle->mEmitterList.mSize)
@@ -1932,7 +1950,8 @@ namespace
 		SeedType::SEED_FUMESHROOM_GROUP,  // 大喷菇群（旅行紫卡：大喷菇升级体，沙盒内可单独成株）
 		SeedType::SEED_PEATER_1_5,        // 1.5 发射手（旅行红卡：去眉毛双发射手，直接种下）
 		SeedType::SEED_ELECTRIC_GATLING_PEA, // 究极电能机枪射手（旅行红卡升级卡：沙盒内需先有机枪射手）
-		SeedType::SEED_ELECTRIC_STARFRUIT,   // 究极电能杨桃（旅行红卡升级卡：沙盒内需先有杨桃）
+		SeedType::SEED_ELECTRIC_STARFRUIT,   // 究极电能星星果（旅行红卡升级卡：沙盒内需先有杨桃）
+		SeedType::SEED_FIRE_PEASHOOTER,      // 火豌豆射手（旅行红卡：带火的豌豆射手，直接种下）
 	};
 	constexpr int ICE_PLANT_COUNT = sizeof(gIceSandboxPlantSeeds) / sizeof(gIceSandboxPlantSeeds[0]);
 	constexpr int ICE_ZOMBIE_COUNT = sizeof(gIceSandboxZombieTypes) / sizeof(gIceSandboxZombieTypes[0]);
@@ -3086,26 +3105,39 @@ bool Board::ChooseSeedsOnCurrentLevel()
 void Board::SetupCricketFight()
 {
 	mCricketMatchRecorded = false;   // 新一场战斗：允许记录结果
-	static const SeedType gCricketPlantPool[] = {
-		SeedType::SEED_PEASHOOTER, SeedType::SEED_SUNFLOWER, SeedType::SEED_CHERRYBOMB,
-		SeedType::SEED_WALLNUT, SeedType::SEED_POTATOMINE, SeedType::SEED_SNOWPEA,
-		SeedType::SEED_CHOMPER, SeedType::SEED_REPEATER, SeedType::SEED_PUFFSHROOM,
-		SeedType::SEED_SUNSHROOM, SeedType::SEED_FUMESHROOM, SeedType::SEED_GRAVEBUSTER,
-		SeedType::SEED_HYPNOSHROOM, SeedType::SEED_SCAREDYSHROOM, SeedType::SEED_ICESHROOM,
-		SeedType::SEED_DOOMSHROOM, SeedType::SEED_LILYPAD, SeedType::SEED_SQUASH, SeedType::SEED_THREEPEATER,
-		SeedType::SEED_TANGLEKELP, SeedType::SEED_JALAPENO, SeedType::SEED_SPIKEWEED, SeedType::SEED_TORCHWOOD,
-		SeedType::SEED_TALLNUT, SeedType::SEED_SEASHROOM, SeedType::SEED_PLANTERN,
-		SeedType::SEED_CACTUS, SeedType::SEED_BLOVER, SeedType::SEED_SPLITPEA,
-		SeedType::SEED_STARFRUIT, SeedType::SEED_MAGNETSHROOM, SeedType::SEED_CABBAGEPULT,
-		SeedType::SEED_KERNELPULT, SeedType::SEED_INSTANT_COFFEE, SeedType::SEED_GARLIC,
-		SeedType::SEED_UMBRELLA, SeedType::SEED_MARIGOLD, SeedType::SEED_MELONPULT,
-		SeedType::SEED_GATLINGPEA, SeedType::SEED_TWINSUNFLOWER, SeedType::SEED_GLOOMSHROOM,
-		SeedType::SEED_CATTAIL, SeedType::SEED_WINTERMELON, SeedType::SEED_GOLD_MAGNET, SeedType::SEED_SPIKEROCK
+
+	// 植物池 = 全部能独立站桩作战的植物，**每种的出场概率完全相同**。
+	// 逐个登记容易漏（曾经漏掉双发射手/三线射手），所以改成从 SEED_PEASHOOTER..NUM_SEED_TYPES 里
+	// 自动收集，只排除"占位 / 必须有底座 / 朝反方向 / 不是真实植物"的几种：
+	//   南瓜头（包裹对象为空）、花盆（无意义）、玉米加农炮（需双格配对）、模仿者（占位符）、
+	//   爆炸坚果（隐藏原型）、左向双发射手（不是原版可获得的卡，只会背对僵尸挨打）。
+	// 旅行专属植物（巨大坚果等）本来就在这个区间里，因此与其它植物一样等概率混入，不再单独加权。
+	static constexpr SeedType gCricketBannedSeeds[] = {
+		SeedType::SEED_PUMPKINSHELL, SeedType::SEED_FLOWERPOT, SeedType::SEED_COBCANNON,
+		SeedType::SEED_IMITATER, SeedType::SEED_EXPLODE_O_NUT, SeedType::SEED_LEFTPEATER
 	};
-	const int aPoolSize = static_cast<int>(sizeof(gCricketPlantPool) / sizeof(gCricketPlantPool[0]));
+	SeedType aCandidatePool[SeedType::NUM_SEED_TYPES];
+	int aPoolSize = 0;
+	for (int aSeed = SeedType::SEED_PEASHOOTER; aSeed < SeedType::NUM_SEED_TYPES; aSeed++)
+	{
+		bool aBanned = false;
+		for (SeedType aBannedSeed : gCricketBannedSeeds)
+		{
+			if (aSeed == aBannedSeed)
+			{
+				aBanned = true;
+				break;
+			}
+		}
+		if (!aBanned)
+		{
+			aCandidatePool[aPoolSize++] = (SeedType)aSeed;
+		}
+	}
+
 	for (int aCol = 0; aCol < 5; aCol++)
 	{
-		SeedType aSeedType = gCricketPlantPool[Rand(aPoolSize)];
+		SeedType aSeedType = aCandidatePool[Rand(aPoolSize)];
 		mCricketBattlePlants[aCol] = aSeedType;   // 记录本场植物阵容
 		AddPlant(aCol, 2, aSeedType);
 	}
@@ -5101,7 +5133,9 @@ void Board::UpdateToolTip()
 	{
 		int aTotalHP = aZombie->mBodyHealth + aZombie->mHelmHealth + aZombie->mShieldHealth + aZombie->mFlyingHealth;
 		int aMaxHP = aZombie->mBodyMaxHealth + aZombie->mHelmMaxHealth + aZombie->mShieldMaxHealth + aZombie->mFlyingMaxHealth;
-		mToolTip->SetTitle(GetZombieDefinition(aZombie->mZombieType).mZombieName);
+		// 僵尸名在 LawnStrings 里的键就是内部名（如 "CONEHEAD_ZOMBIE"），必须包成 [键] 走翻译，
+		// 否则悬停提示会直接显示英文内部名。
+		mToolTip->SetTitle(StrFormat("[%s]", GetZombieDefinition(aZombie->mZombieType).mZombieName));
 		std::string aHPLabel = StrFormat("HP: %d/%d", aTotalHP, aMaxHP);
 		std::string aStatusLabel = GetZombieStatusLabel(aZombie);
 		if (!aStatusLabel.empty())
@@ -5739,8 +5773,8 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 	Plant* aPumpkinPlant = aPlantOnLawn.mPumpkinPlant;
 
 	// 究极形态互换（旅行红卡）：把"另一种基础植物"种在究极形态上 = 原地变身，并返还阳光。
-	//   杨桃     @ 究极电能机枪射手 → 究极电能杨桃
-	//   机枪射手 @ 究极电能杨桃       → 究极电能机枪射手
+	//   杨桃     @ 究极电能机枪射手 → 究极电能星星果
+	//   机枪射手 @ 究极电能星星果       → 究极电能机枪射手
 	// 阳光：种卡照常按原价扣（杨桃 125 / 机枪射手 250），随后返还 ELECTRIC_STARFRUIT_SWITCH_REFUND。
 	// 放行判定由 Plant::IsUpgradableTo 的两条互换规则给出（CanPlantAt 早已返回 PLANTING_OK）。
 	SeedType aPlantSeedType = mCursorObject->mType;
@@ -9678,9 +9712,26 @@ void Board::DrawCricketStatsPanel(Graphics* g)
 		int aLosses = (mCricketStatsPanel == 1) ? mApp->mCricketPlantLosses[i] : mApp->mCricketZombieLosses[i];
 		if (aWins + aLosses <= 0)
 			continue;
-		std::string aName = (mCricketStatsPanel == 1)
-			? Plant::GetNameString((SeedType)i)
-			: GetZombieDefinition((ZombieType)i).mZombieName;
+		std::string aName;
+		if (mCricketStatsPanel == 1)
+		{
+			aName = Plant::GetNameString((SeedType)i);
+			// 自定义植物会复用原版植物的名字（左向双发射手 SEED_LEFTPEATER 的 mPlantName = "REPEATER"），
+			// 直接显示会出现两行同名、看不出谁是谁；给后出现的重名加个序号。
+			int aSameNameCount = 0;
+			for (int j = 0; j < i; j++)
+			{
+				if (GetPlantDefinition((SeedType)j).mPlantName == GetPlantDefinition((SeedType)i).mPlantName)
+					aSameNameCount++;
+			}
+			if (aSameNameCount > 0)
+				aName = StrFormat("%s #%d", aName.c_str(), aSameNameCount + 1);
+		}
+		else
+		{
+			// 僵尸名在 LawnStrings 里的键就是内部名（如 "CONEHEAD_ZOMBIE"），走翻译取本地化名
+			aName = TodStringTranslate(StrFormat("[%s]", GetZombieDefinition((ZombieType)i).mZombieName));
+		}
 		aEntries.push_back({ aName, aWins, aLosses, aWins * 100 / (aWins + aLosses) });
 	}
 	std::stable_sort(aEntries.begin(), aEntries.end(),

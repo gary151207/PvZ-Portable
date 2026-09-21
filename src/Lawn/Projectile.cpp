@@ -55,7 +55,8 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_BUTTER,        0,  40  },
 	{ ProjectileType::PROJECTILE_ZOMBIE_PEA,    0,  20  },
 	{ ProjectileType::PROJECTILE_FIREPEA_RED,   0,  30  },
-	{ ProjectileType::PROJECTILE_ELECTRIC_STAR, 0,  ELECTRIC_STAR_HIT_DAMAGE }
+	{ ProjectileType::PROJECTILE_ELECTRIC_STAR, 0,  ELECTRIC_STAR_HIT_DAMAGE },
+	{ ProjectileType::PROJECTILE_PURPLE_FIRE_PEA, 0, 65 }   // 紫火豌豆（火豌豆射手）：65 伤害 + 命中后僵尸易伤
 };
 
 Projectile::Projectile()
@@ -145,6 +146,22 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 	case ProjectileType::PROJECTILE_FIREBALL:
 		TOD_ASSERT(false);
 		break;
+	case ProjectileType::PROJECTILE_PURPLE_FIRE_PEA:
+	{
+		// 紫火豌豆（火豌豆射手）：观感直接复用原版"被火炬树桩点燃的豌豆"那套火球 reanim
+		// （旋转火球 + 三条火舌 + 火花），整株过一层"紫火"滤镜换成紫色（色相 5.03 / 饱和度 ×1.47）。
+		// 弹丸自身没有贴图，视觉全部由这个附属动画负责（与 PROJECTILE_FIREBALL 同一套画法）。
+		Reanimation* aFireReanim = mApp->AddReanimation(0.0f, 0.0f, 0, ReanimationType::REANIM_FIRE_PEA);
+		aFireReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
+		aFireReanim->mAnimRate = RandRangeFloat(50.0f, 80.0f);
+		aFireReanim->mFilterEffect = FilterEffect::FILTER_EFFECT_FIREPEA_PURPLE;
+
+		float aOffsetX = -25.0f;
+		float aOffsetY = -25.0f;
+		aFireReanim->SetPosition(mPosX + aOffsetX, mPosY + aOffsetY);
+		AttachReanim(mAttachmentID, aFireReanim, aOffsetX, aOffsetY);
+		break;
+	}
 	case ProjectileType::PROJECTILE_COBBIG:
 		mWidth = IMAGE_REANIM_COBCANNON_COB->GetWidth();
 		mHeight = IMAGE_REANIM_COBCANNON_COB->GetHeight();
@@ -331,7 +348,7 @@ void Projectile::FindNewHomingTarget()
 	}
 }
 
-// 究极电能杨桃的电能星星：命中后不再消失，而是"钉"在该僵尸身上（总寿命见 UpdateElectricStarLinger）。
+// 究极电能星星果的电能星星：命中后不再消失，而是"钉"在该僵尸身上（总寿命见 UpdateElectricStarLinger）。
 void Projectile::StartElectricStarLinger(Zombie* theZombie)
 {
 	if (theZombie == nullptr)
@@ -419,7 +436,7 @@ bool Projectile::RetargetElectricStar()
 	return true;
 }
 
-// 究极电能机枪射手 / 究极电能杨桃的弹丸共用的"链式闪电"结算：
+// 究极电能机枪射手 / 究极电能星星果的弹丸共用的"链式闪电"结算：
 // 弹丸是一个持续放电的电源，每 ELECTRIC_CHAIN_INTERVAL_TICKS 刻向**自身周围半径
 // ELECTRIC_CHAIN_RADIUS 像素内最近的至多 ELECTRIC_CHAIN_MAX_TARGETS 只僵尸**各放一道电弧，
 // 伤害只有弹丸本身的一半（30 → 15）；因为间隔也是本身的两倍（15 → 30 刻），
@@ -700,7 +717,7 @@ void Projectile::CheckForCollision()
 		return;
 	}
 
-	// 究极电能杨桃的电能星星：命中即"钉住"（见 StartElectricStarLinger），不在这里消失。
+	// 究极电能星星果的电能星星：命中即"钉住"（见 StartElectricStarLinger），不在这里消失。
 	// 判定与普通杨桃星星一致（优先钉住当前追踪目标；目标失效时撞到谁就钉谁）。
 	if (mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR)
 	{
@@ -863,6 +880,7 @@ bool Projectile::CantHitHighGround()
 		mProjectileType == ProjectileType::PROJECTILE_STAR ||
 		mProjectileType == ProjectileType::PROJECTILE_PUFF ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREBALL ||
+		mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED
 		) && !mOnHighGround;
 }
@@ -876,6 +894,7 @@ void Projectile::CheckForHighGround()
 		mProjectileType == ProjectileType::PROJECTILE_FIREBALL ||
 		mProjectileType == ProjectileType::PROJECTILE_SPIKE ||
 		mProjectileType == ProjectileType::PROJECTILE_COBBIG ||
+		mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 	{
 		if (aShadowDelta < 28.0f)
@@ -915,6 +934,8 @@ bool Projectile::IsSplashDamage(Zombie* theZombie)
 	return
 		mProjectileType == ProjectileType::PROJECTILE_MELON ||
 		mProjectileType == ProjectileType::PROJECTILE_WINTERMELON ||
+		// 紫火豌豆：群伤（命中点周围 + 相邻行都会吃到 1/3 伤害）
+		mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREBALL;
 }
 
@@ -949,6 +970,11 @@ bool Projectile::IsZombieHitBySplash(Zombie* theZombie)
 	if (mProjectileType == ProjectileType::PROJECTILE_FIREBALL)
 	{
 		aProjectileRect.mWidth = 100;
+	}
+	else if (mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA)
+	{
+		// 紫火豌豆：群伤范围比普通弹丸宽一圈；行方向允许上下各 1 行（走下面的通用分支）
+		aProjectileRect.mWidth = FIRE_PEA_SPLASH_WIDTH;
 	}
 
 	int aRowDeviation = theZombie->mRow - mRow;
@@ -1019,6 +1045,20 @@ void Projectile::DoSplashDamage(Zombie* theZombie)
 			else
 			{
 				aZombie->TakeDamage(aSplashDamage, aDamageFlags);
+			}
+		}
+	}
+
+	// 紫火豌豆（群伤）：被溅射到的僵尸同样会被点着（4 秒内受到的伤害 +40%）。
+	// 放在伤害结算**之后** —— 这一发本身吃不到自己的易伤加成。
+	if (mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA)
+	{
+		aZombie = nullptr;
+		while (mBoard->IterateZombies(aZombie))
+		{
+			if (IsZombieHitBySplash(aZombie))
+			{
+				aZombie->ApplyFireVulnerability();
 			}
 		}
 	}
@@ -1206,7 +1246,7 @@ void Projectile::UpdateNormalMotion()
 	}
 	else if (mMotionType == ProjectileMotion::MOTION_STAR)
 	{
-		// 普通杨桃星星与究极电能杨桃的电能星星共用同一套"飞 1 格后追踪"逻辑
+		// 普通杨桃星星与究极电能星星果的电能星星共用同一套"飞 1 格后追踪"逻辑
 		if ((mProjectileType == ProjectileType::PROJECTILE_STAR || mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR) && mProjectileAge >= 24)
 		{
 			bool aNeedNewTarget = (mTargetZombieID == ZombieID::ZOMBIEID_NULL);
@@ -1394,6 +1434,12 @@ void Projectile::PlayImpactSound(Zombie* theZombie)
 		mApp->PlayFoley(FoleyType::FOLEY_MELONIMPACT);
 		aPlaySplatSound = false;
 	}
+	else if (mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA)
+	{
+		// 紫火豌豆：命中是一声"呼"的火焰声，不是豌豆的啪叽声
+		mApp->PlayFoley(FoleyType::FOLEY_IGNITE);
+		aPlaySplatSound = false;
+	}
 
 	if (aPlayHelmSound && theZombie)
 	{
@@ -1434,6 +1480,15 @@ void Projectile::DoImpact(Zombie* theZombie)
 		theZombie->TakeDamage(aDamage, aDamageFlags);
 	}
 
+	// 紫火豌豆：把命中的僵尸点着（4 秒内受到的伤害 +40%）。
+	// 必须在伤害结算**之后**施加 —— 这一发本身吃不到自己的易伤加成，
+	// 加成是从下一发（以及这 4 秒内任何其它来源的伤害）才开始算的。
+	// 群伤时溅射到的那些僵尸由 DoSplashDamage 负责（它跑在上面的分支里）。
+	if (mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA && theZombie && !IsSplashDamage(theZombie))
+	{
+		theZombie->ApplyFireVulnerability();
+	}
+
 	float aLastPosX = mPosX - mVelX;
 	float aLastPosY = mPosY + mPosZ - mVelY - mVelZ;
 	ParticleEffect aEffect = ParticleEffect::PARTICLE_NONE;
@@ -1463,6 +1518,10 @@ void Projectile::DoImpact(Zombie* theZombie)
 	case ProjectileType::PROJECTILE_SNOWPEA:
 		aSplatPosX -= 15.0f;
 		aEffect = ParticleEffect::PARTICLE_SNOWPEA_SPLAT;
+		break;
+	case ProjectileType::PROJECTILE_PURPLE_FIRE_PEA:
+		// 紫火豌豆：命中**不**炸火（原版 FireballDeath 是僵尸博士火球的爆燃粒子，
+		// 20 颗 2 倍大小的火焰粒子炸开，糊一整屏），只留 FOLEY_IGNITE 的"呼"声。
 		break;
 	case ProjectileType::PROJECTILE_FIREBALL:
 	{
@@ -1558,6 +1617,7 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_ZOMBIE_PEA || 
 		mProjectileType == ProjectileType::PROJECTILE_SPIKE || 
 		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED ||
+		mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR)
 	{
 		aTime = 0;
@@ -1586,7 +1646,7 @@ void Projectile::Update()
 	//   要是被那个 return 挡掉，钉住期间的 2.5 秒就完全不放闪电、电弧也不再跟随目标。
 	UpdateElectricChainLightning();
 
-	// 究极电能杨桃的电能星星：钉住时只跟随 + 按节奏结算伤害，不再走飞行/碰撞
+	// 究极电能星星果的电能星星：钉住时只跟随 + 按节奏结算伤害，不再走飞行/碰撞
 	if (mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR)
 	{
 		if (IsElectricStarStuck())
@@ -1630,6 +1690,10 @@ void Projectile::Draw(Graphics* g)
 	case ProjectileType::PROJECTILE_FIREPEA_RED:
 		aImage = IMAGE_PROJECTILEPEA;
 		break;
+	case ProjectileType::PROJECTILE_PURPLE_FIRE_PEA:
+		// 紫火豌豆：本体不画贴图，全部由 Initialize 里挂上的火球 reanim（紫色滤镜）负责
+		aImage = nullptr;
+		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
 		aImage = IMAGE_PROJECTILESNOWPEA;
 		break;
@@ -1643,7 +1707,7 @@ void Projectile::Draw(Graphics* g)
 		aImage = IMAGE_PROJECTILE_STAR;
 		break;
 	case ProjectileType::PROJECTILE_ELECTRIC_STAR:
-		// 究极电能杨桃的星星：同一张星星图，绘制时过白色滤镜剪影 + 电能蓝上色（见下）
+		// 究极电能星星果的星星：同一张星星图，绘制时过白色滤镜剪影 + 电能蓝上色（见下）
 		aImage = IMAGE_PROJECTILE_STAR;
 		break;
 	case ProjectileType::PROJECTILE_PUFF:
@@ -1699,7 +1763,7 @@ void Projectile::Draw(Graphics* g)
 			// 电能豌豆（蓝）：先把绿色豌豆贴图过白色滤镜取剪影（RGB=255、alpha 不变），
 			// 再用正常绘制按 ELECTRIC_BLUE_* 上色 —— 只有"换颜色"能得到干净的蓝。
 			// 这里用的就是植物那套电能蓝，保证豌豆与究极电能机枪射手同色。
-			// 究极电能杨桃的电能星星走同一条路径（黄色星星图 → 电光蓝星星）。
+			// 究极电能星星果的电能星星走同一条路径（黄色星星图 → 电光蓝星星）。
 			// 不能用加色叠加：加色按原图像素成比例相加，绿色通道永远压不下去
 			// （旧版用 4 次白色加色堆出"纯白"，实际暗边仍是绿的）。
 			float aOffsetX = mPosX + aCelWidth * 0.5f;
@@ -1807,6 +1871,10 @@ void Projectile::DrawShadow(Graphics* g)
 	case ProjectileType::PROJECTILE_FIREBALL:
 		aScale = 1.4f;
 		break;
+	case ProjectileType::PROJECTILE_PURPLE_FIRE_PEA:
+		// 与火球同一套体型（视觉是火球 reanim，比豌豆本体大一圈）
+		aScale = 1.4f;
+		break;
 	default:
 		break;
 	}
@@ -1840,6 +1908,7 @@ Rect Projectile::GetProjectileRect()
 	if (mProjectileType == ProjectileType::PROJECTILE_PEA || 
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
 		mProjectileType == ProjectileType::PROJECTILE_ZOMBIE_PEA ||
+		mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 	{
 		return Rect(mX - 15, mY, mWidth + 15, mHeight);

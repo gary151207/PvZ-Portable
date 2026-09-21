@@ -171,6 +171,7 @@ public:
 	ActiveFontLayerList		mActiveLayerList;
 	double					mScale;
 	bool					mForceScaledImagesWhite;
+	int						mFallbackPixelHeight;	// 缺字兜底字形的基准像素高（0 = 还没算过）
 
 public:
 	virtual void			GenerateActiveFontLayers();
@@ -204,6 +205,13 @@ public:
 
 	virtual void			Prepare();
 	char32_t				GetMappedChar(char32_t theChar);
+
+	// 字库里有这个字的字形吗（空条目 / 零宽都算没有）
+	bool					HasGlyph(char32_t theChar);
+	// 缺字兜底字形的基准像素高（按字库里已有中文字的字宽推断，没有中文则退回行高）
+	int						GetFallbackPixelHeight();
+	// 缺字兜底字形在当前缩放下的像素高，同时回传缩放系数
+	int						GetFallbackScaledPixelHeight(double& theScale);
 };
 
 }

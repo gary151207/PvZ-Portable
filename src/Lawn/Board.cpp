@@ -3632,6 +3632,61 @@ void Board::RefreshSeedPacketFromCursor()
 	ClearCursor();
 }
 
+bool Board::EndlessAiCanRun()
+{
+	if (!mApp->mEndlessAi || mEndlessAiManuallyDisabled ||
+		mApp->mGameMode != GAMEMODE_SURVIVAL_ENDLESS_STAGE_3 || GetNumSeedsInBank() != SEEDBANK_MAX)
+	{
+		return false;
+	}
+
+	constexpr SeedType gRequiredSeeds[] = {
+		SEED_LILYPAD, SEED_SUNFLOWER, SEED_KERNELPULT, SEED_COBCANNON,
+		SEED_MELONPULT, SEED_WINTERMELON, SEED_PUMPKINSHELL, SEED_SPIKEWEED,
+		SEED_SPIKEROCK, SEED_ICESHROOM, SEED_INSTANT_COFFEE, SEED_IMITATER
+	};
+	for (SeedType aSeedType : gRequiredSeeds)
+	{
+		if (!mApp->HasSeedType(aSeedType))
+			return false;
+	}
+	return true;
+}
+
+bool Board::EndlessAiChooseSeeds(SeedType theSeeds[SEEDBANK_MAX], SeedType& theImitaterType)
+{
+	if (!mApp->mEndlessAi || mApp->mGameMode != GAMEMODE_SURVIVAL_ENDLESS_STAGE_3 || mEndlessAiManuallyDisabled)
+		return false;
+	if (!EndlessAiCanRun())
+	{
+		DisplayAdvice("Endless AI needs 10 seed slots and all Pool Endless core plants.", MESSAGE_STYLE_HINT_LONG, ADVICE_NONE);
+		return false;
+	}
+
+	constexpr SeedType gEconomySeeds[SEEDBANK_MAX] = {
+		SEED_SUNFLOWER, SEED_LILYPAD, SEED_KERNELPULT, SEED_COBCANNON,
+		SEED_MELONPULT, SEED_WINTERMELON, SEED_PUMPKINSHELL, SEED_SPIKEWEED,
+		SEED_SPIKEROCK, SEED_SQUASH
+	};
+	constexpr SeedType gConstructionSeeds[SEEDBANK_MAX] = {
+		SEED_LILYPAD, SEED_KERNELPULT, SEED_COBCANNON, SEED_MELONPULT,
+		SEED_WINTERMELON, SEED_PUMPKINSHELL, SEED_SPIKEWEED, SEED_SPIKEROCK,
+		SEED_ICESHROOM, SEED_INSTANT_COFFEE
+	};
+	constexpr SeedType gSustainSeeds[SEEDBANK_MAX] = {
+		SEED_LILYPAD, SEED_KERNELPULT, SEED_COBCANNON, SEED_WINTERMELON,
+		SEED_PUMPKINSHELL, SEED_ICESHROOM, SEED_INSTANT_COFFEE, SEED_IMITATER,
+		SEED_DOOMSHROOM, SEED_SQUASH
+	};
+
+	const SeedType* aDeck = mChallenge->mSurvivalStage == 0 ? gEconomySeeds :
+		mChallenge->mSurvivalStage == 1 ? gConstructionSeeds : gSustainSeeds;
+	for (int anIndex = 0; anIndex < SEEDBANK_MAX; anIndex++)
+		theSeeds[anIndex] = aDeck[anIndex];
+	theImitaterType = mChallenge->mSurvivalStage >= 2 ? SEED_ICESHROOM : SEED_NONE;
+	return true;
+}
+
 bool Board::IsPoolSquare(int theGridX, int theGridY)
 {
 	if (theGridX >= 0 && theGridY >= 0)

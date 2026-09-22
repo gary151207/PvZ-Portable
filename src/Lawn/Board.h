@@ -262,6 +262,12 @@ public:
 	void							ClearCursor();
 	/*inline*/ bool					AreEnemyZombiesOnScreen();
 	LawnMower*						FindLawnMowerInRow(int theRow);
+	bool							EndlessAiCanRun();
+	bool							EndlessAiChooseSeeds(SeedType theSeeds[SEEDBANK_MAX], SeedType& theImitaterType);
+	void							EndlessAiUpdate();
+	bool							EndlessAiPlant(SeedType theSeedType, int theGridX, int theGridY);
+	bool							EndlessAiFireCob(Plant* theCobCannon, int theTargetX, int theTargetY);
+	void							EndlessAiDisableForManualInput();
 //  inline bool						SyncState(DataSync& theDataSync) { /* 未发现 */return true; }
 	/*inline*/ void					SaveGame(const std::string& theFileName);
 	bool							LoadGame(const std::string& theFileName);

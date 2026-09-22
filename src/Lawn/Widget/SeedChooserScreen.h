@@ -94,6 +94,7 @@ public:
     SeedChooserState        mChooseState;
     int                     mViewLawnTime;
     int                     mChooserPage;         // 0 = 原版卡页；1 = 旅行植物页
+    bool                    mEndlessAiChecked;
 
 public:
     SeedChooserScreen();
@@ -118,6 +119,7 @@ public:
     bool                    CheckSeedUpgrade(SeedType theSeedTypeTo, SeedType theSeedTypeFrom);
     void                    OnStartButton();
     void                    PickRandomSeeds();
+    bool                    ChooseEndlessAiSeeds();
     virtual void            ButtonDepress(int theId);
     SeedType                SeedHitTest(int x, int y);
     SeedType                FindSeedInBank(int theIndexInBank);

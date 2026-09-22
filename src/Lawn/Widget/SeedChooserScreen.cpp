@@ -56,6 +56,7 @@ SeedChooserScreen::SeedChooserScreen()
 	mChooseState = CHOOSE_NORMAL;
 	mViewLawnTime = 0;
 	mChooserPage = 0;
+	mEndlessAiChecked = false;
 	mChooserPageButton = nullptr;
 	mToolTip = new ToolTipWidget();
 	mToolTip->mMaxLinesWidth = mApp->GetInteger("SEED_CHOOSER_SCREEN_TOOL_TIP_MAX_LINE_WIDTH", 0);
@@ -563,6 +564,12 @@ void SeedChooserScreen::UpdateCursor()
 void SeedChooserScreen::Update()
 {
 	Widget::Update();
+	if (!mEndlessAiChecked)
+	{
+		mEndlessAiChecked = true;
+		if (ChooseEndlessAiSeeds())
+			return;
+	}
 
 	mLastMouseX = mApp->mWidgetManager->mLastMouseX;
 	mLastMouseY = mApp->mWidgetManager->mLastMouseY;
@@ -770,6 +777,37 @@ void SeedChooserScreen::PickRandomSeeds()
 	for (SeedType aSeedFlying = SEED_PEASHOOTER; aSeedFlying < NUM_SEEDS_IN_CHOOSER; aSeedFlying = (SeedType)(aSeedFlying + 1))
 		LandFlyingSeed(mChosenSeeds[aSeedFlying]);
 	CloseSeedChooser();
+}
+
+bool SeedChooserScreen::ChooseEndlessAiSeeds()
+{
+	SeedType aSeeds[SEEDBANK_MAX] = {};
+	SeedType anImitaterType = SEED_NONE;
+	if (!mBoard->EndlessAiChooseSeeds(aSeeds, anImitaterType))
+		return false;
+
+	mSeedsInBank = 0;
+	mSeedsInFlight = 0;
+	for (SeedType aSeedType = SEED_PEASHOOTER; aSeedType < NUM_SEED_TYPES; aSeedType = (SeedType)(aSeedType + 1))
+	{
+		ChosenSeed& aChosenSeed = mChosenSeeds[aSeedType];
+		aChosenSeed.mSeedState = aSeedType == SEED_IMITATER ? SEED_PACKET_HIDDEN : SEED_IN_CHOOSER;
+		aChosenSeed.mImitaterType = SEED_NONE;
+		aChosenSeed.mRefreshing = false;
+		aChosenSeed.mRefreshCounter = 0;
+	}
+
+	for (int anIndex = 0; anIndex < SEEDBANK_MAX; anIndex++)
+	{
+		ChosenSeed& aChosenSeed = mChosenSeeds[aSeeds[anIndex]];
+		aChosenSeed.mSeedState = SEED_IN_BANK;
+		aChosenSeed.mSeedIndexInBank = anIndex;
+		aChosenSeed.mImitaterType = aSeeds[anIndex] == SEED_IMITATER ? anImitaterType : SEED_NONE;
+		mSeedsInBank++;
+	}
+
+	CloseSeedChooser();
+	return true;
 }
 
 void SeedChooserScreen::ButtonDepress(int theId)

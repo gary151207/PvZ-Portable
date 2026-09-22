@@ -35,7 +35,7 @@ Assert-Source $boardCpp 'mApp->mGameScene == GameScenes::SCENE_PLAYING' 'Endless
 Assert-Source $boardCpp 'CanPlantAt\(' 'Endless AI planting must use Board::CanPlantAt.'
 Assert-Source $boardCpp 'WasPlanted\(\)' 'Endless AI planting must start the real seed packet cooldown.'
 Assert-Source $boardCpp 'CobCannonFire\(' 'Endless AI must fire real Cob Cannon plants.'
-Assert-Source $boardCpp 'Coin::MouseDown\(' 'Endless AI must collect drops through Coin::MouseDown.'
+Assert-Source $boardCpp 'aCoin->MouseDown\(' 'Endless AI must collect drops through Coin::MouseDown.'
 Assert-Source $boardCpp 'EndlessAiDisableForManualInput\(\)' 'Board input must permanently disable Endless AI after manual gameplay input.'
 
 Assert-Source $chooserH 'ChooseEndlessAiSeeds\(' 'Seed chooser must expose the AI deck setup entry point.'

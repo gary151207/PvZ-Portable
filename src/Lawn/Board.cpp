@@ -3643,7 +3643,7 @@ bool Board::EndlessAiCanRun()
 	constexpr SeedType gRequiredSeeds[] = {
 		SEED_LILYPAD, SEED_SUNFLOWER, SEED_KERNELPULT, SEED_COBCANNON,
 		SEED_MELONPULT, SEED_WINTERMELON, SEED_PUMPKINSHELL, SEED_SPIKEWEED,
-		SEED_SPIKEROCK, SEED_ICESHROOM, SEED_INSTANT_COFFEE, SEED_IMITATER
+		SEED_SPIKEROCK, SEED_ICESHROOM, SEED_INSTANT_COFFEE, SEED_IMITATER, SEED_DOOMSHROOM, SEED_SQUASH
 	};
 	for (SeedType aSeedType : gRequiredSeeds)
 	{
@@ -3685,6 +3685,236 @@ bool Board::EndlessAiChooseSeeds(SeedType theSeeds[SEEDBANK_MAX], SeedType& theI
 		theSeeds[anIndex] = aDeck[anIndex];
 	theImitaterType = mChallenge->mSurvivalStage >= 2 ? SEED_ICESHROOM : SEED_NONE;
 	return true;
+}
+
+bool Board::EndlessAiPlant(SeedType theSeedType, int theGridX, int theGridY)
+{
+	if (!EndlessAiCanRun() || mPaused || mApp->mGameScene != GameScenes::SCENE_PLAYING ||
+		mCursorObject->mCursorType != CursorType::CURSOR_TYPE_NORMAL ||
+		CanPlantAt(theGridX, theGridY, theSeedType) != PlantingReason::PLANTING_OK)
+	{
+		return false;
+	}
+
+	SeedPacket* aPacket = nullptr;
+	for (int anIndex = 0; anIndex < mSeedBank->mNumPackets; anIndex++)
+	{
+		SeedPacket* aCandidate = &mSeedBank->mSeedPackets[anIndex];
+		if (aCandidate->mPacketType == theSeedType ||
+			(aCandidate->mPacketType == SEED_IMITATER && aCandidate->mImitaterType == theSeedType))
+		{
+			aPacket = aCandidate;
+			break;
+		}
+	}
+	if (aPacket == nullptr || !aPacket->CanPickUp())
+		return false;
+
+	aPacket->MouseDown(0, 0, 0);
+	MouseDownWithPlant(GridToPixelX(theGridX, theGridY) + 40, GridToPixelY(theGridX, theGridY) + 40, 0);
+	return true;
+}
+
+bool Board::EndlessAiFireCob(Plant* theCobCannon, int theTargetX, int theTargetY)
+{
+	if (!EndlessAiCanRun() || mPaused || mApp->mGameScene != GameScenes::SCENE_PLAYING ||
+		theCobCannon == nullptr || theCobCannon->mSeedType != SEED_COBCANNON ||
+		theCobCannon->mState != PlantState::STATE_COBCANNON_READY)
+	{
+		return false;
+	}
+
+	theCobCannon->CobCannonFire(theTargetX, theTargetY);
+	return true;
+}
+
+void Board::EndlessAiDisableForManualInput()
+{
+	if (!EndlessAiCanRun())
+		return;
+
+	mEndlessAiManuallyDisabled = true;
+	TryToSaveGame();
+}
+
+void Board::EndlessAiUpdate()
+{
+	if (!EndlessAiCanRun() || mPaused || mApp->mGameScene != GameScenes::SCENE_PLAYING ||
+		mCutScene->IsSurvivalRepick() || mLevelComplete)
+	{
+		return;
+	}
+
+	Coin* aCoin = nullptr;
+	while (IterateCoins(aCoin))
+	{
+		if (aCoin->IsSun())
+			aCoin->MouseDown(0, 0, 0);
+	}
+
+	if (mMainCounter % 15 != 0)
+		return;
+
+	int aRowThreat[MAX_GRID_SIZE_Y] = {};
+	float aClosestZombie[MAX_GRID_SIZE_Y];
+	for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+		aClosestZombie[aRow] = BOARD_WIDTH;
+	Zombie* aZombie = nullptr;
+	while (IterateZombies(aZombie))
+	{
+		if (aZombie->IsDeadOrDying() || aZombie->mMindControlled || aZombie->mRow < 0 || aZombie->mRow >= MAX_GRID_SIZE_Y)
+			continue;
+		int aThreat = std::max(0, aZombie->mBodyHealth) + std::max(0, aZombie->mShieldHealth);
+		if (aZombie->mZombieType == ZOMBIE_GARGANTUAR || aZombie->mZombieType == ZOMBIE_REDEYE_GARGANTUAR)
+			aThreat += 3000;
+		aRowThreat[aZombie->mRow] += aThreat;
+		aClosestZombie[aZombie->mRow] = std::min(aClosestZombie[aZombie->mRow], aZombie->mPosX);
+	}
+
+	int aThreatRow = 0;
+	for (int aRow = 1; aRow < MAX_GRID_SIZE_Y; aRow++)
+	{
+		if (aRowThreat[aRow] > aRowThreat[aThreatRow])
+			aThreatRow = aRow;
+	}
+
+	if (aRowThreat[aThreatRow] >= 1800)
+	{
+		Plant* aCobCannon = nullptr;
+		while (IteratePlants(aCobCannon))
+		{
+			if (aCobCannon->mSeedType == SEED_COBCANNON && aCobCannon->mState == PlantState::STATE_COBCANNON_READY)
+			{
+				int aTargetX = ClampInt(static_cast<int>(aClosestZombie[aThreatRow] + 80.0f), 380, 760);
+				if (EndlessAiFireCob(aCobCannon, aTargetX, GridToPixelY(0, aThreatRow) + 40))
+					return;
+			}
+		}
+	}
+
+	Plant* aSleepingMushroom = nullptr;
+	while (IteratePlants(aSleepingMushroom))
+	{
+		bool aIsIceOrDoom = aSleepingMushroom->mSeedType == SEED_ICESHROOM ||
+			aSleepingMushroom->mSeedType == SEED_DOOMSHROOM ||
+			(aSleepingMushroom->mSeedType == SEED_IMITATER && aSleepingMushroom->mImitaterType == SEED_ICESHROOM);
+		if (aIsIceOrDoom && aSleepingMushroom->mIsAsleep &&
+			EndlessAiPlant(SEED_INSTANT_COFFEE, aSleepingMushroom->mPlantCol, aSleepingMushroom->mRow))
+		{
+			return;
+		}
+	}
+
+	if (aRowThreat[aThreatRow] >= 4500 && mIceTrapCounter == 0 &&
+		EndlessAiPlant(SEED_ICESHROOM, 8, aThreatRow))
+	{
+		return;
+	}
+	if (mChallenge->mSurvivalStage >= 2 && aRowThreat[aThreatRow] >= 8000 &&
+		EndlessAiPlant(SEED_DOOMSHROOM, 8, aThreatRow))
+	{
+		return;
+	}
+
+	for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+	{
+		PlantsOnLawn aLawn;
+		GetPlantsOnLawn(4, aRow, &aLawn);
+		if (aLawn.mPumpkinPlant && aLawn.mPumpkinPlant->mPlantHealth < aLawn.mPumpkinPlant->mPlantMaxHealth * 2 / 3 &&
+			EndlessAiPlant(SEED_PUMPKINSHELL, 4, aRow))
+		{
+			return;
+		}
+	}
+
+	auto aEnsureLily = [&](int theGridX, int theGridY) -> bool
+	{
+		if (!IsPoolSquare(theGridX, theGridY))
+			return false;
+		PlantsOnLawn aLawn;
+		GetPlantsOnLawn(theGridX, theGridY, &aLawn);
+		return aLawn.mUnderPlant == nullptr && EndlessAiPlant(SEED_LILYPAD, theGridX, theGridY);
+	};
+
+	for (int aRow = 2; aRow <= 3; aRow++)
+	{
+		for (int aCol = 0; aCol <= 4; aCol++)
+		{
+			if (aEnsureLily(aCol, aRow))
+				return;
+		}
+	}
+
+	if (mChallenge->mSurvivalStage == 0)
+	{
+		for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+		{
+			for (int aCol = 4; aCol <= 5; aCol++)
+			{
+				PlantsOnLawn aLawn;
+				GetPlantsOnLawn(aCol, aRow, &aLawn);
+				if (aLawn.mNormalPlant == nullptr && EndlessAiPlant(SEED_SUNFLOWER, aCol, aRow))
+					return;
+			}
+		}
+		return;
+	}
+
+	for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+	{
+		for (int anAnchor : {0, 2})
+		{
+			PlantsOnLawn aLeft;
+			PlantsOnLawn aRight;
+			GetPlantsOnLawn(anAnchor, aRow, &aLeft);
+			GetPlantsOnLawn(anAnchor + 1, aRow, &aRight);
+			if (aLeft.mNormalPlant && aLeft.mNormalPlant->mSeedType == SEED_COBCANNON)
+				continue;
+			if (aClosestZombie[aRow] > 600.0f && aLeft.mNormalPlant && aLeft.mNormalPlant->mSeedType == SEED_SUNFLOWER)
+			{
+				aLeft.mNormalPlant->Die();
+				return;
+			}
+			if (aClosestZombie[aRow] > 600.0f && aRight.mNormalPlant && aRight.mNormalPlant->mSeedType == SEED_SUNFLOWER)
+			{
+				aRight.mNormalPlant->Die();
+				return;
+			}
+			if (aLeft.mNormalPlant == nullptr && EndlessAiPlant(SEED_KERNELPULT, anAnchor, aRow))
+				return;
+			if (aRight.mNormalPlant == nullptr && EndlessAiPlant(SEED_KERNELPULT, anAnchor + 1, aRow))
+				return;
+			if (EndlessAiPlant(SEED_COBCANNON, anAnchor, aRow))
+				return;
+		}
+
+		PlantsOnLawn aWinterLawn;
+		GetPlantsOnLawn(4, aRow, &aWinterLawn);
+		if (aClosestZombie[aRow] > 600.0f && aWinterLawn.mNormalPlant && aWinterLawn.mNormalPlant->mSeedType == SEED_SUNFLOWER)
+		{
+			aWinterLawn.mNormalPlant->Die();
+			return;
+		}
+		if (aWinterLawn.mNormalPlant == nullptr && EndlessAiPlant(SEED_MELONPULT, 4, aRow))
+			return;
+		if (aWinterLawn.mNormalPlant && aWinterLawn.mNormalPlant->mSeedType == SEED_MELONPULT && EndlessAiPlant(SEED_WINTERMELON, 4, aRow))
+			return;
+		if (aWinterLawn.mNormalPlant && aWinterLawn.mPumpkinPlant == nullptr && EndlessAiPlant(SEED_PUMPKINSHELL, 4, aRow))
+			return;
+	}
+
+	for (int aRow : {0, 1, 4, 5})
+	{
+		PlantsOnLawn aLawn;
+		GetPlantsOnLawn(6, aRow, &aLawn);
+		if (aLawn.mNormalPlant == nullptr && EndlessAiPlant(SEED_SPIKEWEED, 6, aRow))
+			return;
+		if (aLawn.mNormalPlant && aLawn.mNormalPlant->mSeedType == SEED_SPIKEWEED && EndlessAiPlant(SEED_SPIKEROCK, 6, aRow))
+			return;
+	}
+
+	if (aClosestZombie[aThreatRow] < 500.0f)
+		EndlessAiPlant(SEED_SQUASH, 7, aThreatRow);
 }
 
 bool Board::IsPoolSquare(int theGridX, int theGridY)
@@ -6510,6 +6740,11 @@ void Board::MouseDown(int x, int y, int theClickCount)
 	UpdateMousePosition();
 	Widget::MouseDown(x, y, theClickCount);
 	mIgnoreMouseUp = !CanInteractWithBoardButtons();
+	if (theClickCount >= 0 && EndlessAiCanRun() && mApp->mGameScene == GameScenes::SCENE_PLAYING &&
+		!mMenuButton->IsMouseOver() && (!mStoreButton || !mStoreButton->IsMouseOver()))
+	{
+		EndlessAiDisableForManualInput();
+	}
 	if (mTimeStopCounter > 0)
 		return;
 
@@ -8023,6 +8258,7 @@ void Board::Update()
 	UpdateGridItems();
 	UpdateFwoosh();
 	UpdateGame();
+	EndlessAiUpdate();
 	UpdateFog();
 	mChallenge->Update();
 	UpdateLevelEndSequence();
@@ -10044,6 +10280,11 @@ void Board::KeyDown(KeyCode theKey)
 	}
 
 	DoTypingCheck(theKey);
+	if (EndlessAiCanRun() && mApp->mGameScene == GameScenes::SCENE_PLAYING &&
+		(theKey == KeyCode::KEYCODE_SHIFT || (theKey >= KeyCode::KEYCODE_ASCIIBEGIN && theKey <= KeyCode(0x39))))
+	{
+		EndlessAiDisableForManualInput();
+	}
 	if (mApp->IsLoneWolfLevel() &&
 		(theKey == KeyCode('W') || theKey == KeyCode('w') || theKey == KeyCode('A') || theKey == KeyCode('a') ||
 		 theKey == KeyCode('S') || theKey == KeyCode('s') || theKey == KeyCode('D') || theKey == KeyCode('d')))

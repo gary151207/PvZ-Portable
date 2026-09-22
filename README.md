@@ -100,6 +100,11 @@ You can customize these paths via command-line parameters:
 
 **Note:** You **MUST** use the format `-param="<Your Path>"`. Space-separated values (e.g. `-resdir path`) are **NOT** supported.
 
+### Optional gameplay flags
+
+- `--endless-ai` enables automatic play only for Pool Endless. It requires ten seed slots and the complete Pool Endless plant set; normal sun costs and cooldowns still apply. Any manual battlefield input permanently disables it for that save.
+- For the intended Endless AI baseline, also use `--zombie-multiplier=1 --zombie-hp-multiplier=1`.
+
 ### Special Instructions for Android
 
 Download the APK from the [Releases](https://github.com/wszqkzqk/PvZ-Portable/releases) page or build it yourself. Because this project **does not include** any game assets, you will need to **import the game resources** from a **legally purchased copy** of Plants vs. Zombies: GOTY Edition.

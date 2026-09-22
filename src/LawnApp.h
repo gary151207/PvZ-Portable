@@ -74,6 +74,7 @@ public:
 class LawnApp : public SexyApp
 {
 public:
+	bool							mEndlessAi;
 	Board*							mBoard;
 	TitleScreen*					mTitleScreen;
 	GameSelector*					mGameSelector;

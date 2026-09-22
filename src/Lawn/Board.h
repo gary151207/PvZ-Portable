@@ -126,6 +126,7 @@ struct BungeeDropGrid
 class Board : public Widget, public ButtonListener
 {
 public:
+	bool							mEndlessAiManuallyDisabled;
 	LawnApp*						mApp;
 	DataArray<Zombie>				mZombies;
 	DataArray<Plant>				mPlants;

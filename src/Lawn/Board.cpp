@@ -98,6 +98,7 @@ std::string GetZombieStatusLabel(const Zombie* theZombie)
 // GOTY @Patoke: 0x40A3C0
 Board::Board(LawnApp* theApp)
 {
+	mEndlessAiManuallyDisabled = false;
 	mApp = theApp;
 	mApp->mBoard = this;
 	TodHesitationTrace("preboard");

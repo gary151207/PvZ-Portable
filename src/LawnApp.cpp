@@ -112,6 +112,7 @@ bool LawnHasUsedCheatKeys()
 
 LawnApp::LawnApp()
 {
+	mEndlessAi = false;
 	mBoard = nullptr;
 	mGameSelector = nullptr;
 	mChallengeScreen = nullptr;
@@ -1515,6 +1516,12 @@ bool LawnApp::DebugKeyDown(int theKey)
 
 void LawnApp::HandleCmdLineParam(const std::string& theParamName, const std::string& theParamValue)
 {
+	if (theParamName == "--endless-ai")
+	{
+		mEndlessAi = true;
+		return;
+	}
+
 	if (theParamName == "-tod")
 	{
 #ifdef _PVZ_DEBUG

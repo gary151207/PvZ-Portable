@@ -233,9 +233,6 @@ public:
     bool                    mIsElite;
     bool                    mHasFiredFirstPea = false;
     bool                    mPeater15DoubleShot = false;   // 1.5 发射手：本轮攻击是否发射第二发（每轮开始时掷骰）
-    int32_t                 mPultBurstCountdown = 0;       // 西瓜投手/冰瓜连发：>0 等待中，<0 动画已重放、待出弹，0 空闲
-    bool                    mPultFiredThisCycle = false;   // 本轮攻击是否已掷骰开火（投手每轮只掷一次）
-    PlantWeapon             mPultBurstWeapon = PlantWeapon::WEAPON_PRIMARY;  // 连发第二发沿用的武器
     int32_t                 mPeater15UpgradeCountdown = 0; // 1.5 发射手：距可点击免费升级为双发射手还剩多少帧（0 = 已可升级）
 
 public:
@@ -265,6 +262,7 @@ public:
     static /*inline*/ bool  IsFlying(SeedType theSeedtype);
     static /*inline*/ bool  IsUpgrade(SeedType theSeedtype);
     static /*inline*/ bool  IsRedCard(SeedType theSeedtype);   // 红卡（旅行高阶卡面；当前：巨大坚果、1.5 发射手）
+    static /*inline*/ bool  IsPultPlant(SeedType theSeedType); // 投手类（卷心菜 / 玉米 / 西瓜 / 冰瓜），一轮投掷的弹丸数有上限
     void                    UpdateAbilities();
     void                    Squish();
     void                    DoRowAreaDamage(int theDamage, unsigned int theDamageFlags);
@@ -383,6 +381,14 @@ ReanimationType             ElectricGatlingReanimType();
 bool                        SnowGatlingHasCustomArt();
 bool                        SnowGatlingUsesCustomArt();
 ReanimationType             SnowGatlingReanimType();
+
+// 火焰机枪射手专用贴图（reanim/FireGatling_head/mouth/mouth_overlay/blink1/blink2/helmet.png）。
+// 与寒冰机枪射手同一套部件与同一套安全阀，区别是**没有** FireGatling_barrel.png ——
+// 枪管继续用原版机枪射手的贴图（所以这里只替换确实存在的那六张，不会触发"缺一张就整体回退"）。
+// 缺图、无透明通道或尺寸不符时返回 false，退回普通机枪射手外观。
+bool                        FireGatlingHasCustomArt();
+bool                        FireGatlingUsesCustomArt();
+ReanimationType             FireGatlingReanimType();
 
 // 火豌豆射手专用贴图（reanim/FirePeaShooter_head/mouth/blink1/blink2.png）。
 // 与既有专用贴图同一套安全阀：首次调用时把四张图按"原图指针"替换进 REANIM_FIRE_PEASHOOTER

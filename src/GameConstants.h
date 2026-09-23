@@ -78,6 +78,12 @@ constexpr const int   ELECTRIC_STAR_LINGER_TICKS = 250;   // 钉住时长（游�
 // 究极形态互换：把"另一种基础植物"种在究极形态上 = 原地变身，并返还这么多阳光。
 //   杨桃(125)@究极电能机枪射手 → 究极电能星星果；机枪射手(250)@究极电能星星果 → 究极电能机枪射手。
 constexpr const int   ELECTRIC_STARFRUIT_SWITCH_REFUND = 225;
+// 机枪射手合成（寒冰射手 @ 机枪射手 → 寒冰机枪射手 / 火豌豆射手 @ 机枪射手 → 火焰机枪射手）的返阳光：
+// 两张卡都是 175 阳光，合成时照常按卡价扣款，落地后**原样返还** → 净花费 0（等于"升级免费"，
+// 但保留了正常的扣款/卡槽冷却流程）。与究极形态互换用同一套做法。
+// 只在**真的扣过款**时返还：传送带关卡与免费种植（mEasyPlantingCheat）本来就不扣钱，
+// 无条件返还等于白送阳光。
+constexpr const int   GATLING_SYNTHESIS_REFUND = 175;
 // 究极电能星星果专用贴图（reanim/Electric_Starfruit_*.png）接入开关。
 // 与究极电能机枪射手同一套规则：三张图必须带透明通道且尺寸与同名原图一致，
 // 任何一张不合格就整体回退到"杨桃贴图 + 电能蓝叠加"。
@@ -125,6 +131,26 @@ constexpr const float FIRE_PEASHOOTER_FIRE_OFFSET_Y = 0.0f;
 // 走新增的缓存滤镜 FilterEffect::FILTER_EFFECT_FIREPEA_PURPLE，所以明暗层次（火球亮斑）都保留。
 constexpr const float FIRE_PEA_PURPLE_HUE = 5.03f;
 constexpr const float FIRE_PEA_PURPLE_SAT = 1.47f;
+
+// ===== 火焰机枪射手（合成态 SEED_FIRE_GATLING_PEA：火豌豆射手 × 机枪射手）=====
+// 合成方式与寒冰机枪射手完全同一条路径：把火豌豆射手卡种在已种下的机枪射手上升级，
+// 消耗的仍是火豌豆射手卡（175 阳光），落地后变成这只隐藏植物，没有自己的种子卡。
+//
+// 普攻（4 连发）：与机枪射手同节奏（100 帧一轮、18/35/51/68 各一发），但 4 发全是紫火豌豆
+//   （PROJECTILE_PURPLE_FIRE_PEA，与火豌豆射手同一发子弹：直击 65 + 群伤 + 命中易伤 4 秒）。
+//   不做机枪射手那 3% 电能豌豆掷骰 —— 它是火属性，不是电能形态。
+// 大招（散射）：与机枪射手同一套 mGatlingScatterCountdown / mGatlingScatterChance 机制，
+//   散射期间每 2 帧发射 SCATTER_COUNT 颗 ±SCATTER_ANGLE 的扇形子弹，伤害沿用机枪射手散射的
+//   mDamageOverride（200）。唯一区别是每颗子弹各自掷骰决定弹种：
+//   FIRE_GATLING_SCATTER_PURPLE_PERCENT% 紫火豌豆，其余为普通火豌豆（PROJECTILE_FIREBALL）。
+constexpr const int   FIRE_GATLING_SCATTER_PURPLE_PERCENT = 50;   // 大招里紫火豌豆的占比（%）
+
+// ===== 投手类植物（卷心菜投手 / 玉米投手 / 西瓜投手 / 冰瓜投手）=====
+// 投手"一次投掷"就是一轮 anim_shooting：原版对**本行每只僵尸各投一颗**，
+// 所以一行堆满僵尸时一次能糊出去十几颗弹丸（配合西瓜/冰瓜的溅射会瞬间清场）。
+// 这里给一轮投掷的弹丸总数封顶：最多前 MAX_PULT_PROJECTILES_PER_VOLLEY 只僵尸各吃一颗，
+// 超出的僵尸本轮不再挨打（植物照常进入下一轮冷却）。
+constexpr const int   MAX_PULT_PROJECTILES_PER_VOLLEY = 10;
 
 constexpr const int HIGH_GROUND_HEIGHT = 30;
 

@@ -28,7 +28,7 @@ $plantLines = Get-Content -LiteralPath $plantPath
 # --- enum: inserted before NUM_SEED_TYPES, after the existing custom plants ---
 # Window widened to 600 chars: the Electric Starfruit seed/reanim entries now sit between
 # this value and the NUM_* sentinels (they are appended, never reordered).
-Assert-Source (P 'src/ConstEnums.h') 'SEED_PEATER_1_5,[\s\S]{0,600}SEED_ELECTRIC_GATLING_PEA,[\s\S]{0,600}NUM_SEED_TYPES' 'SEED_ELECTRIC_GATLING_PEA must be declared after SEED_PEATER_1_5 and just before NUM_SEED_TYPES.'
+Assert-Source (P 'src/ConstEnums.h') 'SEED_PEATER_1_5,[\s\S]{0,600}SEED_ELECTRIC_GATLING_PEA,[\s\S]{0,2000}NUM_SEED_TYPES' 'SEED_ELECTRIC_GATLING_PEA must be declared after SEED_PEATER_1_5 and before NUM_SEED_TYPES (later mod seeds appended after it are fine).'
 
 # --- plant definition: 200 sun, 30.01s cooldown, shooter, 100 launch rate.
 # The reanim type stays REANIM_GATLINGPEA here on purpose -- the electric type is only chosen at
@@ -37,7 +37,7 @@ Assert-Source $plantPath 'SeedType::SEED_ELECTRIC_GATLING_PEA,\s*nullptr,\s*Rean
 
 # --- dedicated reanim type: same file as the Gatling Pea, own definition slot ---
 # Window widened to 900 chars for the same reason as the seed enum above.
-Assert-Source (P 'src/ConstEnums.h') 'REANIM_FLAG,[\s\S]{0,600}REANIM_ELECTRIC_GATLINGPEA,[\s\S]{0,900}NUM_REANIMS' 'REANIM_ELECTRIC_GATLINGPEA must be declared after REANIM_FLAG and before NUM_REANIMS.'
+Assert-Source (P 'src/ConstEnums.h') 'REANIM_FLAG,[\s\S]{0,600}REANIM_ELECTRIC_GATLINGPEA,[\s\S]{0,2000}NUM_REANIMS' 'REANIM_ELECTRIC_GATLINGPEA must be declared after REANIM_FLAG and before NUM_REANIMS (later mod reanims appended after it are fine).'
 Assert-Source (P 'src/Sexy.TodLib/Reanimator.cpp') 'REANIM_ELECTRIC_GATLINGPEA,\s*"reanim/GatlingPea\.reanim"' 'The electric type must load the same reanim file as the Gatling Pea (its images are patched afterwards).'
 
 # --- custom art: swapped per FRAME by original image pointer (blink tracks use two images) ---
@@ -67,7 +67,7 @@ Assert-Source $plantPath 'aImage->mWidth != aOldImage->mWidth' 'The art swap mus
 # Image pointers, so swapping art never has to race atlas creation (and shares no atlas with the Gatling Pea).
 Assert-Source (P 'src/Sexy.TodLib/Reanimator.cpp') 'REANIM_ELECTRIC_GATLINGPEA,[\s\S]{0,200}REANIM_NO_ATLAS' 'The electric reanim type must use REANIM_NO_ATLAS.'
 # The patch has to run before any reanim of the type is initialised, or the atlas is built from the old art.
-Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'ELECTRIC_GATLING_USE_CUSTOM_ART[\s\S]{0,200}ElectricGatlingHasCustomArt\(\)[\s\S]{0,300}ReanimationInitializeType' 'When enabled, the card-art path must load the custom art BEFORE ReanimationInitializeType (atlas is created there).'
+Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'ELECTRIC_GATLING_USE_CUSTOM_ART[\s\S]{0,200}ElectricGatlingHasCustomArt\(\)[\s\S]{0,2000}ReanimationInitializeType' 'When enabled, the card-art path must load the custom art BEFORE ReanimationInitializeType (atlas is created there).'
 Assert-Source $plantPath 'theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA\)\s*aReanimType = ElectricGatlingReanimType\(\)' 'PlantInitialize must resolve the electric reanim type (which loads the custom art) before AddReanimation().'
 # When the custom art is unusable, fall back to the plain Gatling Pea reanim type: that keeps the
 # old tinted look and avoids creating a second Atlas over the same shared images.
@@ -100,14 +100,14 @@ Assert-Source (P 'src/Lawn/SeedPacket.cpp') 'SEED_GATLINGPEA \|\| aUseSeedType =
 $fireBody = [regex]::Match($plantCpp, 'void Plant::Fire\([\s\S]*?\n\}')
 if (-not $fireBody.Success) { throw 'Could not find Plant::Fire body.' }
 if ($fireBody.Value -notmatch 'case SeedType::SEED_ELECTRIC_GATLING_PEA:[\s\S]{0,400}PROJECTILE_FIREPEA_RED') { throw 'Plant::Fire must map SEED_ELECTRIC_GATLING_PEA to PROJECTILE_FIREPEA_RED (100% electric peas).' }
-if ($fireBody.Value -notmatch 'SEED_GATLINGPEA \|\| mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA\)[\s\S]{0,160}GetPeaHeadOffset') { throw 'Plant::Fire must use the Gatling Pea muzzle offset for SEED_ELECTRIC_GATLING_PEA.' }
+if ($fireBody.Value -notmatch 'mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA[\s\S]{0,300}GetPeaHeadOffset') { throw 'Plant::Fire must use the Gatling Pea muzzle offset for SEED_ELECTRIC_GATLING_PEA.' }
 if ($fireBody.Value -notmatch 'mSeedType == SeedType::SEED_GATLINGPEA && Rand\(100\) < 3') { throw 'The 3% red-fire-pea roll must stay exclusive to SEED_GATLINGPEA.' }
 
 # --- scatter ultimate: trigger, cadence and chance growth share the Gatling branches ---
-Assert-Source $plantPath 'SEED_GATLINGPEA \|\| mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA\)\s*\{[\s\S]{0,200}mGatlingScatterCountdown = 300' 'The scatter ultimate trigger must cover SEED_ELECTRIC_GATLING_PEA.'
-Assert-Source $plantPath 'SEED_GATLINGPEA \|\| mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA\)\s*\{[\s\S]{0,300}mShootingCounter % 2 == 1' 'The scatter firing cadence must cover SEED_ELECTRIC_GATLING_PEA.'
-Assert-Source $plantPath 'SEED_GATLINGPEA \|\| mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA\) && mGatlingScatterCountdown > 0' 'Plant::Fire must use the scatter branch for SEED_ELECTRIC_GATLING_PEA.'
-Assert-Source $plantPath 'SEED_GATLINGPEA \|\| mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA\) && mGatlingScatterCountdown == 0' 'The scatter-chance growth must cover SEED_ELECTRIC_GATLING_PEA.'
+Assert-Source $plantPath 'SEED_ELECTRIC_GATLING_PEA[\s\S]{0,800}mGatlingScatterCountdown = 300' 'The scatter ultimate trigger must cover SEED_ELECTRIC_GATLING_PEA.'
+Assert-Source $plantPath 'SEED_ELECTRIC_GATLING_PEA[\s\S]{0,1000}mShootingCounter % 2 == 1' 'The scatter firing cadence must cover SEED_ELECTRIC_GATLING_PEA.'
+Assert-Source $plantPath 'SEED_ELECTRIC_GATLING_PEA[\s\S]{0,800}mGatlingScatterCountdown > 0' 'Plant::Fire must use the scatter branch for SEED_ELECTRIC_GATLING_PEA.'
+Assert-Source $plantPath 'SEED_ELECTRIC_GATLING_PEA[\s\S]{0,1000}mGatlingScatterCountdown == 0' 'The scatter-chance growth must cover SEED_ELECTRIC_GATLING_PEA.'
 Assert-Source (P 'src/Lawn/Board.cpp') 'SEED_GATLINGPEA \|\| aPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA[\s\S]{0,260}mGatlingScatterCountdown' 'The HP tooltip must report scatter state for SEED_ELECTRIC_GATLING_PEA too.'
 
 # --- tinting: head instance only, helmet exempt, lower leaves/stalk untouched ---
@@ -167,7 +167,7 @@ Assert-Source $plantPath 'mBeghouledFlashCountdown <= 0[\s\S]{0,260}mExtraOverla
 Assert-Source (P 'src/Lawn/SeedPacket.cpp') '\[ADVICE_PLANT_NEEDS_GATLINGPEA\]' 'SeedPacket must show a "needs Gatling Pea" advice.'
 Assert-Source (P 'src/Lawn/Board.cpp') '\[REQUIRES_GATLINGPEA\]' 'The seed packet tooltip must show a "requires Gatling Pea" warning.'
 
-foreach ($file in @('properties/pvzp-strings.xml', 'properties/pvzp-strings.zh-CN.xml')) {
+foreach ($file in @('res/properties/pvzp-strings.xml', 'res/properties/pvzp-strings.zh-CN.xml')) {
     Assert-Source (P $file) '<String id="ELECTRIC_GATLING_PEA">' "$file must define the ELECTRIC_GATLING_PEA name string."
     Assert-Source (P $file) '<String id="ELECTRIC_GATLING_PEA_TOOLTIP">' "$file must define the ELECTRIC_GATLING_PEA_TOOLTIP string."
     Assert-Source (P $file) '<String id="REQUIRES_GATLINGPEA">' "$file must define the REQUIRES_GATLINGPEA string."

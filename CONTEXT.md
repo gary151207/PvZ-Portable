@@ -291,6 +291,40 @@ _避免_：转职、究极切换、形态转换
 数值常量全部在 `src/GameConstants.h` 的 `FIRE_PEA_*` / `FIRE_PEASHOOTER_*`。
 _避免_：火焰豌豆射手、火豆射手、紫火射手
 
+**火焰机枪射手 (Fire Gatling Pea)**：
+**合成态**（`SEED_FIRE_GATLING_PEA`，隐藏种子，**没有自己的卡**）：把**火豌豆射手**卡（175 阳光）
+种在已种的**机枪射手**上升级即得 —— 与**寒冰机枪射手**（寒冰射手 × 机枪射手）完全同一条路径：
+`Plant::IsUpgradableTo(FIRE_PEASHOOTER)` 放行机枪射手，`Board::MouseDownWithPlant` 在扣款/销毁原植物之后
+把实际创建的种子改写成 `SEED_FIRE_GATLING_PEA`。属性与机枪射手一致（175 阳光 / 750 冷却 / 300 生命 /
+`mLaunchRate = 100`）。
+**合成返阳光**：寒冰 / 火焰两种机枪射手合成都把卡价 `GATLING_SYNTHESIS_REFUND = 175` 原样还给玩家
+（净花费 0）—— 与「究极形态互换」同一套做法：照常按卡价扣款、原植物 `Die()` 之后
+`AddSunMoney(175)` + `FOLEY_SUN` + 字幕 `[GATLING_SYNTHESIS_REFUND]`。
+**只在真的扣过款时返**（把原来的扣款条件提成 `aPaysWithSun` 与返款共用）：传送带关卡与免费种植
+本来就不扣钱，无条件返还会白送阳光。
+**普攻**：与机枪射手同一轮 4 连发（`mShootingCounter` 18/35/51/68），但**每一发都是紫火豌豆**
+（`PROJECTILE_PURPLE_FIRE_PEA`，与火豌豆射手同一颗子弹：直击 65 + 群伤 + 命中/溅射到的僵尸易伤 40%/4 秒）；
+**不做**机枪射手那 3% 电能豌豆掷骰（火属性，不是电能形态）。
+**大招（散射）**：触发、时长（300 帧）、`mGatlingScatterChance` 概率成长、每 2 帧 2 颗 ±10° 扇形、
+`MOTION_STAR` 弹道与 `mDamageOverride = 200` **全部照抄机枪射手**，唯一区别是每颗子弹**各自**掷一次骰：
+`FIRE_GATLING_SCATTER_PURPLE_PERCENT = 50`% 紫火豌豆，其余 `PROJECTILE_FIREBALL`（普通火豌豆）。
+实现集中在 `Plant::Fire()` 的 `RollGatlingScatterType` lambda。
+**普通火豌豆的视觉**：原版**从不直接生成** `PROJECTILE_FIREBALL` —— 普通火球只由 `Plant::UpdateTorchwood()`
+在"豌豆飞过火炬树桩"时调 `Projectile::ConvertToFireball()` **事后补挂**火焰动画，所以
+`ProjectileInitialize()` 里那一支原本是 `TOD_ASSERT(false)`（Release 下等于什么都不做）。
+`Projectile::Draw()` 对火球是 `aImage = nullptr`（视觉全靠附属动画），因此直接 `AddProjectile` 出来的火球
+会是一颗**只有影子、看不见火球**的隐形弹 —— 表现就是"大招只出紫火"。
+修法：`ProjectileInitialize()` 的 `PROJECTILE_FIREBALL` 分支自己挂上同款、**不带紫火滤镜**的
+`REANIM_FIRE_PEA` 火球动画；`ConvertToFireball()` 不动（`MOTION_BACKWARDS` 翻转仍归它），
+`UpdateTorchwood()` 也只认 PEA/SNOWPEA，所以已点着的火球不会被二次挂图。
+**贴图**：新增 `ReanimationType::REANIM_FIRE_GATLINGPEA`（与机枪射手**同一个 reanim 文件**、
+**独立定义槽**、`REANIM_NO_ATLAS`），`FireGatlingHasCustomArt()` 把定义里的
+`GatlingPea_head/mouth/mouth_overlay/blink1/blink2/helmet` 换成 `reanim/FireGatling_*.png`。
+**没有** `FireGatling_barrel.png`，所以**枪管仍用原版机枪射手的绿色枪管**（这也正好绕开
+`ApplyReanimArtSwaps` 的"缺一张就整体回退"——只列出确实存在的六张）。任何一张缺图/无透明通道/尺寸不符
+就整体回退成普通机枪射手外观。
+_避免_：火机枪射手、火焰机枪豌豆、火焰加特林
+
 ### 关系
 
 - **旅行关卡** 的选卡器可**翻页**；**翻页**第 1 页放**旅行专属植物**（当前：**大喷菇群**、**巨大坚果**、
@@ -315,7 +349,13 @@ _避免_：火焰豌豆射手、火豆射手、紫火射手
   脑袋左上后方那撮小叶子是交替闪烁的两张火焰，发射 **65 伤害**的紫火豌豆（**群伤**：周围与相邻行各吃 1/3）
   并让命中/溅射到的僵尸 **4 秒内 +40% 易伤**（变红提示，4 秒后自行恢复）；
   普通模式不可选/不可拥有（`HasSeedType` 旅行特判）
-- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]`/`[FIRE_PEASHOOTER]` 标准键）
+- **火焰机枪射手** = **火豌豆射手 × 机枪射手 的合成态**（与**寒冰机枪射手**同一条路径，
+  没有自己的卡）：把**火豌豆射手**卡种在已种的**机枪射手**上即可；普攻 4 连发全是紫火豌豆，
+  大招散射期间每颗子弹 50% 紫火豌豆 / 50% 普通火豌豆；贴图除**枪管**外全部换成火焰版
+  （没有 `FireGatling_barrel.png`，枪管沿用原版机枪射手）
+- **火焰机枪射手 / 寒冰机枪射手** 两种合成都会**返还 175 阳光**（`GATLING_SYNTHESIS_REFUND`）：
+  照常按卡价扣款、落地后原样还回来 → 净花费 0；传送带关卡与免费种植不返（没扣钱）
+- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]`/`[FIRE_PEASHOOTER]`/`[FIRE_GATLING_PEA]` 标准键）
   - **必须把该文件复制到当前 `-resdir` 的 `properties/` 里**，否则所有 mod 字符串都显示成
     `<Missing [XXX]>`。`run-pvz.bat` 的 `RESDIR` 就是"当前资源目录"——它换一次，这里就要跟着装一次。
   - 加载顺序（`LawnApp::LoadingThreadProc`）：`TodStringListLoad(LawnStrings.txt)` → `LoadProperties(pvzp-strings.xml)`，

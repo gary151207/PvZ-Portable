@@ -1952,6 +1952,7 @@ namespace
 		SeedType::SEED_ELECTRIC_GATLING_PEA, // 究极电能机枪射手（旅行红卡升级卡：沙盒内需先有机枪射手）
 		SeedType::SEED_ELECTRIC_STARFRUIT,   // 究极电能星星果（旅行红卡升级卡：沙盒内需先有杨桃）
 		SeedType::SEED_FIRE_PEASHOOTER,      // 火豌豆射手（旅行红卡：带火的豌豆射手，直接种下）
+		SeedType::SEED_FIRE_GATLING_PEA,     // 火焰机枪射手（合成态：沙盒内需先在机枪射手上种火豌豆射手）
 	};
 	constexpr int ICE_PLANT_COUNT = sizeof(gIceSandboxPlantSeeds) / sizeof(gIceSandboxPlantSeeds[0]);
 	constexpr int ICE_ZOMBIE_COUNT = sizeof(gIceSandboxZombieTypes) / sizeof(gIceSandboxZombieTypes[0]);
@@ -5164,7 +5165,8 @@ void Board::UpdateToolTip()
 	{
 		mToolTip->SetTitle(Plant::GetNameString(aPlant->mSeedType, aPlant->mImitaterType));
 		std::string aHPLabel = StrFormat("HP: %d/%d", aPlant->mPlantHealth, aPlant->mPlantMaxHealth);
-		if (aPlant->mSeedType == SeedType::SEED_GATLINGPEA || aPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || aPlant->mSeedType == SeedType::SEED_SNOW_GATLING_PEA)
+		if (aPlant->mSeedType == SeedType::SEED_GATLINGPEA || aPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
+			aPlant->mSeedType == SeedType::SEED_SNOW_GATLING_PEA || aPlant->mSeedType == SeedType::SEED_FIRE_GATLING_PEA)
 		{
 			if (aPlant->mGatlingScatterCountdown > 0)
 			{
@@ -5756,7 +5758,10 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 	ClearAdvice(AdviceType::ADVICE_SURVIVE_FLAGS);
 
 	// 无免费种植、非传送带关卡的卡槽植物，判断阳光是否充足：充足则扣除阳光，不足则退出
-	if (!mApp->mEasyPlantingCheat && mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_BANK && !HasConveyorBeltSeedBank())
+	// aPaysWithSun 同时供下面的"机枪射手合成返阳光"使用：没花钱就不返（否则白送阳光）
+	const bool aPaysWithSun = !mApp->mEasyPlantingCheat &&
+		mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_BANK && !HasConveyorBeltSeedBank();
+	if (aPaysWithSun)
 	{
 		if (!TakeSunMoney(GetCurrentPlantCost(aPlantingSeedType, SeedType::SEED_NONE)))
 		{
@@ -5780,6 +5785,7 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 	SeedType aPlantSeedType = mCursorObject->mType;
 	SeedType aPlantImitaterType = mCursorObject->mImitaterType;
 	bool aIsUltimateSwitch = false;
+	bool aIsGatlingSynthesis = false;
 	if (aNormalPlant)
 	{
 		if (aPlantingSeedType == SeedType::SEED_SNOWPEA && aNormalPlant->mSeedType == SeedType::SEED_GATLINGPEA)
@@ -5788,6 +5794,15 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 			// 仅把实际创建的植物改为隐藏的寒冰机枪射手。
 			aPlantSeedType = SeedType::SEED_SNOW_GATLING_PEA;
 			aPlantImitaterType = SeedType::SEED_NONE;
+			aIsGatlingSynthesis = true;
+		}
+		else if (aPlantingSeedType == SeedType::SEED_FIRE_PEASHOOTER && aNormalPlant->mSeedType == SeedType::SEED_GATLINGPEA)
+		{
+			// 火豌豆射手覆盖机枪射手：同样消耗光标中的火豌豆射手卡（175 阳光），
+			// 仅把实际创建的植物改为隐藏的火焰机枪射手（普攻 4 发紫火豌豆，大招 50/50）。
+			aPlantSeedType = SeedType::SEED_FIRE_GATLING_PEA;
+			aPlantImitaterType = SeedType::SEED_NONE;
+			aIsGatlingSynthesis = true;
 		}
 		else if (aPlantingSeedType == SeedType::SEED_STARFRUIT && aNormalPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
 		{
@@ -5820,6 +5835,16 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 		mApp->PlayFoley(FoleyType::FOLEY_SUN);
 		std::string aSwitchMessage = TodReplaceString("[ULTIMATE_SWITCH_REFUND]", "{SUN}", StrFormat("%d", ELECTRIC_STARFRUIT_SWITCH_REFUND));
 		DisplayAdvice(aSwitchMessage, MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_NONE);
+	}
+
+	if (aIsGatlingSynthesis && aPaysWithSun)
+	{
+		// 机枪射手合成（寒冰机枪射手 / 火焰机枪射手）的返还阳光：与究极形态互换同一套做法 ——
+		// 种卡已按原价扣款、原植物已销毁之后，把 GATLING_SYNTHESIS_REFUND 原样还给玩家（净花费 0）。
+		AddSunMoney(GATLING_SYNTHESIS_REFUND);
+		mApp->PlayFoley(FoleyType::FOLEY_SUN);
+		std::string aSynthesisMessage = TodReplaceString("[GATLING_SYNTHESIS_REFUND]", "{SUN}", StrFormat("%d", GATLING_SYNTHESIS_REFUND));
+		DisplayAdvice(aSynthesisMessage, MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_NONE);
 	}
 
 	if ((aPlantingSeedType == SeedType::SEED_WALLNUT || aPlantingSeedType == SeedType::SEED_TALLNUT) && aNormalPlant)

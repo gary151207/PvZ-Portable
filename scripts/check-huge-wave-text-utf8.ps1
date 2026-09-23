@@ -60,7 +60,7 @@ if ($drawBody.Value -notmatch 'mTextReanimByteOffset\[aCharIdx \+ 1\]') { throw 
 if ($drawBody.Value -match 'aLetter\.append\(1, mLabel\[') { throw 'A single UTF-8 byte is not a character; never feed one byte to the glyph renderer.' }
 
 # --- 字形绘制：按码点查表，缺字直接跳过（不能解引用 end()） ---
-$matrixBody = [regex]::Match((Get-Content -Raw -LiteralPath $todCommon), 'void TodDrawStringMatrix[\s\S]*?\n\}\n')
+$matrixBody = [regex]::Match((Get-Content -Raw -LiteralPath $todCommon), 'void TodDrawStringMatrix[\s\S]*?\r?\n\}')
 if (-not $matrixBody.Success) { throw 'Could not find TodDrawStringMatrix.' }
 if ($matrixBody.Value -notmatch 'UTF8DecodeNext\(aFinalString') { throw 'TodDrawStringMatrix must decode the string by UTF-8 code point.' }
 if ($matrixBody.Value -notmatch 'mScaledCharImageRects\.find\(aChar\)') { throw 'TodDrawStringMatrix must look the glyph rect up once and check the result.' }

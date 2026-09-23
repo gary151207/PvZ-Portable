@@ -985,6 +985,8 @@ enum ReanimationType : uint32_t {
     REANIM_FIRE_PEASHOOTER,         // 火豌豆射手：与 REANIM_PEASHOOTER 同一个 reanim 文件，
                                     // head/mouth/blink 换成 reanim/FirePeaShooter_*.png，
                                     // 并把叶子轨道 frontleaf 覆盖成交替闪烁的火焰（见 Plant.cpp）
+    REANIM_FIRE_GATLINGPEA,         // 火焰机枪射手：与 REANIM_GATLINGPEA 同一个 reanim 文件，
+                                    // 但装载后用 reanim/FireGatling_*.png 专用贴图逐帧替换（见 Plant.cpp）
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1117,6 +1119,7 @@ enum SeedType : int32_t
     SEED_ELECTRIC_STARFRUIT,                        // 究极电能星星果（旅行红卡：由杨桃升级，300 阳光，5 颗追踪电能星星）
     SEED_SNOW_GATLING_PEA,                          // 寒冰机枪射手（寒冰射手种在机枪射手上时合成）
     SEED_FIRE_PEASHOOTER,                           // 火豌豆射手（旅行红卡：175 阳光，65 伤害紫火豌豆 + 命中易伤 40%/4 秒）
+    SEED_FIRE_GATLING_PEA,                          // 火焰机枪射手（火豌豆射手种在机枪射手上时合成：普攻 4 发紫火豌豆，大招 50% 紫火 / 50% 火豌豆）
     NUM_SEED_TYPES,
     SEED_BEGHOULED_BUTTON_SHUFFLE,
     SEED_BEGHOULED_BUTTON_CRATER,

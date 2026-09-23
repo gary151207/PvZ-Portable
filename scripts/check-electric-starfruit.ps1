@@ -30,9 +30,9 @@ $projCpp = Get-Content -Raw -LiteralPath $projPath
 $boardPath = P 'src/Lawn/Board.cpp'
 
 # --- enums: inserted before the NUM_* sentinels, no existing value moves ---
-Assert-Source (P 'src/ConstEnums.h') 'SEED_ELECTRIC_GATLING_PEA,[\s\S]{0,300}SEED_ELECTRIC_STARFRUIT,[\s\S]{0,200}NUM_SEED_TYPES' 'SEED_ELECTRIC_STARFRUIT must be declared after SEED_ELECTRIC_GATLING_PEA and just before NUM_SEED_TYPES.'
-Assert-Source (P 'src/ConstEnums.h') 'REANIM_ELECTRIC_GATLINGPEA,[\s\S]{0,400}REANIM_ELECTRIC_STARFRUIT,[\s\S]{0,200}NUM_REANIMS' 'REANIM_ELECTRIC_STARFRUIT must be declared after REANIM_ELECTRIC_GATLINGPEA and before NUM_REANIMS.'
-Assert-Source (P 'src/ConstEnums.h') 'PROJECTILE_FIREPEA_RED = 14,[\s\S]{0,300}PROJECTILE_ELECTRIC_STAR = 15,[\s\S]{0,200}NUM_PROJECTILES = 16' 'PROJECTILE_ELECTRIC_STAR must be appended after PROJECTILE_FIREPEA_RED and bump NUM_PROJECTILES to 16.'
+Assert-Source (P 'src/ConstEnums.h') 'SEED_ELECTRIC_GATLING_PEA,[\s\S]{0,300}SEED_ELECTRIC_STARFRUIT,[\s\S]{0,2000}NUM_SEED_TYPES' 'SEED_ELECTRIC_STARFRUIT must be declared after SEED_ELECTRIC_GATLING_PEA and before NUM_SEED_TYPES (later mod seeds appended after it are fine).'
+Assert-Source (P 'src/ConstEnums.h') 'REANIM_ELECTRIC_GATLINGPEA,[\s\S]{0,400}REANIM_ELECTRIC_STARFRUIT,[\s\S]{0,2000}NUM_REANIMS' 'REANIM_ELECTRIC_STARFRUIT must be declared after REANIM_ELECTRIC_GATLINGPEA and before NUM_REANIMS (later mod reanims appended after it are fine).'
+Assert-Source (P 'src/ConstEnums.h') 'PROJECTILE_FIREPEA_RED = 14,[\s\S]{0,300}PROJECTILE_ELECTRIC_STAR = 15,[\s\S]{0,400}NUM_PROJECTILES = 17' 'PROJECTILE_ELECTRIC_STAR must stay right after PROJECTILE_FIREPEA_RED; later mod projectiles append after it.'
 
 # --- plant definition: 300 sun, 30.01s cooldown, shooter, 100 launch rate, Starfruit health.
 # The reanim type stays REANIM_STARFRUIT here on purpose -- the electric type is only chosen at
@@ -59,7 +59,7 @@ Assert-Source $plantPath 'SEED_ELECTRIC_STARFRUIT && !ElectricStarfruitUsesCusto
 Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'SEED_ELECTRIC_STARFRUIT && !ElectricStarfruitUsesCustomArt\(\)' 'The cached card art must use the same gate.'
 Assert-Source (P 'src/GameConstants.h') 'ELECTRIC_STARFRUIT_USE_CUSTOM_ART\s*=\s*true' 'The custom-art switch should be on (the packed art has alpha).'
 Assert-Source $plantPath 'if \(!ELECTRIC_STARFRUIT_USE_CUSTOM_ART\)\s*return false' 'ElectricStarfruitUsesCustomArt() must short-circuit when the switch is off.'
-Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'ELECTRIC_STARFRUIT_USE_CUSTOM_ART[\s\S]{0,200}ElectricStarfruitHasCustomArt\(\)[\s\S]{0,300}ReanimationInitializeType' 'When enabled, the card-art path must load the custom art BEFORE ReanimationInitializeType (atlas is created there).'
+Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'ELECTRIC_STARFRUIT_USE_CUSTOM_ART[\s\S]{0,200}ElectricStarfruitHasCustomArt\(\)[\s\S]{0,2000}ReanimationInitializeType' 'When enabled, the card-art path must load the custom art BEFORE ReanimationInitializeType (atlas is created there).'
 Assert-Source $plantPath 'theSeedType == SeedType::SEED_ELECTRIC_STARFRUIT\)\s*aReanimType = ElectricStarfruitReanimType\(\)' 'PlantInitialize must resolve the electric reanim type (which loads the custom art) before AddReanimation().'
 Assert-Source $plantPath 'ReanimationType ElectricStarfruitReanimType\(\)[\s\S]{0,300}REANIM_STARFRUIT' 'ElectricStarfruitReanimType() must fall back to REANIM_STARFRUIT when the custom art is unavailable.'
 Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'aReanimType = ElectricStarfruitReanimType\(\)' 'The cached card art must use the same reanim-type resolution.'
@@ -114,7 +114,7 @@ Assert-Source (P 'src/Lawn/SeedPacket.cpp') 'case SeedType::SEED_STARFRUIT:\s*ca
 # --- the electric star projectile: homing flight, 5 s stick, 30 damage per tick ---
 Assert-Source $projPath 'PROJECTILE_ELECTRIC_STAR,\s*0,\s*ELECTRIC_STAR_HIT_DAMAGE' 'gProjectileDefinition must register PROJECTILE_ELECTRIC_STAR with the electric-star damage.'
 Assert-Source (P 'src/GameConstants.h') 'ELECTRIC_STAR_HIT_DAMAGE\s*=\s*30' 'GameConstants.h must define the 30 damage per tick.'
-Assert-Source (P 'src/GameConstants.h') 'ELECTRIC_STAR_LINGER_TICKS\s*=\s*500' 'GameConstants.h must define the 500-tick (5 s) stick duration.'
+Assert-Source (P 'src/GameConstants.h') 'ELECTRIC_STAR_LINGER_TICKS\s*=\s*250' 'GameConstants.h must define the 250-tick (2.5 s) stick duration (rebalanced after the initial 5 s).'
 # Homing: the MOTION_STAR target acquisition must cover the electric star as well.
 Assert-Source $projPath 'PROJECTILE_STAR \|\| mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR\) && mProjectileAge >= 24' 'The "fly one tile then home" logic must cover PROJECTILE_ELECTRIC_STAR.'
 # It must not vanish on impact: the collision branch hands over to the lingering state.
@@ -150,14 +150,14 @@ Assert-Source $projPath 'PROJECTILE_FIREPEA_RED \|\| mProjectileType == Projecti
 Assert-Source $projPath 'case ProjectileType::PROJECTILE_ELECTRIC_STAR:\s*// 钉在僵尸身上' 'The electric star must not draw a ground shadow.'
 
 # --- save compatibility: the new projectile fields are appended to the TLV tail ---
-Assert-Source (P 'src/Lawn/System/SaveGame.cpp') 'mLastPortalX\);\s*// 究极电能杨桃[\s\S]{0,300}SyncInt32\(theProjectile\.mLingerCountdown\)[\s\S]{0,200}SyncBool\(theProjectile\.mElectricStarStuck\)' 'mLingerCountdown/mElectricStarStuck must be appended to the end of SyncProjectileTailPortable so old saves still load.'
+Assert-Source (P 'src/Lawn/System/SaveGame.cpp') 'mLastPortalX\);[\s\S]{0,400}SyncInt32\(theProjectile\.mLingerCountdown\)[\s\S]{0,200}SyncBool\(theProjectile\.mElectricStarStuck\)' 'mLingerCountdown/mElectricStarStuck must be appended to the end of SyncProjectileTailPortable so old saves still load.'
 
 # --- player-facing text ---
 Assert-Source (P 'src/Lawn/SeedPacket.cpp') '\[ADVICE_PLANT_NEEDS_STARFRUIT\]' 'SeedPacket must show a "needs Starfruit" advice.'
 Assert-Source $boardPath '\[ADVICE_ONLY_ON_STARFRUIT\]' 'Board must show a "only on Starfruit" advice.'
 Assert-Source $boardPath '\[REQUIRES_STARFRUIT\]' 'The seed packet tooltip must show a "requires Starfruit" warning.'
 
-foreach ($file in @('properties/pvzp-strings.xml', 'properties/pvzp-strings.zh-CN.xml')) {
+foreach ($file in @('res/properties/pvzp-strings.xml', 'res/properties/pvzp-strings.zh-CN.xml')) {
     Assert-Source (P $file) '<String id="ELECTRIC_STARFRUIT">' "$file must define the ELECTRIC_STARFRUIT name string."
     Assert-Source (P $file) '<String id="ELECTRIC_STARFRUIT_TOOLTIP">' "$file must define the ELECTRIC_STARFRUIT_TOOLTIP string."
     Assert-Source (P $file) '<String id="REQUIRES_STARFRUIT">' "$file must define the REQUIRES_STARFRUIT string."

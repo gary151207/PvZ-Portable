@@ -27,7 +27,7 @@
 #define NUM_ALMANAC_SEEDS 49
 #define NUM_ALMANAC_ZOMBIES 26
 // 图鉴追加内容：植物页第 2 页（本模组新增植物）与僵尸页末尾追加的僵尸种类数
-#define NUM_ALMANAC_EXTRA_SEEDS 7
+#define NUM_ALMANAC_EXTRA_SEEDS 8
 #define NUM_ALMANAC_EXTRA_ZOMBIES 3
 
 constexpr const float			ALMANAC_PLANT_POSITION_X		= 578.0f;

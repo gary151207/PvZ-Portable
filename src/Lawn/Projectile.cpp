@@ -144,8 +144,23 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		break;
 	}
 	case ProjectileType::PROJECTILE_FIREBALL:
-		TOD_ASSERT(false);
+	{
+		// 普通火豌豆（被火炬树桩点燃的那种）。原版这条路径**只会**走 Projectile::ConvertToFireball()：
+		// 那里是"先有豌豆、飞过火炬树桩时再补挂火焰动画"，所以这里原本只剩一句断言
+		// （"不该有人直接生成火球"）。现在火焰机枪射手的大招会**直接**生成这种弹丸
+		// （散射的每颗子弹 50% 紫火豌豆 / 50% 普通火豌豆），于是这里补齐与紫火豌豆完全同款、
+		// 只是**不带紫火滤镜**的橙红火球观感 —— 否则这颗弹丸 Draw 里 aImage 为 nullptr，
+		// 会变成一颗只有影子、看不见火球的隐形弹丸（看起来就像"大招只出紫火"）。
+		Reanimation* aFireReanim = mApp->AddReanimation(0.0f, 0.0f, 0, ReanimationType::REANIM_FIRE_PEA);
+		aFireReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
+		aFireReanim->mAnimRate = RandRangeFloat(50.0f, 80.0f);
+
+		float aOffsetX = -25.0f;
+		float aOffsetY = -25.0f;
+		aFireReanim->SetPosition(mPosX + aOffsetX, mPosY + aOffsetY);
+		AttachReanim(mAttachmentID, aFireReanim, aOffsetX, aOffsetY);
 		break;
+	}
 	case ProjectileType::PROJECTILE_PURPLE_FIRE_PEA:
 	{
 		// 紫火豌豆（火豌豆射手）：观感直接复用原版"被火炬树桩点燃的豌豆"那套火球 reanim

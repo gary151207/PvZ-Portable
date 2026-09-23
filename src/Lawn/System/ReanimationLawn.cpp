@@ -98,6 +98,11 @@ void ReanimatorCache::DrawReanimatorFrame(Graphics* g, float thePosX, float theP
 	{
 		SnowGatlingHasCustomArt();
 	}
+	// 火焰机枪射手同一条路径（枪管没有专用图，沿用原版）。
+	if (theSeedType == SeedType::SEED_FIRE_GATLING_PEA)
+	{
+		FireGatlingHasCustomArt();
+	}
 	// 火豌豆射手：同样先换好专用贴图（卡面/图鉴/光标预览都会走这条路径）。
 	// 定义槽位用 REANIM_NO_ATLAS，换图本来就不挑时机，这里只是保持与其它专用贴图一致的写法。
 	if (theSeedType == SeedType::SEED_FIRE_PEASHOOTER)
@@ -289,6 +294,8 @@ MemoryImage* ReanimatorCache::MakeCachedPlantFrame(SeedType theSeedType, DrawVar
 		aReanimType = ElectricStarfruitReanimType();
 	else if (theSeedType == SeedType::SEED_SNOW_GATLING_PEA)
 		aReanimType = SnowGatlingReanimType();
+	else if (theSeedType == SeedType::SEED_FIRE_GATLING_PEA)
+		aReanimType = FireGatlingReanimType();
 
 	if (theSeedType == SeedType::SEED_POTATOMINE)
 	{
@@ -315,6 +322,7 @@ MemoryImage* ReanimatorCache::MakeCachedPlantFrame(SeedType theSeedType, DrawVar
 		if (theSeedType == SeedType::SEED_PEASHOOTER || theSeedType == SeedType::SEED_SNOWPEA || theSeedType == SeedType::SEED_REPEATER ||
 			theSeedType == SeedType::SEED_LEFTPEATER || theSeedType == SeedType::SEED_GATLINGPEA || theSeedType == SeedType::SEED_PEATER_1_5 ||
 			theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || theSeedType == SeedType::SEED_SNOW_GATLING_PEA ||
+			theSeedType == SeedType::SEED_FIRE_GATLING_PEA ||
 			theSeedType == SeedType::SEED_FIRE_PEASHOOTER)
 		{
 			DrawReanimatorFrame(&aMemoryGraphics, -aOffsetX, -aOffsetY, aReanimType, "anim_head_idle", theDrawVariation, theSeedType);

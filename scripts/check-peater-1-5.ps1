@@ -40,7 +40,7 @@ Assert-Source (P 'src/Lawn/Plant.cpp') 'mPeater15DoubleShot\)\s*\{[\s\S]{0,120}F
 $fireBody = [regex]::Match($plantCpp, 'void Plant::Fire\([\s\S]*?\n\}')
 if (-not $fireBody.Success) { throw 'Could not find Plant::Fire body.' }
 if ($fireBody.Value -notmatch 'case SeedType::SEED_PEATER_1_5:[\s\S]{0,80}PROJECTILE_PEA') { throw 'Plant::Fire switch must map SEED_PEATER_1_5 to PROJECTILE_PEA (otherwise the pea has no sprite).' }
-if ($fireBody.Value -notmatch 'SEED_REPEATER \|\| mSeedType == SeedType::SEED_PEATER_1_5\)[\s\S]{0,160}GetPeaHeadOffset') { throw 'Plant::Fire must use the pea-head muzzle offset for SEED_PEATER_1_5.' }
+if ($fireBody.Value -notmatch 'mSeedType == SeedType::SEED_PEATER_1_5 \|\|[\s\S]{0,300}GetPeaHeadOffset') { throw 'Plant::Fire must use the pea-head muzzle offset for SEED_PEATER_1_5.' }
 
 # --- 贴图：去掉眉毛（双发射手 reanim 的 PeaShooter_eyebrow 轨道） ---
 Assert-Source (P 'src/Lawn/Plant.cpp') 'SEED_PEATER_1_5[\s\S]{0,600}AssignRenderGroupToTrack\("PeaShooter_eyebrow", RENDER_GROUP_HIDDEN\)' 'Planted 1.5 Peater must hide the PeaShooter_eyebrow track.'
@@ -72,7 +72,7 @@ if (-not $colorBody.Success) { throw 'Could not find Plant::UpdateReanimColor bo
 if ($colorBody.Value -notmatch 'SEED_PEATER_1_5 && mPeater15UpgradeCountdown <= 0') { throw 'A ready 1.5 Peater must flash to advertise the click-to-upgrade.' }
 
 # --- 翻译文案：卡名 + 悬浮说明 + 升级提示（中英各一份） ---
-foreach ($file in @('properties/pvzp-strings.xml', 'properties/pvzp-strings.zh-CN.xml')) {
+foreach ($file in @('res/properties/pvzp-strings.xml', 'res/properties/pvzp-strings.zh-CN.xml')) {
     Assert-Source (P $file) '<String id="PEATER_1_5">' "$file must define the PEATER_1_5 name string."
     Assert-Source (P $file) '<String id="PEATER_1_5_TOOLTIP">' "$file must define the PEATER_1_5_TOOLTIP string."
     Assert-Source (P $file) '<String id="PEATER_1_5_UPGRADE_READY">' "$file must define the PEATER_1_5_UPGRADE_READY string."

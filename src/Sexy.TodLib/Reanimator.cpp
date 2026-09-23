@@ -199,6 +199,10 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	// 同样用 REANIM_NO_ATLAS：定义里的 mImage 始终是真实指针，换贴图在任何时机都安全，
 	// 也不会和普通豌豆射手的 Atlas 共用同一批源贴图。
 	{ ReanimationType::REANIM_FIRE_PEASHOOTER,                      "reanim/PeaShooter.reanim",                        1 << ReanimFlags::REANIM_NO_ATLAS },
+	// 与 REANIM_GATLINGPEA 同一个文件，但 Plant.cpp 会把 head/mouth/mouth_overlay/blink1/blink2/helmet
+	// 换成火焰机枪射手专用贴图（枪管没有专用图，仍复用原版机枪射手的绿色枪管）；不用 Atlas，
+	// 确保这套替换不会影响普通机枪射手。
+	{ ReanimationType::REANIM_FIRE_GATLINGPEA,                      "reanim/GatlingPea.reanim",                        1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

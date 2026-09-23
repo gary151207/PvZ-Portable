@@ -61,7 +61,13 @@ Assert-Source (P 'src/Lawn/Travel.cpp') 'SEED_FIRE_PEASHOOTER,\s*false' 'SEED_FI
 Assert-Source (P 'src/LawnApp.cpp') 'case SeedType::SEED_FIRE_PEASHOOTER:[\s\S]{0,80}return IsTravelLevel\(mGameMode\)' 'LawnApp::HasSeedType must gate SEED_FIRE_PEASHOOTER on IsTravelLevel.'
 Assert-Source (P 'src/Lawn/Board.cpp') 'gIceSandboxTravelSeeds\[\][\s\S]{0,500}SEED_FIRE_PEASHOOTER' 'SEED_FIRE_PEASHOOTER must be available on the ice sandbox travel page.'
 Assert-Source (P 'src/Lawn/Widget/AlmanacDialog.cpp') 'gAlmanacExtraSeeds\[NUM_ALMANAC_EXTRA_SEEDS\][\s\S]{0,600}SEED_FIRE_PEASHOOTER' 'SEED_FIRE_PEASHOOTER must show up on almanac plant page 2.'
-Assert-Source (P 'src/Lawn/Widget/AlmanacDialog.h') '#define NUM_ALMANAC_EXTRA_SEEDS 7' 'NUM_ALMANAC_EXTRA_SEEDS must be bumped to 7 for the new plant.'
+# 槽位数不再写死：每加一只植物都要 +1，写死会让"新增植物"的提交顺手改坏这条断言。
+# 这里改成"必须与 gAlmanacExtraSeeds 的实际条目数一致"。
+$almanacCpp = Get-Content -Raw -Encoding UTF8 -LiteralPath (P 'src/Lawn/Widget/AlmanacDialog.cpp')
+$extraSeeds = [regex]::Match($almanacCpp, 'gAlmanacExtraSeeds\[NUM_ALMANAC_EXTRA_SEEDS\][\s\S]*?\n\t\};')
+if (-not $extraSeeds.Success) { throw 'Could not find the almanac extra-plant list.' }
+$extraSeedCount = ([regex]::Matches($extraSeeds.Value, 'SeedType::SEED_')).Count
+Assert-Source (P 'src/Lawn/Widget/AlmanacDialog.h') "#define NUM_ALMANAC_EXTRA_SEEDS $extraSeedCount" "NUM_ALMANAC_EXTRA_SEEDS must match the number of entries in gAlmanacExtraSeeds ($extraSeedCount)."
 
 # --- 贴图：四张同尺寸部件（不含 LIPS，reanim 未引用）+ 两张火焰覆盖 backleaf ---
 Assert-Source (P 'src/Lawn/Plant.cpp') 'bool FirePeaShooterHasCustomArt\(\)' 'FirePeaShooterHasCustomArt must exist.'
@@ -100,12 +106,12 @@ Assert-Source (P 'src/Lawn/Plant.cpp') 'SEED_FIRE_PEASHOOTER\)\s*\{[\s\S]{0,320}
 Assert-Source (P 'src/Lawn/Plant.cpp') 'case SeedType::SEED_SNOW_GATLING_PEA:\s*\r?\n\s*case SeedType::SEED_FIRE_PEASHOOTER:' 'PlantInitialize must handle SEED_FIRE_PEASHOOTER in the peashooter group (body + head reanim).'
 Assert-Source (P 'src/Lawn/Plant.cpp') 'SEED_SNOW_GATLING_PEA \|\| mSeedType == SeedType::SEED_FIRE_PEASHOOTER' 'AttachBlinkAnim must include SEED_FIRE_PEASHOOTER (otherwise the plant never blinks).'
 Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'SEED_FIRE_PEASHOOTER[\s\S]{0,700}FirePeaShooterApplyFireOverride' 'The cached plant frame (seed packet / almanac / cursor) must show the fire too.'
-Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'SEED_SNOW_GATLING_PEA \|\|\s*\r?\n\s*theSeedType == SeedType::SEED_FIRE_PEASHOOTER' 'MakeCachedPlantFrame must draw the head layer for SEED_FIRE_PEASHOOTER.'
+Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'SEED_SNOW_GATLING_PEA \|\|[\s\S]{0,200}theSeedType == SeedType::SEED_FIRE_PEASHOOTER' 'MakeCachedPlantFrame must draw the head layer for SEED_FIRE_PEASHOOTER.'
 
 # --- 子弹本身（漏一处就会打出未初始化类型的弹丸 => 没有贴图 / 从错误位置飞出） ---
 $fireBody = [regex]::Match($plantCpp, 'void Plant::Fire\([\s\S]*?\n\}')
 if (-not $fireBody.Success) { throw 'Could not find Plant::Fire body.' }
-if ($fireBody.Value -notmatch 'case SeedType::SEED_FIRE_PEASHOOTER:[\s\S]{0,200}PROJECTILE_PURPLE_FIRE_PEA') { throw 'Plant::Fire switch must map SEED_FIRE_PEASHOOTER to PROJECTILE_PURPLE_FIRE_PEA.' }
+if ($fireBody.Value -notmatch 'case SeedType::SEED_FIRE_PEASHOOTER:[\s\S]{0,800}PROJECTILE_PURPLE_FIRE_PEA') { throw 'Plant::Fire switch must map SEED_FIRE_PEASHOOTER to PROJECTILE_PURPLE_FIRE_PEA.' }
 if ($fireBody.Value -notmatch 'SEED_PEATER_1_5 \|\| mSeedType == SeedType::SEED_FIRE_PEASHOOTER\)[\s\S]{0,160}GetPeaHeadOffset') { throw 'Plant::Fire must use the pea-head muzzle offset for SEED_FIRE_PEASHOOTER.' }
 
 $projCpp = Get-Content -Raw -Encoding UTF8 -LiteralPath (P 'src/Lawn/Projectile.cpp')

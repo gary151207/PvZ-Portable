@@ -112,7 +112,8 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_SNOW_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 175,    750,    PlantSubClass::SUBCLASS_SHOOTER,    100,    "SNOW_GATLING_PEA" },  // 隐藏合成态：消耗寒冰射手卡，属性与机枪射手一致
     { SeedType::SEED_FIRE_PEASHOOTER, nullptr, ReanimationType::REANIM_FIRE_PEASHOOTER, 0, 175, 750,  PlantSubClass::SUBCLASS_SHOOTER,    FIRE_PEASHOOTER_LAUNCH_RATE, "FIRE_PEASHOOTER" },  // 火豌豆射手（旅行红卡）：175 阳光，每 1.125 秒一发 65 伤害紫火豌豆 + 命中易伤
     { SeedType::SEED_FIRE_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 175, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "FIRE_GATLING_PEA" },  // 隐藏合成态（火豌豆射手 × 机枪射手）：消耗火豌豆射手卡，属性与机枪射手一致
-    { SeedType::SEED_THREE_GATLING_PEA, nullptr, ReanimationType::REANIM_THREE_GATLINGPEA, 12, 325, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "THREE_GATLING_PEA" }  // 隐藏合成态（三线射手 × 机枪射手）：消耗三线射手卡（325），每轮每行 4 连发
+    { SeedType::SEED_THREE_GATLING_PEA, nullptr, ReanimationType::REANIM_THREE_GATLINGPEA, 12, 325, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "THREE_GATLING_PEA" },  // 隐藏合成态（三线射手 × 机枪射手）：消耗三线射手卡（325），每轮每行 4 连发
+    { SeedType::SEED_LASER_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 400, 750, PlantSubClass::SUBCLASS_SHOOTER, LASER_PEA_LAUNCH_RATE, "LASER_PEA" }  // 激光豌豆（旅行红卡）：400 阳光，每 0.8 秒一道贯穿本行的绿色激光、每只僵尸 20 伤害
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -331,6 +332,86 @@ ReanimationType FireGatlingReanimType()
         : ReanimationType::REANIM_GATLINGPEA;
 }
 
+// 激光豌豆：换图只换**一张**（枪管），另外还要把机枪射手多出来的三条枪管轨道
+// （GatlingPea_barrel2/3/4）与枪口叠加层（GatlingPea_mouth_overlay）隐藏掉 ——
+// 于是整株只画一根枪管、一张嘴，这也正是这只植物"其余部位沿用机枪射手、但只有一根枪管"的做法。
+//
+// 贴图为什么是 LaserPea_barrel_small.png：玩家的原图是 500x500，而机枪射手的枪管部件是 43x27，
+// reanim 按帧号索引贴图列（尺寸不符会串帧），ApplyReanimArtSwaps 的安全阀要求两者宽高完全一致。
+// 所以 `tools/make-laser-pea-barrel.py` 离线把原图裁切（只取较长的那根主枪管）并缩放着色成 43x27。
+static const char* LASER_PEA_HIDDEN_TRACKS[] = {
+    "GatlingPea_barrel2",
+    "GatlingPea_barrel3",
+    "GatlingPea_barrel4",
+    "GatlingPea_mouth_overlay",
+};
+
+// 留下的那根枪管轨道（绘制顺序是 barrel3 → barrel4 → barrel2 → barrel1，barrel1 画在最上面）
+static const char* LASER_PEA_BARREL_TRACK = "GatlingPea_barrel1";
+
+// 把上面那几条轨道藏起来。body 与 head 两个实例都要调：这些轨道只在 head 层有数据，
+// 但照 FirePeaShooterHideTracks 的既有做法两处都过一遍，避免将来 reanim 改动后漏掉。
+void LaserPeaHideExtraTracks(Reanimation* theReanim)
+{
+    if (theReanim == nullptr)
+        return;
+
+    for (size_t i = 0; i < LENGTH(LASER_PEA_HIDDEN_TRACKS); i++)
+    {
+        if (theReanim->TrackExists(LASER_PEA_HIDDEN_TRACKS[i]))
+            theReanim->AssignRenderGroupToTrack(LASER_PEA_HIDDEN_TRACKS[i], RENDER_GROUP_HIDDEN);
+    }
+}
+
+// 留下的那根枪管（GatlingPea_barrel1）在 reanim 里是按"机枪射手四段枪管的总成"定位的，
+// 激光豌豆只有一段，所以整体再往前挪 LASER_PEA_BARREL_OFFSET_X 像素 —— 与 Plant::Fire 里
+// 光束起点的 +LASER_PEA_BARREL_OFFSET_X 是同一个数，两处必须一起改。
+// 走轨道实例的 mShakeX（与 FirePeaShooter 的火焰偏移同一套做法）：mShakeOverride 为 0，
+// 所以 Reanimation::Update 不会把 mShakeX 随机覆盖掉，而且只挪这一条轨道。
+// 这条轨道属于 **head 实例**（枪管和脸在同一层），所以传 head 实例进来即可。
+void LaserPeaShiftBarrel(Reanimation* theReanim)
+{
+    if (theReanim == nullptr)
+        return;
+
+    ReanimatorTrackInstance* aTrackInstance = theReanim->GetTrackInstanceByName(LASER_PEA_BARREL_TRACK);
+    if (aTrackInstance == nullptr)
+        return;
+
+    aTrackInstance->mShakeX = LASER_PEA_BARREL_OFFSET_X;
+}
+
+static bool sLaserPeaArtChecked = false;
+static bool sLaserPeaArtApplied = false;
+
+bool LaserPeaHasCustomArt()
+{
+    if (sLaserPeaArtChecked)
+        return sLaserPeaArtApplied;
+    sLaserPeaArtChecked = true;
+
+    // 只换枪管一张：head / mouth / blink / helmet 全部沿用机枪射手（"其余部位都沿用普通的机枪射手"）。
+    static const ReanimArtSwap aSwaps[] = {
+        { "reanim/GATLINGPEA_BARREL", "reanim/LASERPEA_BARREL_SMALL", "IMAGE_REANIM_LASERPEA_BARREL" },
+    };
+
+    sLaserPeaArtApplied = ApplyReanimArtSwaps(
+        ReanimationType::REANIM_LASER_PEA, aSwaps, LENGTH(aSwaps), "Laser Pea");
+    return sLaserPeaArtApplied;
+}
+
+bool LaserPeaUsesCustomArt()
+{
+    return LaserPeaHasCustomArt();
+}
+
+ReanimationType LaserPeaReanimType()
+{
+    return LaserPeaUsesCustomArt()
+        ? ReanimationType::REANIM_LASER_PEA
+        : ReanimationType::REANIM_GATLINGPEA;
+}
+
 // 火豌豆射手：两套"部位贴图"共用同一个装载函数（都是 REANIM_FIRE_PEASHOOTER 这个独立槽位）。
 //   1) head / mouth / blink1 / blink2 —— 走公共的 ApplyReanimArtSwaps（必须与 PeaShooter 同名图尺寸一致）。
 //   2) fire1 / fire2 —— 不替换定义里的任何图，而是**覆盖头顶后面那撮小叶子最上面的一支
@@ -513,6 +594,8 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         aReanimType = SnowGatlingReanimType();
     else if (theSeedType == SeedType::SEED_FIRE_GATLING_PEA)
         aReanimType = FireGatlingReanimType();
+    else if (theSeedType == SeedType::SEED_LASER_PEA)
+        aReanimType = LaserPeaReanimType();
 
     mPlantCol = theGridX;
     mRow = theGridY;
@@ -648,6 +731,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     case SeedType::SEED_SNOW_GATLING_PEA:
     case SeedType::SEED_FIRE_PEASHOOTER:
     case SeedType::SEED_FIRE_GATLING_PEA:
+    case SeedType::SEED_LASER_PEA:
         if (aBodyReanim)
         {
             aBodyReanim->mAnimRate = RandRangeFloat(15.0f, 20.0f);
@@ -690,6 +774,16 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
 
                 // 种下 15 秒后可以点击免费升级为双发射手
                 mPeater15UpgradeCountdown = PEATER_1_5_UPGRADE_DELAY;
+            }
+
+            // 激光豌豆：身体/头部/头盔沿用机枪射手，但只画**一根枪管、一张嘴** ——
+            // 隐藏机枪射手多出来的三条枪管轨道与枪口叠加层（贴图替换见 LaserPeaHasCustomArt），
+            // 并把留下的那根枪管往前挪 LASER_PEA_BARREL_OFFSET_X（与光束起点同一个数）。
+            if (mSeedType == SeedType::SEED_LASER_PEA)
+            {
+                LaserPeaHideExtraTracks(aBodyReanim);
+                LaserPeaHideExtraTracks(aHeadReanim);
+                LaserPeaShiftBarrel(aHeadReanim);
             }
         }
         break;
@@ -1232,6 +1326,24 @@ TodParticleSystem* Plant::AddAttachedParticle(int thePosX, int thePosY, int theR
     return aNewParticle;
 }
 
+// 激光豌豆：真正出弹的那一步（由 UpdateShooting 在开火动画末尾调用）。
+//
+// 为什么需要单独一支、而不能直接在 UpdateShooting 里写 Fire(nullptr, ...)
+// 以及为什么不能复用 FindTargetAndFire：
+//   1) 激光豌豆的光束是一条**有角度的直线**，方向 = "枪口 → 目标身体中心"。要斜着打，
+//      就必须把目标僵尸传进 Fire()；传 nullptr 会走 Fire 里的兜底分支（水平向右）。
+//   2) FindTargetAndFire 是"起手"——它决定开不开火、播开火动画、把 mShootingCounter 置成 33；
+//      真正出弹要等这个计数走到 1（几十帧之后）。所以这里必须**重新索敌**：
+//      起手时瞄的那只僵尸可能已经死了或者被别的植物打掉了，用一个过期目标算方向没有意义。
+//      重新查还有一个好处：这几十帧里如果有气球僵尸进场，空中优先规则会立刻改瞄它。
+//
+// 找不到目标时退化成"从枪口水平向右"（Fire 里的 nullptr 分支），至少不会打不出东西。
+void Plant::FireLaserPea()
+{
+    Zombie* aZombie = FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY);
+    Fire(aZombie, mRow, PlantWeapon::WEAPON_PRIMARY);
+}
+
 bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
 {
     Zombie* aZombie = FindTargetZombie(theRow, thePlantWeapon);
@@ -1290,6 +1402,15 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
     {
         PlayBodyReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 30.0f);
         mShootingCounter = 50;
+    }
+    else if (mSeedType == SeedType::SEED_LASER_PEA)
+    {
+        // 激光豌豆：**不播开火动画**。
+        // 机枪射手的 anim_shooting 在 reanim 里长 39 帧、按 35 的速率要 1.1 秒，而这只植物的攻击
+        // 间隔只有 0.2 秒（LASER_PEA_LAUNCH_RATE = 20）—— 硬播会被下一发不停打断，看起来像头部抽搐。
+        // 所以头一直保持 anim_head_idle，视觉交给光束（每 20 帧亮 6 帧）。
+        // mShootingCounter 保持 0：它在这只植物上不再承担计时职责（节奏走 mLaunchCounter），
+        // UpdateShooting 里的激光分支会在自减之前就 return。
     }
     else if (aBodyReanim && aBodyReanim->TrackExists("anim_shooting"))
     {
@@ -1545,7 +1666,10 @@ void Plant::UpdateShooter()
         }
         else
         {
-            mLaunchCounter = mLaunchRate - Sexy::Rand(15);
+            // 激光豌豆：节奏是这只植物的定义特征（"每 0.2 秒一道激光"），所以**不掺** Rand(15) 抖动。
+            mLaunchCounter = (mSeedType == SeedType::SEED_LASER_PEA)
+                ? mLaunchRate
+                : mLaunchRate - Sexy::Rand(15);
         }
 
         // 1.5 发射手：每轮攻击开始时掷骰，50% 本轮一发 / 50% 本轮两发。
@@ -1567,6 +1691,13 @@ void Plant::UpdateShooter()
         else if (mSeedType == SeedType::SEED_STARFRUIT || mSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
         {
             LaunchStarFruit();
+        }
+        else if (mSeedType == SeedType::SEED_LASER_PEA)
+        {
+            // 激光豌豆：这一轮只是"确认有目标"（决定要不要进入攻击节奏），并不在这里出弹 ——
+            // 出弹时刻在 UpdateShooting 里按 mLaunchCounter == 1 触发，见那里的说明。
+            // 保留这次索敌是为了让"没目标就不打"的既有逻辑继续成立。
+            FindTargetAndFire(mRow, PlantWeapon::WEAPON_PRIMARY);
         }
         else if (mSeedType == SeedType::SEED_SPLITPEA)
         {
@@ -3997,7 +4128,7 @@ Reanimation* Plant::AttachBlinkAnim(Reanimation* theReanimBody)
             aTrackToAttach = "anim_face2";
         }
     }
-    else if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_LEFTPEATER || mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_PEATER_1_5 || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_FIRE_PEASHOOTER || mSeedType == SeedType::SEED_FIRE_GATLING_PEA)
+    else if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_LEFTPEATER || mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_PEATER_1_5 || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_FIRE_PEASHOOTER || mSeedType == SeedType::SEED_FIRE_GATLING_PEA || mSeedType == SeedType::SEED_LASER_PEA)
     {
         if (theReanimBody->TrackExists("anim_stem"))
         {
@@ -4030,6 +4161,8 @@ Reanimation* Plant::AttachBlinkAnim(Reanimation* theReanimBody)
         aBlinkReanimType = SnowGatlingReanimType();
     else if (mSeedType == SeedType::SEED_FIRE_GATLING_PEA)
         aBlinkReanimType = FireGatlingReanimType();   // 眨眼用的眼睛图也要是火焰版
+    else if (mSeedType == SeedType::SEED_LASER_PEA)
+        aBlinkReanimType = LaserPeaReanimType();      // 与场上植物同一个槽位（专用枪管贴图也在那里）
 
     Reanimation* aBlinkReanim = aApp->mEffectSystem->mReanimationHolder->AllocReanimation(0.0f, 0.0f, 0, aBlinkReanimType);
     aBlinkReanim->SetFramesForLayer(aTrackToPlay);
@@ -4445,6 +4578,25 @@ void Plant::UpdateShooting()
         return;
 
     mShootingCounter--;
+
+    // 激光豌豆：节奏由 mLaunchRate = LASER_PEA_LAUNCH_RATE（20 帧 = 0.2 秒）决定。
+    //
+    // ⚠ 这里**不播开火动画、也不占 mShootingCounter**：
+    //   机枪射手的 anim_shooting 在 reanim 里有 39 帧，按 35 的动画速率要 1.1 秒 ——
+    //   比 0.2 秒的节奏长五倍多，硬播会被下一发不断打断、看起来像头部抽搐。
+    //   所以激光豌豆的头一直保持 anim_head_idle，视觉完全交给光束（每 20 帧亮 6 帧）。
+    //   出弹时刻因此直接用 mLaunchCounter（由 UpdateShooter 每帧自减到 1），与 mShootingCounter 无关。
+    if (mSeedType == SeedType::SEED_LASER_PEA)
+    {
+        if (mLaunchCounter == 1)
+        {
+            // ⚠ 必须把**目标僵尸**传给 Fire：光束的方向就是"枪口 → 目标中心"。
+            // 早期版本这里写 Fire(nullptr, ...)，于是 Fire 里的方向计算走了 nullptr 分支、
+            // 永远退化成"水平向右"——表现就是"能锁定别的行、但光束不斜"。
+            FireLaserPea();
+        }
+        return;
+    }
 
     if ((mSeedType == SeedType::SEED_FUMESHROOM || mSeedType == SeedType::SEED_FUMESHROOM_GROUP) && mShootingCounter == 15)
     {
@@ -5846,6 +5998,8 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     case SeedType::SEED_REPEATER:
     case SeedType::SEED_THREEPEATER:
     case SeedType::SEED_THREE_GATLING_PEA:
+        aProjectileType = ProjectileType::PROJECTILE_PEA;
+        break;
     case SeedType::SEED_SPLITPEA:
     case SeedType::SEED_GATLINGPEA:
     case SeedType::SEED_LEFTPEATER:
@@ -5869,6 +6023,11 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         // PROJECTILE_FIREPEA_RED 即"纯白闪电豌豆"（接触每 0.15 秒 30 伤害 + 无限穿透），
         // 与电能豌豆本是同一物，故不新增弹丸类型。
         aProjectileType = ProjectileType::PROJECTILE_FIREPEA_RED;
+        break;
+    case SeedType::SEED_LASER_PEA:
+        // 激光豌豆：不是豌豆、也不是穿透弹丸，而是"一道不移动的光束" ——
+        // 弹丸只在出生那一帧结算一次本行的贯穿伤害，随后作为纯视觉停留数帧（见 Projectile）。
+        aProjectileType = ProjectileType::PROJECTILE_LASER_PEA;
         break;
     case SeedType::SEED_PUFFSHROOM:
     case SeedType::SEED_SCAREDYSHROOM:
@@ -6007,6 +6166,16 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aOriginX = mX + aOffsetX + 34;
         aOriginY = mY + aOffsetY - 33;
     }
+    else if (mSeedType == SeedType::SEED_LASER_PEA)
+    {
+        // 激光豌豆与机枪射手是同一套头/枪管几何（外观本来就是它），所以出膛点也用同一个 +34 偏移；
+        // 再把枪管前移量 LASER_PEA_BARREL_OFFSET_X 加上 —— 与 LaserPeaShiftBarrel 里挪枪管的是同一个数，
+        // 光束才会正好从枪口射出来。
+        int aOffsetX, aOffsetY;
+        GetPeaHeadOffset(aOffsetX, aOffsetY);
+        aOriginX = mX + aOffsetX + 34 + static_cast<int>(LASER_PEA_BARREL_OFFSET_X);
+        aOriginY = mY + aOffsetY - 33;
+    }
     else if (mSeedType == SeedType::SEED_SPLITPEA)
     {
         int aOffsetX, aOffsetY;
@@ -6127,9 +6296,41 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectile->mSourcePlantID = static_cast<PlantID>(mBoard->mPlants.DataArrayGetID(this));
         aProjectile->mElectricChainSource = PlantFiresElectricChainProjectile(this);
 
+        // 激光豌豆的光束：不移动（mVelX/Y/Z 本来是 0），但**方向**要存在 mVelX/mVelY 上
+        // （单位向量，只当方向用）—— 绘制与命中判定都读它。
+        // 这里朝目标僵尸的身体中心指，于是激光可以打到**本行以外的行**；
+        // 没有目标时（例如三线机枪射手那种"按行盲射"的调用）退化成水平向右。
+        if (mSeedType == SeedType::SEED_LASER_PEA)
+        {
+            float aDirX = 1.0f;
+            float aDirY = 0.0f;
+            if (theTargetZombie != nullptr)
+            {
+                Rect aTargetRect = theTargetZombie->GetZombieRect();
+                const float aTargetCenterX = aTargetRect.mX + aTargetRect.mWidth * 0.5f;
+                const float aTargetCenterY = aTargetRect.mY + aTargetRect.mHeight * 0.5f;
+                const float aDeltaX = aTargetCenterX - static_cast<float>(aOriginX);
+                const float aDeltaY = aTargetCenterY - static_cast<float>(aOriginY);
+                const float aLength = sqrt(aDeltaX * aDeltaX + aDeltaY * aDeltaY);
+                if (aLength > 0.01f)
+                {
+                    aDirX = aDeltaX / aLength;
+                    aDirY = aDeltaY / aLength;
+                }
+                aProjectile->mTargetZombieID = mBoard->ZombieGetID(theTargetZombie);
+            }
+            aProjectile->mVelX = aDirX;
+            aProjectile->mVelY = aDirY;
+            aProjectile->mVelZ = 0.0f;
+        }
+
+        // 孤狼关卡：机枪家族（含激光豌豆这颗"一根枪管的机枪射手"）沿用同一个伤害 override
         if (mApp->IsLoneWolfLevel() && (mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
                                         mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_FIRE_GATLING_PEA ||
                                         mSeedType == SeedType::SEED_THREE_GATLING_PEA))
+            aProjectile->mDamageOverride = 200;
+
+        if (mSeedType == SeedType::SEED_LASER_PEA && mApp->IsLoneWolfLevel())
             aProjectile->mDamageOverride = 200;
 
         if (mSeedType == SeedType::SEED_PEASHOOTER && !mHasFiredFirstPea)
@@ -6295,7 +6496,7 @@ Zombie* Plant::FindTargetZombie(int theRow, PlantWeapon thePlantWeapon)
             }
         }
 
-        if (mSeedType != SeedType::SEED_CATTAIL)
+        if (mSeedType != SeedType::SEED_CATTAIL && mSeedType != SeedType::SEED_LASER_PEA)
         {
             if (mSeedType == SeedType::SEED_GLOOMSHROOM)
             {
@@ -6386,6 +6587,18 @@ Zombie* Plant::FindTargetZombie(int theRow, PlantWeapon thePlantWeapon)
                 if (aZombie->IsFlying())
                 {
                     aWeight += 10000;  // 优先攻击飞行单位
+                }
+            }
+            else if (mSeedType == SeedType::SEED_LASER_PEA)
+            {
+                // 激光豌豆：**不限本行**（上面的行判定已经把它排除掉了），射程与攻击矩形内的任何
+                // 一行都能打；同类里取**离家最近**（最靠左）的一只，飞行僵尸额外加一个大权重 →
+                // "射程内空中僵尸优先"。加成幅度取得远大于场地宽度，于是"任一飞行僵尸"都排在
+                // "所有地面僵尸"前面。
+                aWeight = -aZombieRect.mX;
+                if (aZombie->IsFlying())
+                {
+                    aWeight += 100000;
                 }
             }
 
@@ -6655,12 +6868,14 @@ bool Plant::IsRedCard(SeedType theSeedtype)
     // 1.5 发射手（旅行专属，贴图 = 去掉眉毛的双发射手）、
     // 究极电能机枪射手（旅行专属，贴图 = 主体/枪管变白的机枪射手）、
     // 究极电能星星果（旅行专属，贴图 = 主体/眼睛变电光蓝的杨桃）、
-    // 火豌豆射手（旅行专属，贴图 = 带火的豌豆射手，叶子位置被火焰取代）。
+    // 火豌豆射手（旅行专属，贴图 = 带火的豌豆射手，叶子位置被火焰取代）、
+    // 激光豌豆（旅行专属，外观 = 只有一根枪管的机枪射手，每 0.8 秒一道贯穿激光）。
     return theSeedtype == SeedType::SEED_GIANT_WALLNUT ||
            theSeedtype == SeedType::SEED_PEATER_1_5 ||
            theSeedtype == SeedType::SEED_ELECTRIC_GATLING_PEA ||
            theSeedtype == SeedType::SEED_ELECTRIC_STARFRUIT ||
-           theSeedtype == SeedType::SEED_FIRE_PEASHOOTER;
+           theSeedtype == SeedType::SEED_FIRE_PEASHOOTER ||
+           theSeedtype == SeedType::SEED_LASER_PEA;
 }
 
 Rect Plant::GetPlantRect()
@@ -6739,6 +6954,8 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
         aReanimType = SnowGatlingReanimType();
     else if (theSeedType == SeedType::SEED_FIRE_GATLING_PEA)
         aReanimType = FireGatlingReanimType();
+    else if (theSeedType == SeedType::SEED_LASER_PEA)
+        aReanimType = LaserPeaReanimType();
 
     if (aReanimType != ReanimationType::REANIM_NONE)
     {

@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 # Travel modes must never spawn the Catapult zombie (ZOMBIE_CATAPULT).
 # Three enforcement points share Board::IsTravelForbiddenZombie():
@@ -12,15 +12,21 @@ $ErrorActionPreference = 'Stop'
 # Keep this file ASCII-only: Windows PowerShell 5.1 reads BOM-less .ps1 files as ANSI, and
 # non-ASCII comment bytes can swallow the following line.
 
-function Assert-Source([string]$Path, [string]$Pattern, [string]$Message) {
-    $content = Get-Content -Raw -LiteralPath $Path
+# 调用点有的传相对路径、有的传 P 出来的绝对路径，这里统一处理。
+# 注意：本函数在 $root 定义**之前**就被插入，所以根目录在这里按 $PSScriptRoot 现算，不依赖外部变量。
+function Resolve-RepoFile([string]$theRelPath) {
+    if ([System.IO.Path]::IsPathRooted($theRelPath)) { return $theRelPath }
+    return (Join-Path (Split-Path -Parent $PSScriptRoot) $theRelPath)
+}
+function Assert-Source([string]$RelPath, [string]$Pattern, [string]$Message) {
+    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath (Resolve-RepoFile $RelPath)
     if ($content -notmatch $Pattern) {
         throw $Message
     }
 }
 
-function Assert-NotSource([string]$Path, [string]$Pattern, [string]$Message) {
-    $content = Get-Content -Raw -LiteralPath $Path
+function Assert-NotSource([string]$RelPath, [string]$Pattern, [string]$Message) {
+    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath (Resolve-RepoFile $RelPath)
     if ($content -match $Pattern) {
         throw $Message
     }

@@ -174,6 +174,64 @@ constexpr const int   THREE_GATLING_HEIGHT_JITTER     = 15;    // 每颗子弹�
 // 留出余量给其它植物/弹丸后开始拒发（见 Plant::FireThreeGatlingVolley）。
 constexpr const int   THREE_GATLING_PROJECTILE_POOL_GUARD = 3072;
 
+// ===== 激光豌豆（旅行红卡 SEED_LASER_PEA）=====
+// 旅行专属红卡，400 阳光 / 普通短冷却（750）/ 300 生命，外观 = 机枪射手，但只画**一根枪管**。
+//
+// 攻击：每 0.2 秒一道绿色激光，从枪口射向**本行或其它行**的目标，路径上的每只僵尸各吃
+//   LASER_PEA_DAMAGE（20）点；同一道光束对同一只僵尸只结算一次（不是持续接触伤害）。
+//   0.2 秒 = 20 逻辑帧（100 逻辑帧/秒）—— 与其它射手不同，这里**不掺** `Rand(15)` 抖动，
+//   因为"每 0.2 秒"是这只植物的定义特征（见 Plant::UpdateShooter）。
+//
+//   注意：机枪射手的开火动画（`anim_shooting`）在 reanim 里有 39 帧，按 35 的速率播要 1.1 秒 ——
+//   比 0.2 秒的节奏长五倍多，硬播会被下一发不断打断、看起来像头部在抽搐。
+//   所以激光豌豆**不播开火动画**：头一直保持在 `anim_head_idle`，节奏由光束本身承担
+//   （每 20 帧亮 6 帧 ≈ 三成占空比，读起来就是"连发脉冲"）。见 UpdateShooting / FindTargetAndFire。
+//
+// 索敌：**不限本行**（这一点与机枪射手不同）——射程与攻击矩形内的任何一行都能打，并且
+//   **空中僵尸优先**（先取最近的飞行僵尸；没有才取最近的僵尸）。选定目标后激光就朝它射出去，
+//   光束是一条**有角度的直线**，所以目标那一行以及这条线扫过的其它僵尸都会吃到伤害
+//   （表现就是"一道光斜着穿过去，沿途全中"）。
+//
+// 实现：开火时生成一颗**不移动**的弹丸 PROJECTILE_LASER_PEA，它只在出生那一帧结算一次伤害，
+//   随后作为纯视觉停留 LASER_PEA_BEAM_TICKS 帧并淡出（与电能链式闪电一样由 Board 顶层统一绘制，
+//   见 Projectile::DrawAllLaserBeams）。这样既复用了弹丸池的寿命管理，又不会出现"贯穿弹丸
+//   反复命中同一只僵尸"的老问题（不需要每颗子弹记一串已命中目标）。
+//
+// 光束的方向存在弹丸的 mVelX/mVelY 上（**单位向量**，弹丸本身不移动，mVel 只当方向用）：
+//   发射时 = (目标中心 - 枪口) 归一化；绘制与命中判定都读它，所以改方向只需改 Plant::Fire 一处。
+constexpr const int   LASER_PEA_LAUNCH_RATE = 20;    // 0.2 秒（100 帧/秒）—— 精确值，不掺 Rand(15)
+constexpr const int   LASER_PEA_DAMAGE      = 20;    // 每只被命中的僵尸受到的伤害
+constexpr const int   LASER_PEA_BEAM_TICKS  = 6;     // 光束的视觉存活帧数（出生帧算第 1 帧）
+// 光束的"射程"（世界像素）：从枪口沿方向走这么远就停止绘制与判定。
+// 取一个大于场地对角线（~1130）的值即可视为"无限远"，同时又不会让线段长度失控。
+constexpr const float LASER_PEA_BEAM_RANGE  = 1200.0f;
+
+// 枪管前移量（屏幕像素，正数 = 向屏幕右方）。同时作用于**两处**，必须保持一致：
+//   1) 枪管轨道在 reanim 里的水平偏移（挂在轨道实例的 mShakeX 上，只挪这一条轨道）；
+//   2) 光束的起点（Plant::Fire 里的出膛点）。
+// 只改一处会出现"枪管挪了但光束还在原处"（或反之）的错位。
+// 想再往前/往后调就只动这一个数。
+constexpr const float LASER_PEA_BARREL_OFFSET_X = 10.0f;
+
+// 激光的颜色与粗细：外圈是深一点的绿辉光、内芯是明亮的纯绿（不是白），叠两层读起来才像
+// "绿色激光"而不是一条白线。粗细单位是"沿垂直方向平移出来的平行线数量"（Graphics 只有 1px 的
+// DrawLine），所以 LASER_PEA_BEAM_GLOW_WIDTH 条辉光 + LASER_PEA_BEAM_CORE_WIDTH 条内芯。
+// 太细看不出来、太粗会盖住僵尸，这几个数值是观感的主要调参点。
+constexpr const int   LASER_PEA_BEAM_GLOW_WIDTH = 15;   // 外圈辉光宽度（像素）
+constexpr const int   LASER_PEA_BEAM_CORE_WIDTH = 7;    // 内芯宽度（像素）
+constexpr const int   LASER_PEA_BEAM_GLOW_ALPHA = 170;  // 外圈辉光的亮度上限
+constexpr const int   LASER_PEA_BEAM_CORE_ALPHA = 255;  // 内芯的亮度上限
+// 外圈：偏深的草绿（比草坪亮，但明显是绿的）
+constexpr const int   LASER_PEA_BEAM_GLOW_R = 40;
+constexpr const int   LASER_PEA_BEAM_GLOW_G = 210;
+constexpr const int   LASER_PEA_BEAM_GLOW_B = 60;
+// 内芯：明亮的纯绿（R/B 都压得很低，只有 G 拉满）—— 之前 R/B 给到 225/230 会被读成"白色激光"
+constexpr const int   LASER_PEA_BEAM_CORE_R = 60;
+constexpr const int   LASER_PEA_BEAM_CORE_G = 255;
+constexpr const int   LASER_PEA_BEAM_CORE_B = 80;
+// 光束命中判定的左右余量：枪口右侧这一小段不参与判定，避免打到"贴着植物身后/脚下"的僵尸。
+constexpr const int   LASER_PEA_MUZZLE_MARGIN = 8;
+
 // ===== 投手类植物（卷心菜投手 / 玉米投手 / 西瓜投手 / 冰瓜投手）=====
 // 投手"一次投掷"就是一轮 anim_shooting：原版对**本行每只僵尸各投一颗**，
 // 所以一行堆满僵尸时一次能糊出去十几颗弹丸（配合西瓜/冰瓜的溅射会瞬间清场）。

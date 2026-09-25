@@ -1954,6 +1954,7 @@ namespace
 		SeedType::SEED_FIRE_PEASHOOTER,      // 火豌豆射手（旅行红卡：带火的豌豆射手，直接种下）
 		SeedType::SEED_FIRE_GATLING_PEA,     // 火焰机枪射手（合成态：沙盒内需先在机枪射手上种火豌豆射手）
 		SeedType::SEED_THREE_GATLING_PEA,    // 三线机枪射手（合成态：沙盒内需先在机枪射手上种三线射手）
+		SeedType::SEED_LASER_PEA,            // 激光豌豆（旅行红卡：只有一根枪管的机枪射手，直接种下）
 	};
 	constexpr int ICE_PLANT_COUNT = sizeof(gIceSandboxPlantSeeds) / sizeof(gIceSandboxPlantSeeds[0]);
 	constexpr int ICE_ZOMBIE_COUNT = sizeof(gIceSandboxZombieTypes) / sizeof(gIceSandboxZombieTypes[0]);
@@ -9848,6 +9849,9 @@ void Board::Draw(Graphics* g)
 	// 坐标空间与弹丸一致：Board 作为 Widget 已经把自己的位置翻译进了 g，弹丸渲染时补的
 	// mX / mY 其实是"震屏偏移"，所以这里同样在屏幕坐标上补一份，闪电才会跟着震屏一起抖。
 	Projectile::DrawAllElectricChains(this, g);
+
+	// 激光豌豆的贯穿光束：同样必须在所有渲染项之后画，否则会被同层后面渲染的僵尸盖住
+	Projectile::DrawAllLaserBeams(this, g);
 }
 
 // GOTY @Patoke: 0x41D910

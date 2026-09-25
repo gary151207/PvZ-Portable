@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 # "一大波僵尸即将来袭"（MESSAGE_STYLE_HUGE_WAVE）字幕的 UTF-8 检查：
 #   该字幕是整个游戏里唯一走"逐字淡入"文字动画（REANIM_TEXT_FADE_ON）的提示，
@@ -7,15 +7,21 @@ $ErrorActionPreference = 'Stop'
 # 说明：本仓库无自动化测试框架（见 AGENTS.md），与其它 check-*.ps1 一样做源级断言；
 #      实际观感（红字是否出现、逐字淡入是否正常）仍需手动进游戏验证。
 
-function Assert-Source([string]$Path, [string]$Pattern, [string]$Message) {
-    $content = Get-Content -Raw -LiteralPath $Path
+# 调用点有的传相对路径、有的传 P 出来的绝对路径，这里统一处理。
+# 注意：本函数在 $root 定义**之前**就被插入，所以根目录在这里按 $PSScriptRoot 现算，不依赖外部变量。
+function Resolve-RepoFile([string]$theRelPath) {
+    if ([System.IO.Path]::IsPathRooted($theRelPath)) { return $theRelPath }
+    return (Join-Path (Split-Path -Parent $PSScriptRoot) $theRelPath)
+}
+function Assert-Source([string]$RelPath, [string]$Pattern, [string]$Message) {
+    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath (Resolve-RepoFile $RelPath)
     if ($content -notmatch $Pattern) {
         throw $Message
     }
 }
 
-function Assert-NotSource([string]$Path, [string]$Pattern, [string]$Message) {
-    $content = Get-Content -Raw -LiteralPath $Path
+function Assert-NotSource([string]$RelPath, [string]$Pattern, [string]$Message) {
+    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath (Resolve-RepoFile $RelPath)
     if ($content -match $Pattern) {
         throw $Message
     }

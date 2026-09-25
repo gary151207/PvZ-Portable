@@ -106,6 +106,10 @@ public:
     // 所以这里缓存一份；反过来，如果 ID 查得到植物、但那株植物已经不是究极形态
     // （数组槽位被复用的极端情况），以现查结果为准并就地修正缓存，避免认错来源。
     bool                    mElectricChainSource = false;
+    // 激光豌豆的光束：剩余可见帧数（0 = 已经熄灭）。
+    // 光束是"不移动的弹丸"，只在出生那一帧结算一次本行的贯穿伤害（见 UpdateLaserPeaBeam），
+    // 之后这个字段只驱动观感（越接近 0 越暗）。纯表现字段，读档按 0 处理即可，无需写进存档。
+    int32_t                 mLaserPeaBeamCountdown = 0;
 
 public:
     Projectile();
@@ -144,6 +148,12 @@ public:
     void                    UpdateElectricChainLightning();
     void                    DrawElectricChain(Graphics* g);
     static void             DrawAllElectricChains(Board* theBoard, Graphics* g);
+    // 激光豌豆的贯穿光束：伤害结算（出生那一帧一次）与顶层绘制（与链式闪电同一套做法，
+    // 由 Board::Draw 在所有渲染项之后统一调用，保证光束永远压在最上层）。
+    bool                    IsLaserPeaBeam() const { return mProjectileType == ProjectileType::PROJECTILE_LASER_PEA; }
+    void                    UpdateLaserPeaBeam();
+    void                    DrawLaserPeaBeam(Graphics* g);
+    static void             DrawAllLaserBeams(Board* theBoard, Graphics* g);
 
 };
 

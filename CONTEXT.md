@@ -149,9 +149,9 @@ _避免_：喷菇群、三头喷菇、Fume 群
 
 **红卡 (Red Card)**：
 卡包底色渲染为红色系的旅行高阶卡级（对标紫卡升级卡）。由 `Plant::IsRedCard` 判定；
-当前五张 = **巨大坚果**（`SEED_GIANT_WALLNUT`）、**1.5 发射手**（`SEED_PEATER_1_5`）、
-**究极电能机枪射手**（`SEED_ELECTRIC_GATLING_PEA`）、**究极电能星星果**（`SEED_ELECTRIC_STARFRUIT`）
-与 **火豌豆射手**（`SEED_FIRE_PEASHOOTER`）。
+当前六张 = **巨大坚果**（`SEED_GIANT_WALLNUT`）、**1.5 发射手**（`SEED_PEATER_1_5`）、
+**究极电能机枪射手**（`SEED_ELECTRIC_GATLING_PEA`）、**究极电能星星果**（`SEED_ELECTRIC_STARFRUIT`）、
+**火豌豆射手**（`SEED_FIRE_PEASHOOTER`）与 **激光豌豆**（`SEED_LASER_PEA`）。
 _避免_：红卡植物、稀有卡
 
 **巨大坚果 (Giant Wall-nut)**：
@@ -371,10 +371,81 @@ _避免_：火机枪射手、火焰机枪豌豆、火焰加特林
 `ThreePeater.reanim` / `GatlingPea.reanim` 变了必须重跑）。
 _避免_：三连机枪射手、机枪三线射手、加特林三线
 
+**激光豌豆 (Laser Pea)**：
+旅行专属**红卡**（`SEED_LASER_PEA`，**可直接种下**，无升级/合成路径）：**400 阳光**、普通短冷却
+（`mRefreshTime = 750`）、300 生命、`PlantSubClass::SUBCLASS_SHOOTER`。
+**攻击**：每 **0.2 秒**（`LASER_PEA_LAUNCH_RATE = 20`，100 逻辑帧/秒）一道**绿色激光**，从枪口射向锁定
+目标，路径上的**每只僵尸各吃 20 点**（`LASER_PEA_DAMAGE`）——同一道光束对同一只僵尸**只结算一次**
+（不是持续接触伤害）。与其它射手**不同**：`UpdateShooter` 里激光豌豆的间隔**不掺** `Rand(15)` 抖动
+（0.2 秒是这只植物的定义特征）。每秒 5 发 × 20 点 ≈ 100 DPS（单只），与机枪射手的量级接近。
+**不播开火动画（踩过坑）**：机枪射手的 `anim_shooting` 在 reanim 里有 **39 帧**，按 35 的动画速率要
+**1.1 秒** —— 比 0.2 秒的节奏长五倍多。硬播会被下一发不停打断，看起来像头部抽搐。所以激光豌豆
+**跳过开火动画**（`FindTargetAndFire` 给它单独一支空分支），头一直保持 `anim_head_idle`，
+视觉完全交给光束（每 20 帧亮 6 帧 ≈ 三成占空比，读起来就是"连发脉冲"）。
+**出弹时刻走 `mLaunchCounter` 而不是 `mShootingCounter`**：因为不播动画，`mShootingCounter` 在它身上
+不再承担计时职责（保持 0）；`UpdateShooting` 的激光分支在自减之前就 `return`，改成判断
+`mLaunchCounter == 1` 时调用 `FireLaserPea()`。注意调用顺序是 `UpdateShooting()` 先、`UpdateShooter()`
+后（`Plant::Update`），所以 `mLaunchCounter` 恰好耗尽的那一帧不会重复开火。
+**索敌：不限本行**（`FindTargetZombie` 里把 `SEED_LASER_PEA` 与香蒲一起从行判定里豁免掉）。射程与攻击矩形
+（`GetPlantAttackRect` 的默认 `mX+60 / 宽度 800`）内的**任何一行**都能锁定；同类里取**离家最近**（`mX` 最小）
+的一只，飞行僵尸额外 `+100000` 权重 → **空中僵尸优先**（加成远大于场地宽度，于是"任一飞行僵尸"排在
+"所有地面僵尸"前面）。
+**光束是一条有角度的直线**：`Plant::Fire` 按"枪口 → 目标身体中心"算出**单位方向向量**存在弹丸的
+`mVelX/mVelY` 上（弹丸本身不移动，`mVel` 只当方向用；`mVelZ` 保持 0）。于是目标那一行以及这条线扫过的
+**其它行**僵尸也会吃到伤害——表现就是"一道光斜着穿过去，沿途全中"。
+**出弹时要把目标传进 `Fire`（踩过坑）**：真正出弹的那一步在 `UpdateShooting`，
+那里最早写的是 `Fire(nullptr, mRow, ...)` —— `nullptr` 会走 `Fire` 的方向兜底分支（水平向右），于是
+**"能锁定别的行、但光束永远不斜"**。现在改成调用新加的 `Plant::FireLaserPea()`：它**重新索敌**
+（`FindTargetZombie`，所以目标死了/换了都会重新瞄），再把目标交给 `Fire`。
+`scripts/check-laser-pea.ps1` 有专门的防回归断言（禁止再出现 `Fire(nullptr, mRow` 那一支）。
+**实现**：开火时生成一颗**不移动**的弹丸 `PROJECTILE_LASER_PEA`，它在**出生那一帧**结算一次伤害
+（`Projectile::UpdateLaserPeaBeam`），随后作为**纯视觉**停留 `LASER_PEA_BEAM_TICKS = 6` 帧并淡出。
+做成"不移动的弹丸"而不是高速穿透弹丸，是为了避开"无限穿透 = 反复结算 = 同一只僵尸反复掉血"的坑
+（既有的 `PROJECTILE_SPIKE` 只有 `mPenetrations` 两段 + 单目标 `mLastHitZombieID` 回溯），同时白拿弹丸池的
+寿命管理，不必新造一套特效对象。
+**出生帧的判定必须用 `mLaserPeaBeamCountdown` 满值、不能用 `mProjectileAge`（踩过坑）**：
+`Projectile::Update` 一进来就 `mProjectileAge++`，所以进到这个函数时年龄永远 `>= 1`；而且 `Update` 在游戏
+场景不是 `SCENE_PLAYING` 时会提前 `return`（年龄照样在涨）。最早的版本用 `mProjectileAge == 0` 当首帧标记，
+结果是**死代码** —— 表现就是"激光看得见、但一点伤害都没有"。倒计时是这一帧才在 `ProjectileInitialize` 里
+置成满值的，用它当首帧标记最稳。`scripts/check-laser-pea.ps1` 有专门的防回归断言。
+**命中判定用线段/矩形相交**（`LaserBeamHitsRect`，slab 法），**不能**像豌豆那样拿两个矩形求重叠 ——
+斜着的光束用矩形重叠要么漏目标、要么把没扫到的僵尸也算进去。光束从枪口沿方向走
+`LASER_PEA_BEAM_RANGE = 1200` 像素（大于场地对角线，等效"无限远"）。掩码同时提供地面与空中位，所以
+气球僵尸与地面僵尸被同一道激光同时打到；潜水僵尸沿用"电能豌豆"那条 `mPosZ < 45` 的规避。
+`TakeDamage(aDamage, 0U)` → 不绕盾、不吃冰冻、不加成。
+**绘制**：光束本体不画贴图（`Draw` 里 `aImage = nullptr`），由 `Board::Draw` 在**所有渲染项之后**统一调用
+`Projectile::DrawAllLaserBeams`（与链式闪电同一套做法，紧跟在 `DrawAllElectricChains` 之后），沿方向画到
+`LASER_PEA_BEAM_RANGE` 处，**外圈深绿辉光（15px）+ 内芯明亮纯绿（7px）**两层、按剩余帧数淡出。
+内芯的 R/B 必须压得比 G 低不少（`60/255/80`）—— 一开始给到 `225/255/230` 会被读成"白色激光"。
+坐标补 `mBoard->mX/mY`，随震屏一起抖；不画地面影子。
+**贴图**：身体/头部/嘴/眨眼/头盔**全部沿用机枪射手**，只把**枪管**换成玩家的
+`res/main/reanim/LaserPea_barrel.png`，并把它**只渲染一根**：新增
+`ReanimationType::REANIM_LASER_PEA`（与机枪射手**同一个 reanim 文件** `reanim/GatlingPea.reanim`、
+**独立定义槽**、`REANIM_NO_ATLAS`），`LaserPeaHasCustomArt()` 只把
+`reanim/GATLINGPEA_BARREL` 换成 `reanim/LaserPea_barrel_small.png` 一张图，同时
+`LaserPeaHideExtraTracks()` 在 body/head 两个实例上把机枪射手多出来的
+`GatlingPea_barrel2/3/4` 与枪口叠加层 `GatlingPea_mouth_overlay` 设成 `RENDER_GROUP_HIDDEN`
+→ 整株只有**一根枪管、一张嘴**（枪管轨道的绘制顺序是 `barrel3 → barrel4 → barrel2 → barrel1`，
+留着的是最后画的 `barrel1`）。任何一张图缺图/无透明通道/尺寸不符就整体回退成普通机枪射手外观（四根枪管）。
+**枪管前移**：留下的那根枪管是按"机枪射手四段枪管总成"定位的，所以 `LaserPeaShiftBarrel()` 把它沿 X 再挪
+`LASER_PEA_BARREL_OFFSET_X = 10` 像素（走轨道实例的 `mShakeX`：`mShakeOverride == 0`，不会被
+`Reanimation::Update` 随机覆盖，而且只挪这一条轨道；传 **head 实例**，枪管与脸在同一层）。
+**同一个常量也必须加在 `Plant::Fire` 的光束起点上**（`mX + aOffsetX + 34 + LASER_PEA_BARREL_OFFSET_X`），
+否则会出现"枪管挪了但光束还在原处"的错位 —— 想调枪管位置就只动这一个数。卡面/图鉴/光标预览同样要调
+`LaserPeaShiftBarrel()`。
+**贴图为什么要离线缩放（关键）**：`ApplyReanimArtSwaps` 的安全阀要求"新图与被替换的原图**宽高完全一致**"
+（reanim 按帧号索引贴图列，尺寸不符会串帧），而机枪射手的枪管部件只有 **43×27**、玩家原图是 **500×500**。
+于是新增 `tools/make-laser-pea-barrel.py`：按 alpha 求外接框 → 用"每行 alpha 像素数"的**中部最细处**
+把原图上下叠着的**两根管子分开**（玩家的图是"上短管 + 下长主管"，只保留**下面那根主枪管**，可用
+`--part upper` 换）→ 在**预乘 alpha** 空间做面积平均缩放到 43×27（直接平均非预乘 RGBA 会出一圈黑边）→
+按 alpha 加权重心居中，输出 `res/main/reanim/LaserPea_barrel_small.png`（**原图保持不动**，`pak.py` 会把新图
+一起打进 `main.pak`）。观感（枪管落在哪、朝哪、大小）仍以进游戏为准。
+_避免_：激光射手、激光机枪射手、镭射豌豆
+
 ### 关系
 
 - **旅行关卡** 的选卡器可**翻页**；**翻页**第 1 页放**旅行专属植物**（当前：**大喷菇群**、**巨大坚果**、
-  **1.5 发射手**、**究极电能机枪射手**、**究极电能星星果**、**火豌豆射手**）
+  **1.5 发射手**、**究极电能机枪射手**、**究极电能星星果**、**火豌豆射手**、**激光豌豆**）
 - **大喷菇群** = 紫卡升级卡：拖到已种**大喷菇**格执行升级；选卡时必须同选**大喷菇**（否则开始被拦）
 - **大喷菇群**三个头各喷各的：中间**大喷菇**烟雾（本行 3×3 穿透），两侧**小喷菇**孢子（单体、微斜、340px 内命中邻行边缘）
 - **巨大坚果** = **红卡** = **双坚果底座**产物：只出现在旅行关（传送带/页 1）；占两格、挡跳跃、
@@ -407,7 +478,11 @@ _避免_：三连机枪射手、机枪三线射手、加特林三线
   **返还 325 阳光**（`THREE_GATLING_SYNTHESIS_REFUND`，净花费 0）；贴图是**独立 reanim 文件**
   `reanim/ThreeGaling.reanim`（三线射手的三个头 + 三顶机枪头盔 + 每头一根四段枪管 + 嘴洞上再叠一层唇形），
   原版三线射手不受影响
-- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]`/`[FIRE_PEASHOOTER]`/`[FIRE_GATLING_PEA]`/`[THREE_GATLING_PEA]` 标准键）
+- **激光豌豆** = **红卡**：只出现在旅行关（页 1/沙盒旅行页）；**可直接种下**、400 阳光；
+  外观 = 机枪射手，但**只有一根枪管、一张嘴**；每 **0.8 秒**一道**绿色**激光，**可锁定射程内任意一行**的
+  僵尸（**优先索敌空中僵尸**），贯穿这条斜线路径上的所有僵尸、每只 **20 点**伤害；
+  普通模式不可选/不可拥有（`HasSeedType` 旅行特判）
+- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]`/`[FIRE_PEASHOOTER]`/`[FIRE_GATLING_PEA]`/`[THREE_GATLING_PEA]`/`[LASER_PEA]` 标准键）
   - **必须把该文件复制到当前 `-resdir` 的 `properties/` 里**，否则所有 mod 字符串都显示成
     `<Missing [XXX]>`。`run-pvz.bat` 的 `RESDIR` 就是"当前资源目录"——它换一次，这里就要跟着装一次。
   - 加载顺序（`LawnApp::LoadingThreadProc`）：`TodStringListLoad(LawnStrings.txt)` → `LoadProperties(pvzp-strings.xml)`，

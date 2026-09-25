@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 # Source-level checks for the Electric Gatling Pea (SEED_ELECTRIC_GATLING_PEA):
 #   red card + upgrade card (upgraded from Gatling Pea, 200 sun) / travel-only /
@@ -11,8 +11,14 @@ $ErrorActionPreference = 'Stop'
 # Design doc: docs/superpowers/specs/2026-08-31... see
 #   docs/superpowers/specs/2026-09-12-electric-gatling-pea-design.md
 
-function Assert-Source([string]$Path, [string]$Pattern, [string]$Message) {
-    $content = Get-Content -Raw -LiteralPath $Path
+# 调用点有的传相对路径、有的传 P 出来的绝对路径，这里统一处理。
+# 注意：本函数在 $root 定义**之前**就被插入，所以根目录在这里按 $PSScriptRoot 现算，不依赖外部变量。
+function Resolve-RepoFile([string]$theRelPath) {
+    if ([System.IO.Path]::IsPathRooted($theRelPath)) { return $theRelPath }
+    return (Join-Path (Split-Path -Parent $PSScriptRoot) $theRelPath)
+}
+function Assert-Source([string]$RelPath, [string]$Pattern, [string]$Message) {
+    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath (Resolve-RepoFile $RelPath)
     if ($content -notmatch $Pattern) {
         throw $Message
     }

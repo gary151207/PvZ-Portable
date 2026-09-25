@@ -208,6 +208,11 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	// 不需要任何运行期换图；仍标 REANIM_NO_ATLAS：不建 Atlas，定义里的 mImage 始终是真实指针，
 	// 也不会与 REANIM_THREEPEATER 共用同一批源贴图（原版三线射手因此完全不受影响）。
 	{ ReanimationType::REANIM_THREE_GATLINGPEA,                     "reanim/ThreeGaling.reanim",                       1 << ReanimFlags::REANIM_NO_ATLAS },
+	// 激光豌豆：与 REANIM_GATLINGPEA 同一个文件，但 Plant.cpp 只把枪管换成
+	// reanim/LaserPea_barrel_small.png 一张图，并在建动画时隐藏多余的三根枪管
+	// （GatlingPea_barrel2/3/4）与枪口叠加层（GatlingPea_mouth_overlay）——
+	// 于是整株只画一根枪管、一张嘴。用 REANIM_NO_ATLAS 的理由与上面几个改图槽位一致。
+	{ ReanimationType::REANIM_LASER_PEA,                            "reanim/GatlingPea.reanim",                        1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

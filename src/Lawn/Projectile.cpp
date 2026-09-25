@@ -56,7 +56,8 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_ZOMBIE_PEA,    0,  20  },
 	{ ProjectileType::PROJECTILE_FIREPEA_RED,   0,  30  },
 	{ ProjectileType::PROJECTILE_ELECTRIC_STAR, 0,  ELECTRIC_STAR_HIT_DAMAGE },
-	{ ProjectileType::PROJECTILE_PURPLE_FIRE_PEA, 0, 65 }   // 紫火豌豆（火豌豆射手）：65 伤害 + 命中后僵尸易伤
+	{ ProjectileType::PROJECTILE_PURPLE_FIRE_PEA, 0, 65 },   // 紫火豌豆（火豌豆射手）：65 伤害 + 命中后僵尸易伤
+	{ ProjectileType::PROJECTILE_LASER_PEA, 0, LASER_PEA_DAMAGE }   // 激光豌豆的贯穿光束：路径上每只僵尸 20 伤害
 };
 
 Projectile::Projectile()
@@ -116,9 +117,16 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 	mElectricChainFlash = 0;
 	mSourcePlantID = PlantID::PLANTID_NULL;
 	mElectricChainSource = false;
+	mLaserPeaBeamCountdown = 0;
 	if (mProjectileType == ProjectileType::PROJECTILE_SPIKE)
 	{
 		mPenetrations = 2;
+	}
+	else if (mProjectileType == ProjectileType::PROJECTILE_LASER_PEA)
+	{
+		// 激光豌豆的光束：不移动（mVelX/Y/Z 全 0，由 Plant::Fire 再明确置零一次），
+		// 只在出生那一帧结算一次伤害，然后作为纯视觉停留 LASER_PEA_BEAM_TICKS 帧。
+		mLaserPeaBeamCountdown = LASER_PEA_BEAM_TICKS;
 	}
 
 	switch (mProjectileType)
@@ -683,6 +691,199 @@ void Projectile::DrawAllElectricChains(Board* theBoard, Graphics* g)
 	while (theBoard->IterateProjectiles(aProjectile))
 	{
 		aProjectile->DrawElectricChain(g);
+	}
+}
+
+// 线段与轴对齐矩形是否相交（slab 法）。
+// 激光是一条有角度的线，所以命中判定不能像豌豆那样拿两个矩形求重叠 —— 必须做真正的线段/矩形相交，
+// 否则"斜着打过去的光束"要么漏掉目标、要么把没扫到的僵尸也算进去。
+static bool LaserBeamHitsRect(float theFromX, float theFromY, float theDirX, float theDirY,
+	float theRange, const Rect& theRect)
+{
+	// 先把线段裁到矩形四条边的外侧区间（slab）：两个方向的参数区间只要有交集就相交
+	float aMinT = 0.0f;
+	float aMaxT = theRange;
+
+	const float aOriginX = theFromX;
+	const float aOriginY = theFromY;
+
+	// X 方向
+	if (FloatApproxEqual(theDirX, 0.0f))
+	{
+		if (aOriginX < theRect.mX || aOriginX > theRect.mX + theRect.mWidth)
+			return false;
+	}
+	else
+	{
+		float aT1 = (theRect.mX - aOriginX) / theDirX;
+		float aT2 = (theRect.mX + theRect.mWidth - aOriginX) / theDirX;
+		if (aT1 > aT2)
+		{
+			float aSwap = aT1;
+			aT1 = aT2;
+			aT2 = aSwap;
+		}
+		aMinT = std::max(aMinT, aT1);
+		aMaxT = std::min(aMaxT, aT2);
+	}
+
+	// Y 方向
+	if (FloatApproxEqual(theDirY, 0.0f))
+	{
+		if (aOriginY < theRect.mY || aOriginY > theRect.mY + theRect.mHeight)
+			return false;
+	}
+	else
+	{
+		float aT1 = (theRect.mY - aOriginY) / theDirY;
+		float aT2 = (theRect.mY + theRect.mHeight - aOriginY) / theDirY;
+		if (aT1 > aT2)
+		{
+			float aSwap = aT1;
+			aT1 = aT2;
+			aT2 = aSwap;
+		}
+		aMinT = std::max(aMinT, aT1);
+		aMaxT = std::min(aMaxT, aT2);
+	}
+
+	return aMinT <= aMaxT;
+}
+
+// 激光豌豆的光束：从枪口沿发射时定下的方向射出去，路径上每只僵尸各吃 LASER_PEA_DAMAGE 点伤害。
+//
+// 为什么做成"不移动的弹丸"而不是一颗高速穿透弹丸：
+//   1) 需求是"贯穿路径上所有僵尸"，一次结算最干净 —— 不需要给每颗子弹记一串已命中目标
+//      （仓库里既有的穿透弹丸 PROJECTILE_SPIKE 是靠 mPenetrations 计数 + mLastHitZombieID
+//      单目标回溯，那种做法对"无限穿透"只能靠 mProjectileAge 反复结算，容易出现同一只僵尸
+//      在光束里反复掉血）；
+//   2) 弹丸池本来就负责寿命管理（Board::mProjectiles），光束借用它就不必新造一套特效对象。
+//
+// 判定口径：
+//   - **不限行**：光束是一条有角度的射线（方向存在 mVelX/mVelY 上，由 Plant::Fire 按目标算出来），
+//     所以目标那一行以及这条线扫过的其它僵尸都会吃到伤害；
+//   - 空中/地面僵尸共用这一道光束：掩码里同时提供地面与空中位，于是无论目标属性如何都会走到结算；
+//     真正被排除的仍是原版那套（濒死、被魅惑、蹦极/雪橇免疫、矿工钻地、潜水、空投过程……）；
+//   - 判定用**线段/矩形相交**（LaserBeamHitsRect），而不是两个矩形求重叠；
+//   - 潜水中的僵尸沿用"电能豌豆"那条规避（mPosZ < 45 才算浮出水面可被打）。
+void Projectile::UpdateLaserPeaBeam()
+{
+	// ⚠ 出生帧的判定必须用 mLaserPeaBeamCountdown 满值，**不能**用 mProjectileAge：
+	//   Projectile::Update 一进来就 mProjectileAge++，所以这里的年龄永远 >= 1；
+	//   而 Update 在游戏场景不是 SCENE_PLAYING 时还会提前 return（年龄照样在涨），
+	//   于是"年龄 == 0"这种判定会永远不成立 —— 表现就是"激光看得见、但一点伤害都没有"。
+	//   倒计时是这一帧才在 ProjectileInitialize 里置成满值的，用它当"首帧"标记最稳。
+	if (mLaserPeaBeamCountdown == LASER_PEA_BEAM_TICKS)
+	{
+		const int aDamage = mDamageOverride > 0 ? mDamageOverride : LASER_PEA_DAMAGE;
+
+		// 方向默认水平向右（理论上 Plant::Fire 一定会写进来；这里只是防止出现零向量把归一化搞坏）
+		float aDirX = mVelX;
+		float aDirY = mVelY;
+		const float aLength = sqrt(aDirX * aDirX + aDirY * aDirY);
+		if (aLength < 0.01f)
+		{
+			aDirX = 1.0f;
+			aDirY = 0.0f;
+		}
+		else
+		{
+			aDirX /= aLength;
+			aDirY /= aLength;
+		}
+
+		// 光束起点 = 枪口（与 DrawLaserPeaBeam 用的是同一个点）
+		const float aFromX = mPosX + aDirX * LASER_PEA_MUZZLE_MARGIN;
+		const float aFromY = mPosY + mHeight * 0.5f;
+
+		const unsigned int aRangeFlags = (1U << static_cast<int>(DamageRangeFlags::DAMAGES_GROUND)) |
+		                                 (1U << static_cast<int>(DamageRangeFlags::DAMAGES_FLYING));
+
+		Zombie* aZombie = nullptr;
+		while (mBoard->IterateZombies(aZombie))
+		{
+			if (mPosZ >= 45.0f && aZombie->mZombiePhase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL)
+				continue;
+			if (!aZombie->EffectedByDamage(aRangeFlags))
+				continue;
+
+			Rect aZombieRect = aZombie->GetZombieRect();
+			if (!LaserBeamHitsRect(aFromX, aFromY, aDirX, aDirY, LASER_PEA_BEAM_RANGE, aZombieRect))
+				continue;
+
+			// 纯能量伤害：不绕盾、不吃冰冻、不加成（与普通豌豆同一套"不设任何伤害标志"的口径）。
+			aZombie->TakeDamage(aDamage, 0U);
+		}
+	}
+
+	// 首帧只结算伤害（倒计时保持满值）；从第 2 帧起每帧倒计时一次，归零就熄灭。
+	if (mProjectileAge > 1 && mLaserPeaBeamCountdown > 0)
+	{
+		if (--mLaserPeaBeamCountdown <= 0)
+		{
+			Die();
+		}
+	}
+}
+
+// 光束由"外圈辉光 + 内芯亮芯"两层描边叠出来，越接近熄灭越暗。
+// 光束是一条**有角度的直线**（方向来自 mVelX/mVelY，见 Plant::Fire），所以从枪口沿该方向
+// 走 LASER_PEA_BEAM_RANGE 像素作为终点；DrawElectricStroke 本身按线段的垂直方向铺平行线，
+// 所以斜着画也是均匀的粗细。
+// 与链式闪电一样在 Board 的顶层统一绘制（见 DrawAllLaserBeams），坐标补 Board 的震屏偏移。
+void Projectile::DrawLaserPeaBeam(Graphics* g)
+{
+	if (mLaserPeaBeamCountdown <= 0)
+	{
+		return;
+	}
+
+	float aDirX = mVelX;
+	float aDirY = mVelY;
+	const float aLength = sqrt(aDirX * aDirX + aDirY * aDirY);
+	if (aLength < 0.01f)
+	{
+		aDirX = 1.0f;
+		aDirY = 0.0f;
+	}
+	else
+	{
+		aDirX /= aLength;
+		aDirY /= aLength;
+	}
+
+	// 越接近熄灭越暗
+	float aPulse = static_cast<float>(mLaserPeaBeamCountdown) / LASER_PEA_BEAM_TICKS;
+	aPulse = ClampFloat(aPulse, 0.0f, 1.0f);
+
+	const float aScreenX = static_cast<float>(mBoard->mX);
+	const float aScreenY = static_cast<float>(mBoard->mY);
+	// 起点必须与 UpdateLaserPeaBeam 里那一帧用**同一个**枪口点（含 MUZZLE_MARGIN 沿方向的前移），
+	// 否则会出现"看着打中了却没掉血"。
+	const float aFromX = mPosX + aDirX * LASER_PEA_MUZZLE_MARGIN + aScreenX;
+	const float aFromY = mPosY + mHeight * 0.5f + aScreenY;
+	const float aToX = aFromX + aDirX * LASER_PEA_BEAM_RANGE;
+	const float aToY = aFromY + aDirY * LASER_PEA_BEAM_RANGE;
+
+	// 外圈辉光（先画宽的，再压上内芯，读起来才有"光晕包着亮芯"的层次）
+	g->SetColor(Color(LASER_PEA_BEAM_GLOW_R, LASER_PEA_BEAM_GLOW_G, LASER_PEA_BEAM_GLOW_B,
+		ClampInt(static_cast<int>(LASER_PEA_BEAM_GLOW_ALPHA * aPulse), 0, 255)));
+	DrawElectricStroke(g, aFromX, aFromY, aToX, aToY, LASER_PEA_BEAM_GLOW_WIDTH);
+	// 内芯
+	g->SetColor(Color(LASER_PEA_BEAM_CORE_R, LASER_PEA_BEAM_CORE_G, LASER_PEA_BEAM_CORE_B,
+		ClampInt(static_cast<int>(LASER_PEA_BEAM_CORE_ALPHA * aPulse), 0, 255)));
+	DrawElectricStroke(g, aFromX, aFromY, aToX, aToY, LASER_PEA_BEAM_CORE_WIDTH);
+}
+
+void Projectile::DrawAllLaserBeams(Board* theBoard, Graphics* g)
+{
+	Projectile* aProjectile = nullptr;
+	while (theBoard->IterateProjectiles(aProjectile))
+	{
+		if (aProjectile->IsLaserPeaBeam())
+		{
+			aProjectile->DrawLaserPeaBeam(g);
+		}
 	}
 }
 
@@ -1633,7 +1834,8 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_SPIKE || 
 		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED ||
 		mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA ||
-		mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR)
+		mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR ||
+		mProjectileType == ProjectileType::PROJECTILE_LASER_PEA)
 	{
 		aTime = 0;
 	}
@@ -1682,6 +1884,14 @@ void Projectile::Update()
 		}
 	}
 
+	// 激光豌豆的光束：不移动、不参与任何碰撞逻辑 ——
+	// 只在出生那一帧结算一次本行的贯穿伤害，随后作为纯视觉停留数帧（见 UpdateLaserPeaBeam）。
+	if (mProjectileType == ProjectileType::PROJECTILE_LASER_PEA)
+	{
+		UpdateLaserPeaBeam();
+		return;
+	}
+
 	UpdateMotion();
 	AttachmentUpdateAndMove(mAttachmentID, mPosX, mPosY + mPosZ);
 }
@@ -1707,6 +1917,11 @@ void Projectile::Draw(Graphics* g)
 		break;
 	case ProjectileType::PROJECTILE_PURPLE_FIRE_PEA:
 		// 紫火豌豆：本体不画贴图，全部由 Initialize 里挂上的火球 reanim（紫色滤镜）负责
+		aImage = nullptr;
+		break;
+	case ProjectileType::PROJECTILE_LASER_PEA:
+		// 激光豌豆的光束：本体不画贴图。光束是"一道很长的线"，跟着弹丸渲染项画会被同层
+		// 后面渲染的僵尸盖住，所以统一交给 Board::Draw 顶层的 DrawAllLaserBeams 画。
 		aImage = nullptr;
 		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
@@ -1875,6 +2090,10 @@ void Projectile::DrawShadow(Graphics* g)
 
 	case ProjectileType::PROJECTILE_ELECTRIC_STAR:
 		// 钉在僵尸身上（或正在追踪）的电能星星不画地面影子
+		return;
+
+	case ProjectileType::PROJECTILE_LASER_PEA:
+		// 激光光束是空中的一道射线，没有落在地面上的实体，不画影子
 		return;
 		
 	case ProjectileType::PROJECTILE_COBBIG:

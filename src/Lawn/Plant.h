@@ -257,6 +257,11 @@ public:
     void                    LaunchThreeGatling();
     void                    PlayThreeGatlingShootAnim(bool theLoop);
     void                    FireThreeGatlingVolley(bool theJitterY);
+    // 激光豌豆（SEED_LASER_PEA）：开火动画放完时调用 —— 自己重新索敌（射程内任意一行、空中优先），
+    // 然后把**目标僵尸**交给 Fire()，光束才会朝它斜着射出去。
+    // 为什么不沿用 FindTargetAndFire：那是"起手"（决定开不开火、播动画、置 mShootingCounter），
+    // 真正出弹是在动画末尾的 UpdateShooting 里，那时目标已经查不到了。
+    void                    FireLaserPea();
     static Image*           GetImage(SeedType theSeedType);
     static int              GetCost(SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
     static std::string       GetNameString(SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
@@ -432,6 +437,24 @@ bool                        ElectricStarfruitUsesCustomArt();
 // 究极电能星星果实际使用的 reanim 类型：专用贴图可用时用 REANIM_ELECTRIC_STARFRUIT（并换好贴图），
 // 否则退回 REANIM_STARFRUIT。
 ReanimationType             ElectricStarfruitReanimType();
+
+// 激光豌豆（旅行红卡）：与机枪射手同一套身体/头部/头盔，只把**枪管**换成
+// reanim/LaserPea_barrel_small.png 一张图（与 GatlingPea_barrel.png 同为 43x27，
+// 由 tools/make-laser-pea-barrel.py 从玩家的 500x500 原图裁切缩放而来）。
+// 缺图 / 无透明通道 / 尺寸不符时返回 false，调用方应退回普通机枪射手外观（四根枪管）。
+bool                        LaserPeaHasCustomArt();
+bool                        LaserPeaUsesCustomArt();
+ReanimationType             LaserPeaReanimType();
+
+// 隐藏激光豌豆不要的四条机枪射手轨道：多出来的三根枪管（GatlingPea_barrel2/3/4）与
+// 枪口叠加层（GatlingPea_mouth_overlay）——于是整株只画一根枪管、一张嘴。
+// 场上植物（body + head 两个实例）与卡面/图鉴/光标预览都要调一次。
+void                        LaserPeaHideExtraTracks(Reanimation* theReanim);
+
+// 把留下的那根枪管（GatlingPea_barrel1）整体前移 LASER_PEA_BARREL_OFFSET_X 像素
+// （走轨道实例的 mShakeX，与 Plant::Fire 里光束起点的同一个偏移量成对使用）。
+// 传 **head 实例**（枪管与脸在同一层）。场上植物与卡面/图鉴/光标预览都要调一次。
+void                        LaserPeaShiftBarrel(Reanimation* theReanim);
 
 // 该植物射出的弹丸是否是"究极电能"弹丸（链式闪电只挂在这两只植物身上）：
 //   - 究极电能机枪射手（100% 电能豌豆）

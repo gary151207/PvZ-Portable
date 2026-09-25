@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 # Source-level checks for the Electric Starfruit (SEED_ELECTRIC_STARFRUIT):
 #   red card + upgrade card (upgraded from Starfruit, 300 sun, 30s cooldown) / travel-only /
@@ -13,8 +13,14 @@ $ErrorActionPreference = 'Stop'
 # manual play-testing.
 # Design doc: docs/superpowers/specs/2026-09-14-electric-starfruit-design.md
 
-function Assert-Source([string]$Path, [string]$Pattern, [string]$Message) {
-    $content = Get-Content -Raw -LiteralPath $Path
+# 调用点有的传相对路径、有的传 P 出来的绝对路径，这里统一处理。
+# 注意：本函数在 $root 定义**之前**就被插入，所以根目录在这里按 $PSScriptRoot 现算，不依赖外部变量。
+function Resolve-RepoFile([string]$theRelPath) {
+    if ([System.IO.Path]::IsPathRooted($theRelPath)) { return $theRelPath }
+    return (Join-Path (Split-Path -Parent $PSScriptRoot) $theRelPath)
+}
+function Assert-Source([string]$RelPath, [string]$Pattern, [string]$Message) {
+    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath (Resolve-RepoFile $RelPath)
     if ($content -notmatch $Pattern) {
         throw $Message
     }
@@ -32,7 +38,7 @@ $boardPath = P 'src/Lawn/Board.cpp'
 # --- enums: inserted before the NUM_* sentinels, no existing value moves ---
 Assert-Source (P 'src/ConstEnums.h') 'SEED_ELECTRIC_GATLING_PEA,[\s\S]{0,300}SEED_ELECTRIC_STARFRUIT,[\s\S]{0,2000}NUM_SEED_TYPES' 'SEED_ELECTRIC_STARFRUIT must be declared after SEED_ELECTRIC_GATLING_PEA and before NUM_SEED_TYPES (later mod seeds appended after it are fine).'
 Assert-Source (P 'src/ConstEnums.h') 'REANIM_ELECTRIC_GATLINGPEA,[\s\S]{0,400}REANIM_ELECTRIC_STARFRUIT,[\s\S]{0,2000}NUM_REANIMS' 'REANIM_ELECTRIC_STARFRUIT must be declared after REANIM_ELECTRIC_GATLINGPEA and before NUM_REANIMS (later mod reanims appended after it are fine).'
-Assert-Source (P 'src/ConstEnums.h') 'PROJECTILE_FIREPEA_RED = 14,[\s\S]{0,300}PROJECTILE_ELECTRIC_STAR = 15,[\s\S]{0,400}NUM_PROJECTILES = 17' 'PROJECTILE_ELECTRIC_STAR must stay right after PROJECTILE_FIREPEA_RED; later mod projectiles append after it.'
+Assert-Source (P 'src/ConstEnums.h') 'PROJECTILE_FIREPEA_RED = 14,[\s\S]{0,300}PROJECTILE_ELECTRIC_STAR = 15,[\s\S]{0,400}NUM_PROJECTILES = \d+' 'PROJECTILE_ELECTRIC_STAR must stay right after PROJECTILE_FIREPEA_RED (later mod projectiles may push NUM_PROJECTILES further).'
 
 # --- plant definition: 300 sun, 30.01s cooldown, shooter, 100 launch rate, Starfruit health.
 # The reanim type stays REANIM_STARFRUIT here on purpose -- the electric type is only chosen at

@@ -109,6 +109,12 @@ void ReanimatorCache::DrawReanimatorFrame(Graphics* g, float thePosX, float theP
 	{
 		FirePeaShooterHasCustomArt();
 	}
+	// 激光豌豆：同样先换好枪管贴图，并隐藏多出来的三条枪管与枪口叠加层
+	// （卡面/图鉴/光标预览都要与场上植物长得一样：只有一根枪管、一张嘴）。
+	if (theSeedType == SeedType::SEED_LASER_PEA)
+	{
+		LaserPeaHasCustomArt();
+	}
 
 	Reanimation aReanim;
 	aReanim.ReanimationInitializeType(thePosX, thePosY, theReanimationType);
@@ -127,6 +133,13 @@ void ReanimatorCache::DrawReanimatorFrame(Graphics* g, float thePosX, float theP
 	if (theSeedType == SeedType::SEED_PEATER_1_5 && aReanim.TrackExists("PeaShooter_eyebrow"))
 	{
 		aReanim.AssignRenderGroupToTrack("PeaShooter_eyebrow", RENDER_GROUP_HIDDEN);
+	}
+
+	// 激光豌豆：卡面/图鉴/光标预览也要只画一根枪管、一张嘴，并且枪管与场上一样前移
+	if (theSeedType == SeedType::SEED_LASER_PEA)
+	{
+		LaserPeaHideExtraTracks(&aReanim);
+		LaserPeaShiftBarrel(&aReanim);
 	}
 
 	// 究极电能机枪射手：只有在**没有**可用专用贴图时才靠染色兜底（专用贴图自带电能配色，
@@ -296,6 +309,8 @@ MemoryImage* ReanimatorCache::MakeCachedPlantFrame(SeedType theSeedType, DrawVar
 		aReanimType = SnowGatlingReanimType();
 	else if (theSeedType == SeedType::SEED_FIRE_GATLING_PEA)
 		aReanimType = FireGatlingReanimType();
+	else if (theSeedType == SeedType::SEED_LASER_PEA)
+		aReanimType = LaserPeaReanimType();
 
 	if (theSeedType == SeedType::SEED_POTATOMINE)
 	{
@@ -323,7 +338,8 @@ MemoryImage* ReanimatorCache::MakeCachedPlantFrame(SeedType theSeedType, DrawVar
 			theSeedType == SeedType::SEED_LEFTPEATER || theSeedType == SeedType::SEED_GATLINGPEA || theSeedType == SeedType::SEED_PEATER_1_5 ||
 			theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || theSeedType == SeedType::SEED_SNOW_GATLING_PEA ||
 			theSeedType == SeedType::SEED_FIRE_GATLING_PEA ||
-			theSeedType == SeedType::SEED_FIRE_PEASHOOTER)
+			theSeedType == SeedType::SEED_FIRE_PEASHOOTER ||
+			theSeedType == SeedType::SEED_LASER_PEA)
 		{
 			DrawReanimatorFrame(&aMemoryGraphics, -aOffsetX, -aOffsetY, aReanimType, "anim_head_idle", theDrawVariation, theSeedType);
 		}

@@ -7,10 +7,16 @@
 #      真正的手感（火焰是否落在叶子处、变红是否好看、65/91/49 的伤害节奏）仍需手动进游戏验证，
 #      验收步骤见 docs/superpowers/specs/2026-09-20-fire-pea-shooter-design.md。
 
-function Assert-Source([string]$Path, [string]$Pattern, [string]$Message) {
+# 调用点有的传相对路径、有的传 P 出来的绝对路径，这里统一处理。
+# 注意：本函数在 $root 定义**之前**就被插入，所以根目录在这里按 $PSScriptRoot 现算，不依赖外部变量。
+function Resolve-RepoFile([string]$theRelPath) {
+    if ([System.IO.Path]::IsPathRooted($theRelPath)) { return $theRelPath }
+    return (Join-Path (Split-Path -Parent $PSScriptRoot) $theRelPath)
+}
+function Assert-Source([string]$RelPath, [string]$Pattern, [string]$Message) {
     # 必须显式按 UTF-8 读：这些文件里有大量中文注释，Windows PowerShell 的默认编码
     # （ANSI）会把中文拆成多个字节字符，把"两处代码之间最多 N 个字符"的间隔断言撑爆。
-    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath $Path
+    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath (Resolve-RepoFile $RelPath)
     if ($content -notmatch $Pattern) {
         throw $Message
     }
@@ -22,7 +28,7 @@ function P([string]$rel) { Join-Path $root $rel }
 # --- 枚举：新值前插在 NUM_* 之前，既有存档枚举值不变 ---
 Assert-Source (P 'src/ConstEnums.h') 'SEED_SNOW_GATLING_PEA,[\s\S]{0,300}SEED_FIRE_PEASHOOTER,[\s\S]{0,2000}NUM_SEED_TYPES' 'SEED_FIRE_PEASHOOTER must be declared after SEED_SNOW_GATLING_PEA and before NUM_SEED_TYPES (later mod seeds appended after it are fine).'
 Assert-Source (P 'src/ConstEnums.h') 'REANIM_SNOW_GATLINGPEA,[\s\S]{0,900}REANIM_FIRE_PEASHOOTER,[\s\S]{0,2000}NUM_REANIMS' 'REANIM_FIRE_PEASHOOTER must be declared after REANIM_SNOW_GATLINGPEA and before NUM_REANIMS (later mod reanims appended after it are fine).'
-Assert-Source (P 'src/ConstEnums.h') 'PROJECTILE_ELECTRIC_STAR = 15,[\s\S]{0,300}PROJECTILE_PURPLE_FIRE_PEA = 16,[\s\S]{0,600}NUM_PROJECTILES = 17' 'PROJECTILE_PURPLE_FIRE_PEA must be appended after PROJECTILE_ELECTRIC_STAR and bump NUM_PROJECTILES to 17.'
+Assert-Source (P 'src/ConstEnums.h') 'PROJECTILE_ELECTRIC_STAR = 15,[\s\S]{0,300}PROJECTILE_PURPLE_FIRE_PEA = 16,[\s\S]{0,600}NUM_PROJECTILES = \d+' 'PROJECTILE_PURPLE_FIRE_PEA must be appended after PROJECTILE_ELECTRIC_STAR (later mod projectiles may push NUM_PROJECTILES further).'
 
 # --- 常量：4 秒 / +40% / 1.125 秒节奏 / 火焰切换 / 紫火换色参数 ---
 Assert-Source (P 'src/GameConstants.h') 'FIRE_PEASHOOTER_LAUNCH_RATE\s*=\s*113' 'FIRE_PEASHOOTER_LAUNCH_RATE must be 113 logic frames (1.125 s at 100 fps).'

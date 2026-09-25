@@ -5,8 +5,14 @@
 # 说明：本仓库无自动化测试框架（见 AGENTS.md），与其它 check-*.ps1 一样做源级断言；
 #      实际手感（掷骰分布、眉毛是否消失、卡面观感）仍需手动进游戏验证。
 
-function Assert-Source([string]$Path, [string]$Pattern, [string]$Message) {
-    $content = Get-Content -Raw -LiteralPath $Path
+# 调用点有的传相对路径、有的传 P 出来的绝对路径，这里统一处理。
+# 注意：本函数在 $root 定义**之前**就被插入，所以根目录在这里按 $PSScriptRoot 现算，不依赖外部变量。
+function Resolve-RepoFile([string]$theRelPath) {
+    if ([System.IO.Path]::IsPathRooted($theRelPath)) { return $theRelPath }
+    return (Join-Path (Split-Path -Parent $PSScriptRoot) $theRelPath)
+}
+function Assert-Source([string]$RelPath, [string]$Pattern, [string]$Message) {
+    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath (Resolve-RepoFile $RelPath)
     if ($content -notmatch $Pattern) {
         throw $Message
     }
@@ -22,7 +28,7 @@ Assert-Source (P 'src/ConstEnums.h') 'SEED_FUMESHROOM_GROUP,[\s\S]{0,200}SEED_PE
 Assert-Source (P 'src/Lawn/Plant.cpp') 'SeedType::SEED_PEATER_1_5,\s*nullptr,\s*ReanimationType::REANIM_REPEATER,\s*5,\s*150,\s*750,\s*PlantSubClass::SUBCLASS_SHOOTER,\s*75,\s*"PEATER_1_5"' 'gPlantDefs row must be REANIM_REPEATER / 150 sun / 750 refresh / SHOOTER / 75 launch rate / "PEATER_1_5".'
 
 # --- 红卡 + 可直接种下（不进 IsUpgrade 升级卡列表） ---
-Assert-Source (P 'src/Lawn/Plant.cpp') 'bool Plant::IsRedCard[\s\S]{0,500}SEED_PEATER_1_5' 'Plant::IsRedCard must include SEED_PEATER_1_5.'
+Assert-Source (P 'src/Lawn/Plant.cpp') 'bool Plant::IsRedCard[\s\S]{0,3000}SEED_PEATER_1_5' 'Plant::IsRedCard must include SEED_PEATER_1_5.'
 $plantCpp = Get-Content -Raw -LiteralPath (P 'src/Lawn/Plant.cpp')
 $upgradeBody = [regex]::Match($plantCpp, 'bool Plant::IsUpgrade[\s\S]*?\n\}')
 if (-not $upgradeBody.Success) { throw 'Could not find Plant::IsUpgrade body.' }

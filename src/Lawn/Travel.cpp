@@ -40,6 +40,7 @@ const TravelPlantDef gTravelPlantDefs[] = {
     { SeedType::SEED_ELECTRIC_GATLING_PEA, true }, // 究极电能机枪射手（红卡 + 升级卡：由机枪射手升级，200 阳光，100% 电能豌豆）
     { SeedType::SEED_ELECTRIC_STARFRUIT,   true }, // 究极电能星星果（红卡 + 升级卡：由杨桃升级，300 阳光，5 颗追踪电能星星）
     { SeedType::SEED_FIRE_PEASHOOTER,      false }, // 火豌豆射手（红卡：带火的豌豆射手，175 阳光，可直接种下）
+    { SeedType::SEED_LASER_PEA,            false }, // 激光豌豆（红卡：只有一根枪管的机枪射手，400 阳光，每 0.8 秒一道贯穿激光）
 };
 const int NUM_TRAVEL_PLANTS = sizeof(gTravelPlantDefs) / sizeof(gTravelPlantDefs[0]);
 

@@ -11,10 +11,16 @@
 #      真正的手感（头盔位置/缩放、大招观感）仍需手动进游戏验证，
 #      验收步骤见 docs/superpowers/specs/2026-09-25-three-gatling-pea-design.md。
 
-function Assert-Source([string]$Path, [string]$Pattern, [string]$Message) {
+# 调用点有的传相对路径、有的传 P 出来的绝对路径，这里统一处理。
+# 注意：本函数在 $root 定义**之前**就被插入，所以根目录在这里按 $PSScriptRoot 现算，不依赖外部变量。
+function Resolve-RepoFile([string]$theRelPath) {
+    if ([System.IO.Path]::IsPathRooted($theRelPath)) { return $theRelPath }
+    return (Join-Path (Split-Path -Parent $PSScriptRoot) $theRelPath)
+}
+function Assert-Source([string]$RelPath, [string]$Pattern, [string]$Message) {
     # 必须显式按 UTF-8 读：这些文件里有大量中文注释，Windows PowerShell 的默认编码
     # （ANSI）会把中文拆成多个字节字符，把"两处代码之间最多 N 个字符"的间隔断言撑爆。
-    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath $Path
+    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath (Resolve-RepoFile $RelPath)
     if ($content -notmatch $Pattern) {
         throw $Message
     }
@@ -110,7 +116,13 @@ Assert-Source (P 'src/Lawn/Board.cpp') 'const bool aPaysWithSun = [\s\S]{0,200}C
 Assert-Source (P 'src/Lawn/Board.cpp') 'SEED_FIRE_GATLING_PEA \|\|\s*\r?\n\s*aPlant->mSeedType == SeedType::SEED_THREE_GATLING_PEA' 'The HP tooltip must report the ultimate state for SEED_THREE_GATLING_PEA too.'
 Assert-Source (P 'src/Lawn/Board.cpp') 'gIceSandboxTravelSeeds\[\][\s\S]{0,700}SEED_THREE_GATLING_PEA' 'SEED_THREE_GATLING_PEA must be available on the ice sandbox travel page.'
 Assert-Source (P 'src/Lawn/Widget/AlmanacDialog.cpp') 'gAlmanacExtraSeeds\[NUM_ALMANAC_EXTRA_SEEDS\][\s\S]{0,800}SEED_THREE_GATLING_PEA' 'SEED_THREE_GATLING_PEA must show up on almanac plant page 2.'
-Assert-Source (P 'src/Lawn/Widget/AlmanacDialog.h') '#define NUM_ALMANAC_EXTRA_SEEDS 9' 'NUM_ALMANAC_EXTRA_SEEDS must be 9 for the new plant.'
+# 槽位数不写死：每加一只植物都要 +1，写死会让"新增植物"的提交顺手改坏这条断言。
+# 这里改成"必须与 gAlmanacExtraSeeds 的实际条目数一致"。
+$almanacCpp = Get-Content -Raw -Encoding UTF8 -LiteralPath (P 'src/Lawn/Widget/AlmanacDialog.cpp')
+$extraSeeds = [regex]::Match($almanacCpp, 'gAlmanacExtraSeeds\[NUM_ALMANAC_EXTRA_SEEDS\][\s\S]*?\n\t\};')
+if (-not $extraSeeds.Success) { throw 'Could not find the almanac extra-plant list.' }
+$extraSeedCount = ([regex]::Matches($extraSeeds.Value, 'SeedType::SEED_')).Count
+Assert-Source (P 'src/Lawn/Widget/AlmanacDialog.h') "#define NUM_ALMANAC_EXTRA_SEEDS $extraSeedCount" "NUM_ALMANAC_EXTRA_SEEDS must match the number of entries in gAlmanacExtraSeeds ($extraSeedCount)."
 Assert-Source (P 'src/Lawn/SeedPacket.cpp') 'case SeedType::SEED_THREEPEATER:\s*\r?\n\s*case SeedType::SEED_THREE_GATLING_PEA:' 'DrawSeedPacket must scale the SEED_THREE_GATLING_PEA card art like the Threepeater (three heads).'
 Assert-Source (P 'src/Lawn/Board.cpp') 'SEED_THREEPEATER \|\|\s*\r?\n\s*theSeedType == SeedType::SEED_THREE_GATLING_PEA' 'NotifyPlanting must mark SEED_THREE_GATLING_PEA as a pea shooter (it fires peas).'
 

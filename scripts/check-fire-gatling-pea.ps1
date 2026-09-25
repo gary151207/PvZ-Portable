@@ -7,10 +7,16 @@
 #      真正的手感（贴图是否对得上、散射里紫/橙是否大致各半）仍需手动进游戏验证，
 #      验收步骤见 docs/superpowers/specs/2026-09-22-fire-gatling-pea-design.md。
 
-function Assert-Source([string]$Path, [string]$Pattern, [string]$Message) {
+# 调用点有的传相对路径、有的传 P 出来的绝对路径，这里统一处理。
+# 注意：本函数在 $root 定义**之前**就被插入，所以根目录在这里按 $PSScriptRoot 现算，不依赖外部变量。
+function Resolve-RepoFile([string]$theRelPath) {
+    if ([System.IO.Path]::IsPathRooted($theRelPath)) { return $theRelPath }
+    return (Join-Path (Split-Path -Parent $PSScriptRoot) $theRelPath)
+}
+function Assert-Source([string]$RelPath, [string]$Pattern, [string]$Message) {
     # 必须显式按 UTF-8 读：这些文件里有大量中文注释，Windows PowerShell 的默认编码
     # （ANSI）会把中文拆成多个字节字符，把"两处代码之间最多 N 个字符"的间隔断言撑爆。
-    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath $Path
+    $content = Get-Content -Raw -Encoding UTF8 -LiteralPath (Resolve-RepoFile $RelPath)
     if ($content -notmatch $Pattern) {
         throw $Message
     }
@@ -22,7 +28,7 @@ function P([string]$rel) { Join-Path $root $rel }
 # --- 枚举：新值前插在 NUM_* 之前，既有存档枚举值不变 ---
 # 窗口放宽到 2000：之后追加的模组种子/槽位会夹在这一条与 NUM_* 之间（只追加、不重排）。
 Assert-Source (P 'src/ConstEnums.h') 'SEED_FIRE_PEASHOOTER,[\s\S]{0,300}SEED_FIRE_GATLING_PEA,[\s\S]{0,2000}NUM_SEED_TYPES' 'SEED_FIRE_GATLING_PEA must be declared after SEED_FIRE_PEASHOOTER and before NUM_SEED_TYPES (later mod seeds appended after it are fine).'
-Assert-Source (P 'src/ConstEnums.h') 'REANIM_FIRE_PEASHOOTER,[\s\S]{0,900}REANIM_FIRE_GATLINGPEA,[\s\S]{0,2000}NUM_REANIMS' 'REANIM_FIRE_GATLINGPEA must be declared after REANIM_FIRE_PEASHOOTER and before NUM_REANIMS (later mod reanims appended after it are fine).'
+Assert-Source (P 'src/ConstEnums.h') 'REANIM_FIRE_PEASHOOTER,[\s\S]{0,900}REANIM_FIRE_GATLINGPEA,[\s\S]{0,4000}NUM_REANIMS' 'REANIM_FIRE_GATLINGPEA must be declared after REANIM_FIRE_PEASHOOTER and before NUM_REANIMS (later mod reanims appended after it are fine).'
 # gLawnReanimationArray 是**按 ReanimationType 下标**取用的（ReanimatorEnsureDefinitionLoaded 里
 # 用的是 gReanimationParamArray[theReanimType]），所以条目顺序必须与枚举顺序逐条对齐 ——
 # 顺序错了不会报错，只会让某个类型悄悄加载别人的 reanim 文件。这里锁住模组追加的那 5 条。
@@ -81,10 +87,10 @@ if ($fireBody.Value -notmatch 'IsLoneWolfLevel\(\)[\s\S]{0,400}SEED_FIRE_GATLING
 Assert-Source (P 'src/Lawn/Plant.cpp') 'SEED_SNOW_GATLING_PEA \|\| mSeedType == SeedType::SEED_FIRE_GATLING_PEA\)\s*\r?\n\s*\{\s*\r?\n\s*aHeadReanim->mAnimRate = 38\.0f;\s*\r?\n\s*mShootingCounter = 100;' 'FindTargetAndFire must give SEED_FIRE_GATLING_PEA the gatling head animation rate and the 100-frame 4-shot cycle.'
 Assert-Source (P 'src/Lawn/Plant.cpp') 'SEED_SNOW_GATLING_PEA \|\| mSeedType == SeedType::SEED_FIRE_GATLING_PEA\)\s*\r?\n\s*\{\s*\r?\n\s*if \(mGatlingScatterCountdown > 0\)' 'UpdateShooting must route SEED_FIRE_GATLING_PEA into the gatling 4-shot / scatter branch.'
 Assert-Source (P 'src/Lawn/Plant.cpp') 'case SeedType::SEED_FIRE_PEASHOOTER:\s*\r?\n\s*case SeedType::SEED_FIRE_GATLING_PEA:' 'PlantInitialize must handle SEED_FIRE_GATLING_PEA in the peashooter group (body + head reanim).'
-Assert-Source (P 'src/Lawn/Plant.cpp') 'SEED_FIRE_PEASHOOTER \|\| mSeedType == SeedType::SEED_FIRE_GATLING_PEA\)' 'AttachBlinkAnim must include SEED_FIRE_GATLING_PEA (otherwise the plant never blinks).'
+Assert-Source (P 'src/Lawn/Plant.cpp') 'SEED_FIRE_PEASHOOTER \|\| mSeedType == SeedType::SEED_FIRE_GATLING_PEA[\s\S]{0,2000}?aBlinkReanimType' 'AttachBlinkAnim must include SEED_FIRE_GATLING_PEA (otherwise the plant never blinks).'
 Assert-Source (P 'src/Lawn/Plant.cpp') 'SEED_FIRE_GATLING_PEA\)\s*\r?\n\s*aBlinkReanimType = FireGatlingReanimType\(\)' 'AttachBlinkAnim must use FireGatlingReanimType for the blink attachment (fire-coloured eyelids).'
-Assert-Source (P 'src/Lawn/Plant.cpp') 'SEED_FIRE_GATLING_PEA\)\s*\r?\n\s*aReanimType = FireGatlingReanimType\(\);\s*\r?\n\s*\r?\n\s*mPlantCol' 'PlantInitialize must resolve the fire gatling reanim type before building the animation.'
-Assert-Source (P 'src/Lawn/Plant.cpp') 'SEED_FIRE_GATLING_PEA\)\s*\r?\n\s*aReanimType = FireGatlingReanimType\(\);\s*\r?\n\s*\r?\n\s*if \(aReanimType' 'PreloadPlantResources must preload the fire gatling reanim type.'
+Assert-Source (P 'src/Lawn/Plant.cpp') 'SEED_FIRE_GATLING_PEA\)\s*\r?\n\s*aReanimType = FireGatlingReanimType\(\);[\s\S]{0,400}?mPlantCol' 'PlantInitialize must resolve the fire gatling reanim type before building the animation.'
+Assert-Source (P 'src/Lawn/Plant.cpp') 'SEED_FIRE_GATLING_PEA\)\s*\r?\n\s*aReanimType = FireGatlingReanimType\(\);[\s\S]{0,400}?if \(aReanimType' 'PreloadPlantResources must preload the fire gatling reanim type.'
 
 # --- 贴图：六张同尺寸部件（**没有枪管**，枪管沿用原版） ---
 Assert-Source (P 'src/Lawn/Plant.cpp') 'bool FireGatlingHasCustomArt\(\)' 'FireGatlingHasCustomArt must exist.'
@@ -105,7 +111,13 @@ Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'SEED_SNOW_GATLING_PEA \
 Assert-Source (P 'src/Lawn/Board.cpp') 'SEED_SNOW_GATLING_PEA \|\| aPlant->mSeedType == SeedType::SEED_FIRE_GATLING_PEA' 'The HP tooltip must report scatter state for SEED_FIRE_GATLING_PEA too.'
 Assert-Source (P 'src/Lawn/Board.cpp') 'gIceSandboxTravelSeeds\[\][\s\S]{0,600}SEED_FIRE_GATLING_PEA' 'SEED_FIRE_GATLING_PEA must be available on the ice sandbox travel page.'
 Assert-Source (P 'src/Lawn/Widget/AlmanacDialog.cpp') 'gAlmanacExtraSeeds\[NUM_ALMANAC_EXTRA_SEEDS\][\s\S]{0,700}SEED_FIRE_GATLING_PEA' 'SEED_FIRE_GATLING_PEA must show up on almanac plant page 2.'
-Assert-Source (P 'src/Lawn/Widget/AlmanacDialog.h') '#define NUM_ALMANAC_EXTRA_SEEDS 9' 'NUM_ALMANAC_EXTRA_SEEDS must be 9 for the new plant (three-gatling-pea added the 9th).'
+# 槽位数不写死：每加一只植物都要 +1，写死会让"新增植物"的提交顺手改坏这条断言。
+# 这里改成"必须与 gAlmanacExtraSeeds 的实际条目数一致"。
+$almanacCpp = Get-Content -Raw -Encoding UTF8 -LiteralPath (P 'src/Lawn/Widget/AlmanacDialog.cpp')
+$extraSeeds = [regex]::Match($almanacCpp, 'gAlmanacExtraSeeds\[NUM_ALMANAC_EXTRA_SEEDS\][\s\S]*?\n\t\};')
+if (-not $extraSeeds.Success) { throw 'Could not find the almanac extra-plant list.' }
+$extraSeedCount = ([regex]::Matches($extraSeeds.Value, 'SeedType::SEED_')).Count
+Assert-Source (P 'src/Lawn/Widget/AlmanacDialog.h') "#define NUM_ALMANAC_EXTRA_SEEDS $extraSeedCount" "NUM_ALMANAC_EXTRA_SEEDS must match the number of entries in gAlmanacExtraSeeds ($extraSeedCount)."
 
 # --- 合成返阳光：寒冰机枪射手 / 火焰机枪射手 两种合成都要把 175 阳光原样还给玩家 ---
 Assert-Source (P 'src/GameConstants.h') 'GATLING_SYNTHESIS_REFUND\s*=\s*175' 'GATLING_SYNTHESIS_REFUND must be 175 (the price of both the Snow Pea and the Fire Pea Shooter card).'

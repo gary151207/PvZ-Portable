@@ -1,0 +1,1 @@
+﻿{"name":"pvzp-icons","private":true,"version":"1.0.0","description":"Generates the mod icon set into docs/icons/","scripts":{"build":"node build.js"},"dependencies":{"@napi-rs/canvas":"^0.1.80"}}

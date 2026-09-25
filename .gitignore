@@ -423,3 +423,7 @@ dist/
 # Gatling Pea when they are absent.
 docs/superpowers/specs/electric-gatling-art-fixed/
 docs/superpowers/specs/2026-09-12-electric-gatling-pea-tint.png
+# Icon generator scratch (see tools/icons/)
+.icon-tmp/
+tools/icons/node_modules/
+tools/icons/package-lock.json

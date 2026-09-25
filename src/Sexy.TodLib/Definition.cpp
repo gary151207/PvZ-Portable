@@ -1328,16 +1328,23 @@ bool DefinitionCompileFile(const std::string theXMLFilePath, const std::string& 
 // (void* def, *defMap, string& xmlFilePath)  //esp -= 0xC
 bool DefinitionCompileAndLoad(const std::string& theXMLFilePath, DefMap* theDefMap, void* theDefinition)
 {
-#ifdef _PVZ_DEBUG
-    const bool aRequireCompiledUpToDate = true;
-#else
-    const bool aRequireCompiledUpToDate = false;
-#endif
-
+    // 编译缓存必须"确实是最新的"才算数 —— Release 也一样，不能盲目相信用户目录里的缓存。
+    //
+    // 为什么（模组踩过的坑）：DefinitionReadCompiledFile 会**优先**读
+    //   <AppData>/cache64/compiled/<path>.compiled，读不到才退回资源目录/pak 里的同名文件；
+    // 而《第一次运行》编译 XML 时会把结果写进那个用户缓存。于是只要改了 XML（例如模组给某个
+    // reanim 加轨道 / 换贴图）而用户缓存还在，Release 版就会**永远**加载旧定义 ——
+    // 重新打包 pak、重启游戏都没用，游戏里看到的还是旧外观。
+    //
+    // 现在一律走 DefinitionIsCompiled()：
+    //   * 原版定义：pak 里本来就随包带了预编译版本 → 直接为真，行为与以前完全一致（不会重新编译）；
+    //   * 真实文件形式的资源（-resdir 指向目录）：按 mtime 比较，源文件更新就重新编译；
+    //   * 模组新增、又没有预编译版本的定义（XML 只在 pak 里，无从 stat）：判为"不可信" →
+    //     退回用 XML 现编（几毫秒，且每次启动都编一次），换来"改了就一定生效"。
+    const bool aShouldTryCompiled = DefinitionIsCompiled(theXMLFilePath);
     TodHesitationTrace("predef");
     std::string aCompiledFilePath = DefinitionGetCompiledFilePathFromXMLFilePath(theXMLFilePath);
 
-    const bool aShouldTryCompiled = !aRequireCompiledUpToDate || DefinitionIsCompiled(theXMLFilePath);
     if (aShouldTryCompiled && DefinitionReadCompiledFile(aCompiledFilePath, theDefMap, theDefinition))
     {
         TodHesitationTrace("loaded %s", aCompiledFilePath.c_str());

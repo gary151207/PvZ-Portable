@@ -251,6 +251,12 @@ public:
     void                    UpdateShooter();
     bool                    FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY);
     void                    LaunchThreepeater();
+    // 三线机枪射手（SEED_THREE_GATLING_PEA）：每轮起手（3 个头播开火动画 + 4 连发计数 + 开大判定）；
+    // 三个头的开火动画（theLoop = true 用于大招期间持续开火）；以及"向每一行各发一轮"的批量开火
+    // （theJitterY = true 时每行那一发带上 ±THREE_GATLING_HEIGHT_JITTER 的高度浮动，只在大招里用）。
+    void                    LaunchThreeGatling();
+    void                    PlayThreeGatlingShootAnim(bool theLoop);
+    void                    FireThreeGatlingVolley(bool theJitterY);
     static Image*           GetImage(SeedType theSeedType);
     static int              GetCost(SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
     static std::string       GetNameString(SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);

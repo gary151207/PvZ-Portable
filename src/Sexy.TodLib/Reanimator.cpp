@@ -203,6 +203,11 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	// 换成火焰机枪射手专用贴图（枪管没有专用图，仍复用原版机枪射手的绿色枪管）；不用 Atlas，
 	// 确保这套替换不会影响普通机枪射手。
 	{ ReanimationType::REANIM_FIRE_GATLINGPEA,                      "reanim/GatlingPea.reanim",                        1 << ReanimFlags::REANIM_NO_ATLAS },
+	// 三线机枪射手：**自己一个 reanim 文件**（三线射手 reanim 的副本，另加三条头盔轨道、
+	// 并把它引用的嘴贴图换成 ThreeGaling_mouth_overlay）。因为贴图名直接写在文件里，
+	// 不需要任何运行期换图；仍标 REANIM_NO_ATLAS：不建 Atlas，定义里的 mImage 始终是真实指针，
+	// 也不会与 REANIM_THREEPEATER 共用同一批源贴图（原版三线射手因此完全不受影响）。
+	{ ReanimationType::REANIM_THREE_GATLINGPEA,                     "reanim/ThreeGaling.reanim",                       1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

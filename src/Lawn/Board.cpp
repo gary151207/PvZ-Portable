@@ -1953,6 +1953,7 @@ namespace
 		SeedType::SEED_ELECTRIC_STARFRUIT,   // 究极电能星星果（旅行红卡升级卡：沙盒内需先有杨桃）
 		SeedType::SEED_FIRE_PEASHOOTER,      // 火豌豆射手（旅行红卡：带火的豌豆射手，直接种下）
 		SeedType::SEED_FIRE_GATLING_PEA,     // 火焰机枪射手（合成态：沙盒内需先在机枪射手上种火豌豆射手）
+		SeedType::SEED_THREE_GATLING_PEA,    // 三线机枪射手（合成态：沙盒内需先在机枪射手上种三线射手）
 	};
 	constexpr int ICE_PLANT_COUNT = sizeof(gIceSandboxPlantSeeds) / sizeof(gIceSandboxPlantSeeds[0]);
 	constexpr int ICE_ZOMBIE_COUNT = sizeof(gIceSandboxZombieTypes) / sizeof(gIceSandboxZombieTypes[0]);
@@ -3712,6 +3713,7 @@ Plant* Board::AddPlant(int theGridX, int theGridY, SeedType theSeedType, SeedTyp
 		theSeedType == SeedType::SEED_SNOWPEA ||
 		theSeedType == SeedType::SEED_REPEATER ||
 		theSeedType == SeedType::SEED_THREEPEATER ||
+		theSeedType == SeedType::SEED_THREE_GATLING_PEA ||
 		theSeedType == SeedType::SEED_SPLITPEA ||
 		theSeedType == SeedType::SEED_GATLINGPEA)
 	{
@@ -5166,7 +5168,8 @@ void Board::UpdateToolTip()
 		mToolTip->SetTitle(Plant::GetNameString(aPlant->mSeedType, aPlant->mImitaterType));
 		std::string aHPLabel = StrFormat("HP: %d/%d", aPlant->mPlantHealth, aPlant->mPlantMaxHealth);
 		if (aPlant->mSeedType == SeedType::SEED_GATLINGPEA || aPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
-			aPlant->mSeedType == SeedType::SEED_SNOW_GATLING_PEA || aPlant->mSeedType == SeedType::SEED_FIRE_GATLING_PEA)
+			aPlant->mSeedType == SeedType::SEED_SNOW_GATLING_PEA || aPlant->mSeedType == SeedType::SEED_FIRE_GATLING_PEA ||
+			aPlant->mSeedType == SeedType::SEED_THREE_GATLING_PEA)
 		{
 			if (aPlant->mGatlingScatterCountdown > 0)
 			{
@@ -5786,6 +5789,9 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 	SeedType aPlantImitaterType = mCursorObject->mImitaterType;
 	bool aIsUltimateSwitch = false;
 	bool aIsGatlingSynthesis = false;
+	// 合成返还的金额：寒冰 / 火焰机枪射手还 175（= 被消耗的卡价），三线机枪射手还 325。
+	// 只有 aIsGatlingSynthesis 为真时才看它（见下面的返款块）。
+	int aGatlingSynthesisRefund = 0;
 	if (aNormalPlant)
 	{
 		if (aPlantingSeedType == SeedType::SEED_SNOWPEA && aNormalPlant->mSeedType == SeedType::SEED_GATLINGPEA)
@@ -5795,6 +5801,7 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 			aPlantSeedType = SeedType::SEED_SNOW_GATLING_PEA;
 			aPlantImitaterType = SeedType::SEED_NONE;
 			aIsGatlingSynthesis = true;
+			aGatlingSynthesisRefund = GATLING_SYNTHESIS_REFUND;
 		}
 		else if (aPlantingSeedType == SeedType::SEED_FIRE_PEASHOOTER && aNormalPlant->mSeedType == SeedType::SEED_GATLINGPEA)
 		{
@@ -5803,6 +5810,17 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 			aPlantSeedType = SeedType::SEED_FIRE_GATLING_PEA;
 			aPlantImitaterType = SeedType::SEED_NONE;
 			aIsGatlingSynthesis = true;
+			aGatlingSynthesisRefund = GATLING_SYNTHESIS_REFUND;
+		}
+		else if (aPlantingSeedType == SeedType::SEED_THREEPEATER && aNormalPlant->mSeedType == SeedType::SEED_GATLINGPEA)
+		{
+			// 三线射手覆盖机枪射手：消耗三线射手卡（325 阳光），实际种下隐藏的三线机枪射手
+			// （每轮向每一行各 4 连发；大招 = 每行每 0.2 秒一发 ±15px、持续 3 秒）。
+			// 放行判定来自 Plant::IsUpgradableTo；三线射手卡在空地上照常种植。
+			aPlantSeedType = SeedType::SEED_THREE_GATLING_PEA;
+			aPlantImitaterType = SeedType::SEED_NONE;
+			aIsGatlingSynthesis = true;
+			aGatlingSynthesisRefund = THREE_GATLING_SYNTHESIS_REFUND;
 		}
 		else if (aPlantingSeedType == SeedType::SEED_STARFRUIT && aNormalPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
 		{
@@ -5839,11 +5857,12 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 
 	if (aIsGatlingSynthesis && aPaysWithSun)
 	{
-		// 机枪射手合成（寒冰机枪射手 / 火焰机枪射手）的返还阳光：与究极形态互换同一套做法 ——
-		// 种卡已按原价扣款、原植物已销毁之后，把 GATLING_SYNTHESIS_REFUND 原样还给玩家（净花费 0）。
-		AddSunMoney(GATLING_SYNTHESIS_REFUND);
+		// 机枪射手合成（寒冰机枪射手 / 火焰机枪射手 / 三线机枪射手）的返还阳光：
+		// 与究极形态互换同一套做法 —— 种卡已按原价扣款、原植物已销毁之后，
+		// 把 aGatlingSynthesisRefund（= 被消耗那张卡的价：175 或 325）原样还给玩家（净花费 0）。
+		AddSunMoney(aGatlingSynthesisRefund);
 		mApp->PlayFoley(FoleyType::FOLEY_SUN);
-		std::string aSynthesisMessage = TodReplaceString("[GATLING_SYNTHESIS_REFUND]", "{SUN}", StrFormat("%d", GATLING_SYNTHESIS_REFUND));
+		std::string aSynthesisMessage = TodReplaceString("[GATLING_SYNTHESIS_REFUND]", "{SUN}", StrFormat("%d", aGatlingSynthesisRefund));
 		DisplayAdvice(aSynthesisMessage, MessageStyle::MESSAGE_STYLE_HINT_FAST, AdviceType::ADVICE_NONE);
 	}
 

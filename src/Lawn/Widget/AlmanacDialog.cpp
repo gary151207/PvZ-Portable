@@ -51,6 +51,7 @@ namespace
 		SeedType::SEED_ELECTRIC_STARFRUIT,    // 究极电能星星果（旅行红卡）
 		SeedType::SEED_FIRE_PEASHOOTER,       // 火豌豆射手（旅行红卡：65 伤害紫火豌豆 + 命中后易伤 40% / 4 秒）
 		SeedType::SEED_FIRE_GATLING_PEA,      // 火焰机枪射手（火豌豆射手 × 机枪射手 合成）
+		SeedType::SEED_THREE_GATLING_PEA,     // 三线机枪射手（三线射手 × 机枪射手 合成）
 	};
 
 	// 图鉴「僵尸」页末尾追加的僵尸：排在第 5 行（原版僵尸博士那一行）的空位上。

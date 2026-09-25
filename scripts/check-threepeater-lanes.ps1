@@ -30,8 +30,10 @@ if (-not $fire.Success) {
     throw 'Could not find the Plant::Fire body.'
 }
 # Fire 里有两处 SEED_THREEPEATER 分支（先算出膛位置、后设运动方式），这里只取设置运动方式的那一处。
+# 两个分支现在都同时服务 SEED_THREE_GATLING_PEA（三线机枪射手的跨行弹道照抄三线射手），
+# 所以条件里允许出现 `|| mSeedType == SeedType::SEED_THREE_GATLING_PEA`。
 $branch = $null
-foreach ($match in [regex]::Matches($fire.Value, 'else if \(mSeedType == SeedType::SEED_THREEPEATER\)\s*\{[\s\S]*?\n    \}')) {
+foreach ($match in [regex]::Matches($fire.Value, 'else if \(mSeedType == SeedType::SEED_THREEPEATER(?: \|\| mSeedType == SeedType::SEED_THREE_GATLING_PEA)?\)\s*\{[\s\S]*?\n    \}')) {
     if ($match.Value -match 'MOTION_THREEPEATER') {
         $branch = $match
         break

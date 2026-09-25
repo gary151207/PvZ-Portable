@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 # 火豌豆射手（SEED_FIRE_PEASHOOTER）源级检查：
 #   旅行专属红卡 / 175 阳光 / 每 1.125 秒一发 / 紫火豌豆 65 伤害 / 命中后僵尸变红 4 秒、受到伤害 +40%
@@ -20,8 +20,8 @@ $root = Split-Path -Parent $PSScriptRoot
 function P([string]$rel) { Join-Path $root $rel }
 
 # --- 枚举：新值前插在 NUM_* 之前，既有存档枚举值不变 ---
-Assert-Source (P 'src/ConstEnums.h') 'SEED_SNOW_GATLING_PEA,[\s\S]{0,300}SEED_FIRE_PEASHOOTER,[\s\S]{0,600}NUM_SEED_TYPES' 'SEED_FIRE_PEASHOOTER must be declared after SEED_SNOW_GATLING_PEA and just before NUM_SEED_TYPES.'
-Assert-Source (P 'src/ConstEnums.h') 'REANIM_SNOW_GATLINGPEA,[\s\S]{0,900}REANIM_FIRE_PEASHOOTER,[\s\S]{0,600}NUM_REANIMS' 'REANIM_FIRE_PEASHOOTER must be declared after REANIM_SNOW_GATLINGPEA and before NUM_REANIMS.'
+Assert-Source (P 'src/ConstEnums.h') 'SEED_SNOW_GATLING_PEA,[\s\S]{0,300}SEED_FIRE_PEASHOOTER,[\s\S]{0,2000}NUM_SEED_TYPES' 'SEED_FIRE_PEASHOOTER must be declared after SEED_SNOW_GATLING_PEA and before NUM_SEED_TYPES (later mod seeds appended after it are fine).'
+Assert-Source (P 'src/ConstEnums.h') 'REANIM_SNOW_GATLINGPEA,[\s\S]{0,900}REANIM_FIRE_PEASHOOTER,[\s\S]{0,2000}NUM_REANIMS' 'REANIM_FIRE_PEASHOOTER must be declared after REANIM_SNOW_GATLINGPEA and before NUM_REANIMS (later mod reanims appended after it are fine).'
 Assert-Source (P 'src/ConstEnums.h') 'PROJECTILE_ELECTRIC_STAR = 15,[\s\S]{0,300}PROJECTILE_PURPLE_FIRE_PEA = 16,[\s\S]{0,600}NUM_PROJECTILES = 17' 'PROJECTILE_PURPLE_FIRE_PEA must be appended after PROJECTILE_ELECTRIC_STAR and bump NUM_PROJECTILES to 17.'
 
 # --- 常量：4 秒 / +40% / 1.125 秒节奏 / 火焰切换 / 紫火换色参数 ---

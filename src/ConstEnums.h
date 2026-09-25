@@ -987,6 +987,10 @@ enum ReanimationType : uint32_t {
                                     // 并把叶子轨道 frontleaf 覆盖成交替闪烁的火焰（见 Plant.cpp）
     REANIM_FIRE_GATLINGPEA,         // 火焰机枪射手：与 REANIM_GATLINGPEA 同一个 reanim 文件，
                                     // 但装载后用 reanim/FireGatling_*.png 专用贴图逐帧替换（见 Plant.cpp）
+    REANIM_THREE_GATLINGPEA,        // 三线机枪射手：**独立的** reanim/ThreeGaling.reanim
+                                    // （= 三线射手 reanim 的副本 + 三条头盔轨道 ThreeGaling_helmet1/2/3 +
+                                    //   嘴换成 reanim/ThreeGaling_mouth_overlay）。贴图直接写在文件里，
+                                    //   不需要任何运行期换图；用 REANIM_NO_ATLAS（见 Reanimator.cpp）
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1120,6 +1124,7 @@ enum SeedType : int32_t
     SEED_SNOW_GATLING_PEA,                          // 寒冰机枪射手（寒冰射手种在机枪射手上时合成）
     SEED_FIRE_PEASHOOTER,                           // 火豌豆射手（旅行红卡：175 阳光，65 伤害紫火豌豆 + 命中易伤 40%/4 秒）
     SEED_FIRE_GATLING_PEA,                          // 火焰机枪射手（火豌豆射手种在机枪射手上时合成：普攻 4 发紫火豌豆，大招 50% 紫火 / 50% 火豌豆）
+    SEED_THREE_GATLING_PEA,                         // 三线机枪射手（三线射手种在机枪射手上时合成：每轮每行 4 连发；大招每行 0.2 秒一发 ±15px、持续 3 秒）
     NUM_SEED_TYPES,
     SEED_BEGHOULED_BUTTON_SHUFFLE,
     SEED_BEGHOULED_BUTTON_CRATER,

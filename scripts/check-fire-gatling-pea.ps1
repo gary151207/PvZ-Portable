@@ -20,8 +20,9 @@ $root = Split-Path -Parent $PSScriptRoot
 function P([string]$rel) { Join-Path $root $rel }
 
 # --- 枚举：新值前插在 NUM_* 之前，既有存档枚举值不变 ---
-Assert-Source (P 'src/ConstEnums.h') 'SEED_FIRE_PEASHOOTER,[\s\S]{0,300}SEED_FIRE_GATLING_PEA,[\s\S]{0,600}NUM_SEED_TYPES' 'SEED_FIRE_GATLING_PEA must be declared after SEED_FIRE_PEASHOOTER and just before NUM_SEED_TYPES.'
-Assert-Source (P 'src/ConstEnums.h') 'REANIM_FIRE_PEASHOOTER,[\s\S]{0,900}REANIM_FIRE_GATLINGPEA,[\s\S]{0,600}NUM_REANIMS' 'REANIM_FIRE_GATLINGPEA must be declared after REANIM_FIRE_PEASHOOTER and before NUM_REANIMS.'
+# 窗口放宽到 2000：之后追加的模组种子/槽位会夹在这一条与 NUM_* 之间（只追加、不重排）。
+Assert-Source (P 'src/ConstEnums.h') 'SEED_FIRE_PEASHOOTER,[\s\S]{0,300}SEED_FIRE_GATLING_PEA,[\s\S]{0,2000}NUM_SEED_TYPES' 'SEED_FIRE_GATLING_PEA must be declared after SEED_FIRE_PEASHOOTER and before NUM_SEED_TYPES (later mod seeds appended after it are fine).'
+Assert-Source (P 'src/ConstEnums.h') 'REANIM_FIRE_PEASHOOTER,[\s\S]{0,900}REANIM_FIRE_GATLINGPEA,[\s\S]{0,2000}NUM_REANIMS' 'REANIM_FIRE_GATLINGPEA must be declared after REANIM_FIRE_PEASHOOTER and before NUM_REANIMS (later mod reanims appended after it are fine).'
 # gLawnReanimationArray 是**按 ReanimationType 下标**取用的（ReanimatorEnsureDefinitionLoaded 里
 # 用的是 gReanimationParamArray[theReanimType]），所以条目顺序必须与枚举顺序逐条对齐 ——
 # 顺序错了不会报错，只会让某个类型悄悄加载别人的 reanim 文件。这里锁住模组追加的那 5 条。
@@ -104,14 +105,14 @@ Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'SEED_SNOW_GATLING_PEA \
 Assert-Source (P 'src/Lawn/Board.cpp') 'SEED_SNOW_GATLING_PEA \|\| aPlant->mSeedType == SeedType::SEED_FIRE_GATLING_PEA' 'The HP tooltip must report scatter state for SEED_FIRE_GATLING_PEA too.'
 Assert-Source (P 'src/Lawn/Board.cpp') 'gIceSandboxTravelSeeds\[\][\s\S]{0,600}SEED_FIRE_GATLING_PEA' 'SEED_FIRE_GATLING_PEA must be available on the ice sandbox travel page.'
 Assert-Source (P 'src/Lawn/Widget/AlmanacDialog.cpp') 'gAlmanacExtraSeeds\[NUM_ALMANAC_EXTRA_SEEDS\][\s\S]{0,700}SEED_FIRE_GATLING_PEA' 'SEED_FIRE_GATLING_PEA must show up on almanac plant page 2.'
-Assert-Source (P 'src/Lawn/Widget/AlmanacDialog.h') '#define NUM_ALMANAC_EXTRA_SEEDS 8' 'NUM_ALMANAC_EXTRA_SEEDS must be bumped to 8 for the new plant (one full row of 8).'
+Assert-Source (P 'src/Lawn/Widget/AlmanacDialog.h') '#define NUM_ALMANAC_EXTRA_SEEDS 9' 'NUM_ALMANAC_EXTRA_SEEDS must be 9 for the new plant (three-gatling-pea added the 9th).'
 
 # --- 合成返阳光：寒冰机枪射手 / 火焰机枪射手 两种合成都要把 175 阳光原样还给玩家 ---
 Assert-Source (P 'src/GameConstants.h') 'GATLING_SYNTHESIS_REFUND\s*=\s*175' 'GATLING_SYNTHESIS_REFUND must be 175 (the price of both the Snow Pea and the Fire Pea Shooter card).'
 $boardCpp = Get-Content -Raw -Encoding UTF8 -LiteralPath (P 'src/Lawn/Board.cpp')
 if ($boardCpp -notmatch 'SEED_SNOWPEA && aNormalPlant->mSeedType == SeedType::SEED_GATLINGPEA\)[\s\S]{0,500}aIsGatlingSynthesis = true;') { throw 'The snow gatling synthesis (Snow Pea @ Gatling Pea) must set the refund flag.' }
 if ($boardCpp -notmatch 'SEED_FIRE_PEASHOOTER && aNormalPlant->mSeedType == SeedType::SEED_GATLINGPEA\)[\s\S]{0,500}aIsGatlingSynthesis = true;') { throw 'The fire gatling synthesis (Fire Pea Shooter @ Gatling Pea) must set the refund flag.' }
-if ($boardCpp -notmatch 'aIsGatlingSynthesis && aPaysWithSun[\s\S]{0,500}AddSunMoney\(GATLING_SYNTHESIS_REFUND\)') { throw 'The gatling synthesis must refund GATLING_SYNTHESIS_REFUND after the card was charged.' }
+if ($boardCpp -notmatch 'aIsGatlingSynthesis && aPaysWithSun[\s\S]{0,500}AddSunMoney\(aGatlingSynthesisRefund\)') { throw 'The gatling synthesis must refund its card price (aGatlingSynthesisRefund) after the card was charged.' }
 if ($boardCpp -notmatch 'const bool aPaysWithSun = [\s\S]{0,200}CURSOR_TYPE_PLANT_FROM_BANK[\s\S]{0,120}!HasConveyorBeltSeedBank\(\)') { throw 'The refund must be gated on "the card actually cost sun" (conveyor belts / free planting must not hand out free sun).' }
 
 # --- 翻译文案：卡名 + 悬浮说明 + 图鉴描述 + 合成返阳光（正式文件与中文备份各一份） ---

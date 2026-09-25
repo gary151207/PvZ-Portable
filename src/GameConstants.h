@@ -145,6 +145,35 @@ constexpr const float FIRE_PEA_PURPLE_SAT = 1.47f;
 //   FIRE_GATLING_SCATTER_PURPLE_PERCENT% 紫火豌豆，其余为普通火豌豆（PROJECTILE_FIREBALL）。
 constexpr const int   FIRE_GATLING_SCATTER_PURPLE_PERCENT = 50;   // 大招里紫火豌豆的占比（%）
 
+// ===== 三线机枪射手（合成态 SEED_THREE_GATLING_PEA：三线射手 × 机枪射手）=====
+// 合成方式与寒冰 / 火焰机枪射手同一条路径，但被消耗的卡是**三线射手卡（325 阳光）**：
+// 把三线射手卡种在已种下的机枪射手上，照常按卡价扣款，落地后原样返还
+// THREE_GATLING_SYNTHESIS_REFUND（325）→ 净花费 0（没扣过款时不返，见 Board::MouseDownWithPlant）。
+//
+// 普攻：每轮（mLaunchRate = 100）向**每一行**各发射 4 发豌豆 —— 复用机枪射手那 4 连发节奏
+//   （mShootingCounter 18 / 35 / 51 / 68），但每次开火都要按三线射手的做法循环全场行。
+//   弹种就是普通豌豆（不做机枪射手那 3% 电能豌豆掷骰）。
+// 大招：不再随机角度散射，而是**每行每 0.03 秒稳定一发**、每发高度上下浮动
+//   ±THREE_GATLING_HEIGHT_JITTER、持续 THREE_GATLING_ULTIMATE_TICKS（3 秒）。
+//   触发与概率成长沿用机枪射手的 mGatlingScatterCountdown / mGatlingScatterChance 机制
+//   （见 Plant::LaunchThreeGatling）。
+//
+// 弹幕量与"为什么不是 0.02 秒两发"：
+//   3 秒 / 0.03 秒 = 100 波 × 每行 1 发 = 每行 100 发（满场 6 行时一波 6 发 = 2 发/帧）。
+//   这一档峰值同时在场 ≈ 2 发/帧 × 约 200 帧弹丸寿命 ≈ 400 颗/株，与机枪射手散射（约 200 颗/株）
+//   同量级，引擎本来就扛得住。
+//   曾经试过"每 0.02 秒每行 2 发"：那是 6 发/帧 → 峰值 ≈ 1200 颗/株，几株齐开就把弹丸池
+//   （Board::mProjectiles，上限 4096）顶满并**卡死闪退** —— Release 版的 TOD_ASSERT 是空宏，
+//   DataArrayAlloc 在池满时会直接越界写内存。所以除了把频率降下来，下面还留了一道池子闸门。
+constexpr const int   THREE_GATLING_SYNTHESIS_REFUND  = 325;   // 合成返还阳光 = 被消耗的三线射手卡价
+constexpr const int   THREE_GATLING_ULTIMATE_TICKS    = 300;   // 大招持续帧数（100 逻辑帧/秒 → 3 秒）
+constexpr const int   THREE_GATLING_ULTIMATE_INTERVAL = 3;     // 大招里两波之间的间隔（3 帧 = 0.03 秒）
+constexpr const int   THREE_GATLING_BULLETS_PER_ROW   = 1;     // 每一行、每一波发几颗
+constexpr const int   THREE_GATLING_HEIGHT_JITTER     = 15;    // 每颗子弹各自的高度浮动 ±15 像素
+// 弹丸池闸门：池子上限 4096（Board::mProjectiles）。池子满了不会报错、只会越界写，必须自己兜住；
+// 留出余量给其它植物/弹丸后开始拒发（见 Plant::FireThreeGatlingVolley）。
+constexpr const int   THREE_GATLING_PROJECTILE_POOL_GUARD = 3072;
+
 // ===== 投手类植物（卷心菜投手 / 玉米投手 / 西瓜投手 / 冰瓜投手）=====
 // 投手"一次投掷"就是一轮 anim_shooting：原版对**本行每只僵尸各投一颗**，
 // 所以一行堆满僵尸时一次能糊出去十几颗弹丸（配合西瓜/冰瓜的溅射会瞬间清场）。

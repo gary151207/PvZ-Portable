@@ -325,6 +325,52 @@ _避免_：火焰豌豆射手、火豆射手、紫火射手
 就整体回退成普通机枪射手外观。
 _避免_：火机枪射手、火焰机枪豌豆、火焰加特林
 
+**三线机枪射手 (Three Gatling Pea)**：
+**合成态**（`SEED_THREE_GATLING_PEA`，隐藏种子，**没有自己的卡**）：把**三线射手**卡（325 阳光）
+种在已种的**机枪射手**上升级即得 —— 与寒冰 / 火焰机枪射手同一条路径
+（`Plant::IsUpgradableTo(THREEPEATER)` 放行机枪射手，`Board::MouseDownWithPlant` 在扣款/销毁原植物之后
+把实际创建的种子改写成 `SEED_THREE_GATLING_PEA`）。属性取**被消耗的那张卡**（325 阳光 / 750 冷却 /
+300 生命 / `mLaunchRate = 100`，与机枪射手同一发射节奏）。
+**合成返阳光**：与另两种机枪射手同一套做法 —— 照常按卡价扣款、原植物 `Die()` 之后
+`AddSunMoney(THREE_GATLING_SYNTHESIS_REFUND = 325)` + `FOLEY_SUN` + 字幕 `[GATLING_SYNTHESIS_REFUND]`
+（净花费 0；**只在真的扣过款时返**，传送带关卡与免费种植不返）。金额与另两种共用一个变量
+`aGatlingSynthesisRefund`（寒冰/火焰 = 175）。
+**普攻**：与机枪射手**同一轮 4 连发**（`mShootingCounter` 18/35/51/68），但**每一发都向每一行各打一颗**
+（沿用三线射手"全场每一行开火"的行规则 `RowCanHaveZombies`）→ 一轮最多 6 行 × 4 发 = 24 颗；
+弹种是普通 `PROJECTILE_PEA`，**不做**机枪射手那 3% 电能豌豆掷骰，跨行弹道沿用三线射手的
+`MOTION_THREEPEATER`（含行高换算与影子校正）。音效只让"本行"那一次出声，否则一轮会叠 24 声。
+**大招**：**不再随机角度散射**，而是**每一行每 0.03 秒稳定一发**、每颗出生时高度浮动 **±15 px**、持续 **3 秒**
+（`THREE_GATLING_ULTIMATE_TICKS = 300` / `THREE_GATLING_ULTIMATE_INTERVAL = 3` /
+`THREE_GATLING_BULLETS_PER_ROW = 1` / `THREE_GATLING_HEIGHT_JITTER = 15`，共 100 波、每行 100 颗）；
+触发与概率成长沿用机枪射手的 `mGatlingScatterCountdown` / `mGatlingScatterChance`（每轮 4 次判定）。
+实现要点：大招分支放在 `UpdateShooting` **最前面**、位于 `mShootingCounter == 0` 早退之前
+（按时间开火，不被 4 连发的空闲期掐断），`LaunchThreeGatling()` 在大招期间直接返回；结束时靠
+`mShootingCounter = 1` 走到尾部收招，把三个头混回 idle。浮动量必须留在弹丸**影子间距**的 `(28, 90)`
+判定窗口内（本行间距 57 ∓ 15 = 42..72），否则弹丸会被 `CheckForCollision` 整帧跳过碰撞或被
+`CheckForHighGround` 当场消散（同三线射手那个"子弹莫名消失"的坑）。
+**弹幕量上限（踩过坑）**：曾经做成"每 0.02 秒每行 2 发"= 6 发/帧 → 单株峰值 ≈1200 颗弹丸，
+几株齐开就把 `Board::mProjectiles`（定长 `DataArray`，上限 4096）顶满 —— 而 **Release 下 `TOD_ASSERT`
+是空宏**，池满不报错、`DataArrayAlloc` 直接越界写内存 → **卡死闪退**。现在降到 0.03 秒 1 发
+（2 发/帧 ≈ 400 颗/株，与机枪散射同量级），而且 `FireThreeGatlingVolley` 开头按"整波要占的槽位"预留：
+`mProjectiles.mSize + 每波槽位 > THREE_GATLING_PROJECTILE_POOL_GUARD`（3072）就整波不发。
+`scripts/check-three-gatling-pea.ps1` 有"每帧新增 ≤2 颗 / 单株峰值 ≤512 颗"的预算自检。
+**贴图**：新增 `ReanimationType::REANIM_THREE_GATLINGPEA`（**自己的 reanim 文件**
+`reanim/ThreeGaling.reanim`、独立定义槽、`REANIM_NO_ATLAS`）：骨架 = `ThreePeater.reanim` 的副本；
+**原版嘴保持不动**（`ThreePeater_mouth` 在机枪射手那边对应 `GatlingPea_mouth`＝嘴洞），
+另外追加三层**嘴覆层** `ThreeGaling_mouth_overlay1/2/3`（引用 `reanim/ThreeGaling_mouth_overlay.png`，
+19×43 与嘴同尺寸所以逐帧沿用嘴的变换，对应 `GatlingPea_mouth_overlay`＝压在枪管上的唇形）、
+十二条枪管轨道 `ThreeGaling_head{1,2,3}_barrel{3,4,2,1}`（引用原版 `reanim/GatlingPea_barrel`，
+三个头各一根四段式机枪枪管）与三条头盔轨道 `ThreeGaling_helmet1/2/3`（引用 1000×1000 的
+`reanim/ThreeGaling_helmet.png`，三个头各一顶）。**轨道顺序即绘制顺序**：`原有 36 条（含嘴）→ 枪管 → 嘴覆层 → 头盔`
+（与机枪射手逐层一致：`anim_face → mouth → barrel3/4/2/1 → mouth_overlay → … → helmet`），
+于是脸 → 嘴洞 → 枪管 → 唇形 → 头盔。**不改** `ThreePeater.reanim`，所以原版三线射手零影响；
+贴图名直接写在文件里，因此**不需要**逐帧换图 / 缺图兜底那套机制。头盔照抄机枪射手的比例
+（头盔绘制宽 / 头绘制宽 = 1.288、中心偏移 (−3.7, −4.7) px），枪管则按"头局部偏移 + 头部倾斜 + 头部缩放比"
+（四段几何、开火抖动与帧相位都取自 `GatlingPea.reanim`），全部由
+`scripts/gen-three-galing-reanim.py` 生成（顶部常量调参，`--check` 自检帧区间与绘制顺序；
+`ThreePeater.reanim` / `GatlingPea.reanim` 变了必须重跑）。
+_避免_：三连机枪射手、机枪三线射手、加特林三线
+
 ### 关系
 
 - **旅行关卡** 的选卡器可**翻页**；**翻页**第 1 页放**旅行专属植物**（当前：**大喷菇群**、**巨大坚果**、
@@ -355,7 +401,13 @@ _避免_：火机枪射手、火焰机枪豌豆、火焰加特林
   （没有 `FireGatling_barrel.png`，枪管沿用原版机枪射手）
 - **火焰机枪射手 / 寒冰机枪射手** 两种合成都会**返还 175 阳光**（`GATLING_SYNTHESIS_REFUND`）：
   照常按卡价扣款、落地后原样还回来 → 净花费 0；传送带关卡与免费种植不返（没扣钱）
-- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]`/`[FIRE_PEASHOOTER]`/`[FIRE_GATLING_PEA]` 标准键）
+- **三线机枪射手** = **三线射手 × 机枪射手 的合成态**（与**寒冰/火焰机枪射手**同一条路径，
+  没有自己的卡）：把**三线射手**卡（325 阳光）种在已种的**机枪射手**上即可；普攻每轮**向每一行各 4 连发**，
+  大招不再随机角度散射，而是**每一行每 0.02 秒两发、高度 ±15 px、持续 3 秒**；合成同样
+  **返还 325 阳光**（`THREE_GATLING_SYNTHESIS_REFUND`，净花费 0）；贴图是**独立 reanim 文件**
+  `reanim/ThreeGaling.reanim`（三线射手的三个头 + 三顶机枪头盔 + 每头一根四段枪管 + 嘴洞上再叠一层唇形），
+  原版三线射手不受影响
+- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]`/`[FIRE_PEASHOOTER]`/`[FIRE_GATLING_PEA]`/`[THREE_GATLING_PEA]` 标准键）
   - **必须把该文件复制到当前 `-resdir` 的 `properties/` 里**，否则所有 mod 字符串都显示成
     `<Missing [XXX]>`。`run-pvz.bat` 的 `RESDIR` 就是"当前资源目录"——它换一次，这里就要跟着装一次。
   - 加载顺序（`LawnApp::LoadingThreadProc`）：`TodStringListLoad(LawnStrings.txt)` → `LoadProperties(pvzp-strings.xml)`，

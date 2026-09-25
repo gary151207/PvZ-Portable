@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 # 1.5 发射手（SEED_PEATER_1_5）源级检查：
 #   红卡 / 旅行专属 / 150 阳光 / 可直接种下 / 每次攻击 50% 一发、50% 两发 / 贴图 = 去掉眉毛的双发射手。

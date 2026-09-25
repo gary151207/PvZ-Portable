@@ -111,7 +111,8 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_ELECTRIC_STARFRUIT, nullptr, ReanimationType::REANIM_STARFRUIT, 30, 300,    3000,   PlantSubClass::SUBCLASS_SHOOTER,    100,    "ELECTRIC_STARFRUIT" },  // 究极电能星星果：300 阳光 / 30.01s 冷却（旅行红卡，由杨桃升级，5 颗追踪电能星星）
     { SeedType::SEED_SNOW_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 175,    750,    PlantSubClass::SUBCLASS_SHOOTER,    100,    "SNOW_GATLING_PEA" },  // 隐藏合成态：消耗寒冰射手卡，属性与机枪射手一致
     { SeedType::SEED_FIRE_PEASHOOTER, nullptr, ReanimationType::REANIM_FIRE_PEASHOOTER, 0, 175, 750,  PlantSubClass::SUBCLASS_SHOOTER,    FIRE_PEASHOOTER_LAUNCH_RATE, "FIRE_PEASHOOTER" },  // 火豌豆射手（旅行红卡）：175 阳光，每 1.125 秒一发 65 伤害紫火豌豆 + 命中易伤
-    { SeedType::SEED_FIRE_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 175, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "FIRE_GATLING_PEA" }  // 隐藏合成态（火豌豆射手 × 机枪射手）：消耗火豌豆射手卡，属性与机枪射手一致
+    { SeedType::SEED_FIRE_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 175, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "FIRE_GATLING_PEA" },  // 隐藏合成态（火豌豆射手 × 机枪射手）：消耗火豌豆射手卡，属性与机枪射手一致
+    { SeedType::SEED_THREE_GATLING_PEA, nullptr, ReanimationType::REANIM_THREE_GATLINGPEA, 12, 325, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "THREE_GATLING_PEA" }  // 隐藏合成态（三线射手 × 机枪射手）：消耗三线射手卡（325），每轮每行 4 连发
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -714,6 +715,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         break;
     }
     case SeedType::SEED_THREEPEATER:
+    case SeedType::SEED_THREE_GATLING_PEA:
     {
         TOD_ASSERT(aBodyReanim);
 
@@ -1362,6 +1364,91 @@ void Plant::LaunchThreepeater()
     }
 }
 
+// 三线机枪射手：三个头的开火动画（anim_shooting1/2/3）。
+// theLoop = false → 每轮起手播一遍（与三线射手一致，动作播完停住，由 UpdateShooting 尾部收回 idle）；
+// theLoop = true  → 大招期间改成循环播放（3 秒里三个头持续开火，收招同样交给 UpdateShooting 尾部）。
+void Plant::PlayThreeGatlingShootAnim(bool theLoop)
+{
+    Reanimation* aHeadReanim1 = mApp->ReanimationTryToGet(mHeadReanimID);
+    Reanimation* aHeadReanim2 = mApp->ReanimationTryToGet(mHeadReanimID2);
+    Reanimation* aHeadReanim3 = mApp->ReanimationTryToGet(mHeadReanimID3);
+    if (aHeadReanim1 == nullptr || aHeadReanim2 == nullptr || aHeadReanim3 == nullptr)
+        return;
+
+    const ReanimLoopType aLoopType = theLoop ? ReanimLoopType::REANIM_LOOP : ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
+    const char* aLayers[3] = { "anim_shooting1", "anim_shooting2", "anim_shooting3" };
+    Reanimation* aHeads[3] = { aHeadReanim1, aHeadReanim2, aHeadReanim3 };
+
+    for (int i = 0; i < 3; i++)
+    {
+        aHeads[i]->StartBlend(10);
+        aHeads[i]->mLoopType = aLoopType;
+        aHeads[i]->mAnimRate = 20.0f;
+        aHeads[i]->SetFramesForLayer(aLayers[i]);
+    }
+}
+
+// 三线机枪射手：向"每一行"各发一轮（普攻 1 颗；大招按 THREE_GATLING_BULLETS_PER_ROW）。
+// 与三线射手同一套行判定（RowCanHaveZombies）；theJitterY 只在大招里为真，
+// 给每一颗**各自**一个高度浮动 —— 浮动量取 ±THREE_GATLING_HEIGHT_JITTER，
+// 由 Plant::Fire 直接加在出膛高度上。注意这个幅度必须留在"弹丸影子间距"的
+// (28, 90) 判定窗口里（本行间距 57 ∓ 15 = 42..72），否则弹丸会被引擎判成"还没落到这一行"
+// 而整帧跳过碰撞、或"已经贴地"而当场消散（详见 scripts/check-threepeater-lanes.ps1）。
+void Plant::FireThreeGatlingVolley(bool theJitterY)
+{
+    // 弹丸池（Board::mProjectiles，上限 4096）必须自己兜住：池子满了**不会**报错，
+    // 而是 DataArrayAlloc 越界写内存（Release 下 TOD_ASSERT 是空宏）→ 卡死闪退。
+    // 这里按"这一波还要占几个槽位"提前判断，池子接近上限时整波不发。
+    const int aBulletsPerRow = theJitterY ? THREE_GATLING_BULLETS_PER_ROW : 1;
+    const int aVolleySlots = aBulletsPerRow * MAX_GRID_SIZE_Y;
+    if (mBoard->mProjectiles.mSize + aVolleySlots > THREE_GATLING_PROJECTILE_POOL_GUARD)
+        return;
+
+    for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+    {
+        if (!mBoard->RowCanHaveZombies(aRow))
+            continue;
+
+        for (int aShot = 0; aShot < aBulletsPerRow; aShot++)
+        {
+            int aYOffset = theJitterY ? RandRangeInt(-THREE_GATLING_HEIGHT_JITTER, THREE_GATLING_HEIGHT_JITTER) : 0;
+            Fire(nullptr, aRow, PlantWeapon::WEAPON_PRIMARY, aYOffset);
+        }
+    }
+}
+
+// 三线机枪射手：每轮起手（UpdateShooter 里 mLaunchCounter 归零时调用）。
+// 与 LaunchThreepeater 的区别：
+//   1) 开火周期用机枪射手的 100 帧（4 连发：18/35/51/68），而不是三线射手的 35；
+//   2) 起手时掷一次"开大"骰（与机枪射手完全同一套 mGatlingScatterChance / 3 秒大招）。
+// 大招期间直接返回：那 3 秒的节奏由 UpdateShooting 的大招分支统一驱动，不允许新一轮插进来。
+void Plant::LaunchThreeGatling()
+{
+    if (mGatlingScatterCountdown > 0)
+        return;
+
+    bool aHasTarget = false;
+    for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
+    {
+        if (mBoard->RowCanHaveZombies(aRow) && FindTargetZombie(aRow, PlantWeapon::WEAPON_PRIMARY))
+        {
+            aHasTarget = true;
+            break;
+        }
+    }
+
+    if (!aHasTarget)
+        return;
+
+    PlayThreeGatlingShootAnim(false);
+    mShootingCounter = 100;
+
+    if (Rand(100) < mGatlingScatterChance)
+    {
+        mGatlingScatterCountdown = THREE_GATLING_ULTIMATE_TICKS;
+    }
+}
+
 bool Plant::FindStarFruitTarget()
 {
     if (mRecentlyEatenCountdown > 0)
@@ -1471,6 +1558,11 @@ void Plant::UpdateShooter()
         if (mSeedType == SeedType::SEED_THREEPEATER)
         {
             LaunchThreepeater();
+        }
+        else if (mSeedType == SeedType::SEED_THREE_GATLING_PEA)
+        {
+            // 三线机枪射手：每行 4 连发（周期与开大判定都在这个函数里）
+            LaunchThreeGatling();
         }
         else if (mSeedType == SeedType::SEED_STARFRUIT || mSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
         {
@@ -3414,6 +3506,13 @@ bool Plant::IsUpgradableTo(SeedType theUpgradedType)
     {
         return true;
     }
+    // 三线机枪射手（合成）：三线射手卡种在机枪射手上。同样由 Board::MouseDownWithPlant 改写成
+    // 隐藏的 SEED_THREE_GATLING_PEA 并返还 325 阳光（= 三线射手卡价）。
+    // 放行它只是让"三线射手卡落在机枪射手格子上"得到 PLANTING_OK；三线射手卡在空地上照常种植。
+    if (theUpgradedType == SeedType::SEED_THREEPEATER && mSeedType == SeedType::SEED_GATLINGPEA)
+    {
+        return true;
+    }
     if (theUpgradedType == SeedType::SEED_ELECTRIC_STARFRUIT && mSeedType == SeedType::SEED_STARFRUIT)
     {
         return true;
@@ -3845,7 +3944,7 @@ Reanimation* Plant::AttachBlinkAnim(Reanimation* theReanimBody)
             aTrackToPlay = aHit < 7 ? "anim_blink_twice" : "anim_blink_thrice";
         }
     }
-    else if (mSeedType == SeedType::SEED_THREEPEATER)
+    else if (mSeedType == SeedType::SEED_THREEPEATER || mSeedType == SeedType::SEED_THREE_GATLING_PEA)
     {
         int aHit = Rand(3);
         if (aHit == 0)
@@ -4320,6 +4419,28 @@ void Plant::UpdateShooting()
     // 大喷菇群：左右小喷菇各喷各的（独立节奏，不受中间头计时影响）
     UpdateTravelPuffHeads();
 
+    // 三线机枪射手的大招：与 4 连发计数**解耦** —— 只要散射计时还在（3 秒 = 300 帧），
+    // 就每 THREE_GATLING_ULTIMATE_INTERVAL（3 帧 = 0.03 秒）向每一行各发
+    // THREE_GATLING_BULLETS_PER_ROW 颗（= 100 波、每行 100 颗），每颗各自带 ±15px 的高度浮动。
+    // 逻辑必须在下面 `mShootingCounter == 0` 的早退之前：大招是"按时间"开火，不是"按轮次"开火。
+    if (mSeedType == SeedType::SEED_THREE_GATLING_PEA && mGatlingScatterCountdown > 0)
+    {
+        const int aUltimateAge = THREE_GATLING_ULTIMATE_TICKS - mGatlingScatterCountdown;
+        if (aUltimateAge % THREE_GATLING_ULTIMATE_INTERVAL == 0)
+        {
+            if (aUltimateAge == 0)
+            {
+                // 大招第一发：把三个头从"播一遍就停"切成循环开火，撑满这 3 秒
+                PlayThreeGatlingShootAnim(true);
+            }
+            FireThreeGatlingVolley(true);
+            // 留一个"还有一轮在跑"的计数，让大招结束后 UpdateShooting 尾部把三个头收回 idle
+            // （大招期间本函数在下面直接 return，所以这个计数不会被消费、也不会触发 4 连发）。
+            mShootingCounter = 1;
+        }
+        return;
+    }
+
     if (mShootingCounter == 0)
         return;
 
@@ -4357,6 +4478,22 @@ void Plant::UpdateShooting()
         else if (mShootingCounter == 18 || mShootingCounter == 35 || mShootingCounter == 51 || mShootingCounter == 68)
         {
             Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
+        }
+    }
+    else if (mSeedType == SeedType::SEED_THREE_GATLING_PEA)
+    {
+        // 三线机枪射手普攻：与机枪射手同一套 4 连发计时（每轮 100 帧，见 LaunchThreeGatling），
+        // 但每一发都向**每一行**各发一颗（FireThreeGatlingVolley）。
+        // 大招期间走不到这里（UpdateShooting 开头的大招分支已经 return）。
+        if (mShootingCounter == 18 || mShootingCounter == 35 || mShootingCounter == 51 || mShootingCounter == 68)
+        {
+            FireThreeGatlingVolley(false);
+
+            // 开大概率成长与机枪射手同速：一轮 4 次判定（= 机枪的 4 发主子弹各掷一次）
+            if (Rand(100) < 50 && mGatlingScatterChance < 100)
+            {
+                mGatlingScatterChance++;
+            }
         }
     }
     else if (mSeedType == SeedType::SEED_CATTAIL)
@@ -4458,14 +4595,20 @@ void Plant::UpdateShooting()
 
     Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
     Reanimation* aHeadReanim = mApp->ReanimationTryToGet(mHeadReanimID);
-    if (mSeedType == SeedType::SEED_THREEPEATER)
+    if (mSeedType == SeedType::SEED_THREEPEATER || mSeedType == SeedType::SEED_THREE_GATLING_PEA)
     {
         Reanimation* aHeadReanim2 = mApp->ReanimationGet(mHeadReanimID2);
         Reanimation* aHeadReanim3 = mApp->ReanimationGet(mHeadReanimID3);
 
+        // 三线射手：起手时三个头是 PLAY_ONCE_AND_HOLD，播完（mLoopCount > 0）就该收回 idle。
+        // 三线机枪射手：大招期间三个头被切成 REANIM_LOOP 播 anim_shootingN，
+        // mLoopType 不再是 PLAY_ONCE_AND_HOLD —— 所以对这只植物必须无条件收回，
+        // 否则头 1 / 头 3 会永远停在开火循环里（头 2 本来就是无条件收回的）。
+        const bool aRestoreAllHeads = (mSeedType == SeedType::SEED_THREE_GATLING_PEA);
+
         if (aHeadReanim2->mLoopCount > 0)
         {
-            if (aHeadReanim->mLoopType == ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD)
+            if (aRestoreAllHeads || aHeadReanim->mLoopType == ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD)
             {
                 aHeadReanim->StartBlend(20);
                 aHeadReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
@@ -4480,7 +4623,7 @@ void Plant::UpdateShooting()
             aHeadReanim2->mAnimRate = aBodyReanim->mAnimRate;
             aHeadReanim2->mAnimTime = aBodyReanim->mAnimTime;
 
-            if (aHeadReanim3->mLoopType == ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD)
+            if (aRestoreAllHeads || aHeadReanim3->mLoopType == ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD)
             {
                 aHeadReanim3->StartBlend(20);
                 aHeadReanim3->mLoopType = ReanimLoopType::REANIM_LOOP;
@@ -4655,6 +4798,7 @@ float PlantFlowerPotHeightOffset(SeedType theSeedType, float theFlowerPotScale)
     case SeedType::SEED_PEATER_1_5:
     case SeedType::SEED_SNOWPEA:
     case SeedType::SEED_THREEPEATER:
+    case SeedType::SEED_THREE_GATLING_PEA:
     case SeedType::SEED_SUNFLOWER:
     case SeedType::SEED_MARIGOLD:
     case SeedType::SEED_CABBAGEPULT:
@@ -5701,6 +5845,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     case SeedType::SEED_PEASHOOTER:
     case SeedType::SEED_REPEATER:
     case SeedType::SEED_THREEPEATER:
+    case SeedType::SEED_THREE_GATLING_PEA:
     case SeedType::SEED_SPLITPEA:
     case SeedType::SEED_GATLINGPEA:
     case SeedType::SEED_LEFTPEATER:
@@ -5787,7 +5932,13 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         mGatlingScatterCountdown == 0)
     {
         aMainBulletType = RollGatlingBulletType(aProjectileType);
-        mApp->PlayFoley(FoleyType::FOLEY_THROW);
+        // 三线机枪射手一次开火要打满全场每一行（一轮最多 6 次 Fire），逐行都放 FOLEY_THROW
+        // 会叠成 24 声/轮。只让"本行"那一次出声 —— 于是每轮 4 声，与机枪射手同量级
+        // （大招里每 0.2 秒一声，正是"稳定连发"的听感）。
+        if (mSeedType != SeedType::SEED_THREE_GATLING_PEA || theRow == mRow)
+        {
+            mApp->PlayFoley(FoleyType::FOLEY_THROW);
+        }
     }
     if (mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_WINTERMELON)
     {
@@ -5871,10 +6022,14 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
             aOriginX = mX + aOffsetX + 24;
         }
     }
-    else if (mSeedType == SeedType::SEED_THREEPEATER)
+    else if (mSeedType == SeedType::SEED_THREEPEATER || mSeedType == SeedType::SEED_THREE_GATLING_PEA)
     {
+        // 三线射手（以及它的机枪版）：出膛点固定在中头嘴边；
+        // theYOffset 是三线机枪射手大招的"高度浮动"（±THREE_GATLING_HEIGHT_JITTER），
+        // 普通攻击以及三线射手本体都恒为 0。弹丸的影子由 ProjectileInitialize 按目标行摆好，
+        // 偏移量留在 (28, 90) 的间距窗口里，所以只需要挪出膛高度即可（见 FireThreeGatlingVolley）。
         aOriginX = mX + 45;
-        aOriginY = mY + 10;
+        aOriginY = mY + 10 + theYOffset;
     }
     else if (mSeedType == SeedType::SEED_SCAREDYSHROOM)
     {
@@ -5926,9 +6081,21 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     }
 
     Projectile* aProjectile = nullptr;
-    if ((mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
-         mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_FIRE_GATLING_PEA) &&
-        mGatlingScatterCountdown > 0)
+    if (mSeedType == SeedType::SEED_THREE_GATLING_PEA && mGatlingScatterCountdown > 0)
+    {
+        // 三线机枪射手的大招子弹：**一颗直飞的普通豌豆**，不掷角度、不散射。
+        // 它是"稳定在每一行 0.2 秒一发"的那一发（节奏与高度浮动都在 UpdateShooting /
+        // FireThreeGatlingVolley 里，出膛高度已经带了 ±THREE_GATLING_HEIGHT_JITTER）。
+        // 伤害沿用机枪射手散射的 mDamageOverride = 200：大招只换瞄准方式，不换强度。
+        aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aMainBulletType);
+        aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+        aProjectile->mDamageOverride = 200;
+        aProjectile->mSourcePlantID = static_cast<PlantID>(mBoard->mPlants.DataArrayGetID(this));
+        aProjectile->mElectricChainSource = PlantFiresElectricChainProjectile(this);
+    }
+    else if ((mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
+              mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_FIRE_GATLING_PEA) &&
+             mGatlingScatterCountdown > 0)
     {
         // 大招：每 2 帧（0.02 s）发射 6 颗 ±15° 扇形子弹，取代主子弹
         constexpr int SCATTER_COUNT = 2;
@@ -5961,7 +6128,8 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectile->mElectricChainSource = PlantFiresElectricChainProjectile(this);
 
         if (mApp->IsLoneWolfLevel() && (mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
-                                        mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_FIRE_GATLING_PEA))
+                                        mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_FIRE_GATLING_PEA ||
+                                        mSeedType == SeedType::SEED_THREE_GATLING_PEA))
             aProjectile->mDamageOverride = 200;
 
         if (mSeedType == SeedType::SEED_PEASHOOTER && !mHasFiredFirstPea)
@@ -6025,7 +6193,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectile->mVelZ = aRangeY / 120.0f - 7.0f;
         aProjectile->mAccZ = 0.115f;
     }
-    else if (mSeedType == SeedType::SEED_THREEPEATER)
+    else if (mSeedType == SeedType::SEED_THREEPEATER || mSeedType == SeedType::SEED_THREE_GATLING_PEA)
     {
         if (theRow != mRow)
         {

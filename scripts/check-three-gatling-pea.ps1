@@ -31,7 +31,7 @@ function P([string]$rel) { Join-Path $root $rel }
 
 # --- 枚举：新值前插在 NUM_* 之前，既有存档枚举值不变 ---
 Assert-Source (P 'src/ConstEnums.h') 'SEED_FIRE_GATLING_PEA,[\s\S]{0,400}SEED_THREE_GATLING_PEA,[\s\S]{0,800}NUM_SEED_TYPES' 'SEED_THREE_GATLING_PEA must be appended after SEED_FIRE_GATLING_PEA and just before NUM_SEED_TYPES.'
-Assert-Source (P 'src/ConstEnums.h') 'REANIM_FIRE_GATLINGPEA,[\s\S]{0,1200}REANIM_THREE_GATLINGPEA,[\s\S]{0,800}NUM_REANIMS' 'REANIM_THREE_GATLINGPEA must be appended after REANIM_FIRE_GATLINGPEA and just before NUM_REANIMS.'
+Assert-Source (P 'src/ConstEnums.h') 'REANIM_FIRE_GATLINGPEA,[\s\S]{0,1200}REANIM_THREE_GATLINGPEA,[\s\S]{0,2500}NUM_REANIMS' 'REANIM_THREE_GATLINGPEA must be appended after REANIM_FIRE_GATLINGPEA and before NUM_REANIMS (later mod reanimations appended after it are fine).'
 
 # --- reanim 槽位：**自己的**文件 + REANIM_NO_ATLAS ---
 # gLawnReanimationArray 是按 ReanimationType 下标取用的，条目顺序必须与枚举逐条对齐。

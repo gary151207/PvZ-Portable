@@ -28,7 +28,7 @@ function Assert-Source([string]$relative, [string]$pattern, [string]$message) {
 # --- 枚举：新值前插在 NUM_* 之前，既有存档枚举值不变 ---
 Assert-Source 'src/ConstEnums.h' 'SEED_THREE_GATLING_PEA,[\s\S]{0,3000}SEED_LASER_PEA,[\s\S]{0,1500}NUM_SEED_TYPES' 'SEED_LASER_PEA must be declared after SEED_THREE_GATLING_PEA and before NUM_SEED_TYPES.'
 Assert-Source 'src/ConstEnums.h' 'REANIM_THREE_GATLINGPEA,[\s\S]{0,4000}REANIM_LASER_PEA,[\s\S]{0,1500}NUM_REANIMS' 'REANIM_LASER_PEA must be declared after REANIM_THREE_GATLINGPEA and before NUM_REANIMS.'
-Assert-Source 'src/ConstEnums.h' 'PROJECTILE_PURPLE_FIRE_PEA = 16,[\s\S]{0,400}PROJECTILE_LASER_PEA = 17,[\s\S]{0,300}NUM_PROJECTILES = 18' 'PROJECTILE_LASER_PEA must be appended after PROJECTILE_PURPLE_FIRE_PEA and bump NUM_PROJECTILES to 18.'
+Assert-Source 'src/ConstEnums.h' 'PROJECTILE_PURPLE_FIRE_PEA = 16,[\s\S]{0,400}PROJECTILE_LASER_PEA = 17,[\s\S]{0,400}NUM_PROJECTILES' 'PROJECTILE_LASER_PEA must be appended after PROJECTILE_PURPLE_FIRE_PEA and before NUM_PROJECTILES (later mod projectiles appended after it are fine).'
 
 # --- 常量：0.2 秒（20 帧）/ 20 伤害 / 光束寿命 / 绿色配色 ---
 Assert-Source 'src/GameConstants.h' 'LASER_PEA_LAUNCH_RATE\s*=\s*20' 'LASER_PEA_LAUNCH_RATE must be 20 logic frames (0.2 s at 100 fps).'

@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 # 孢子菇（SEED_SPORESHROOM）源级检查：
 #   国服 4.2.4 一级数值 / 仅斗蛐蛐 2 第二选卡页 / 单体抛射 / 直接击杀原格繁殖。
@@ -15,8 +15,8 @@ $root = Split-Path -Parent $PSScriptRoot
 function P([string]$rel) { Join-Path $root $rel }
 
 # 枚举只能在现有自定义值之后追加，保证旧 .v4 存档中的整数值稳定。
-Assert-Source (P 'src/ConstEnums.h') 'PROJECTILE_PURPLE_FIRE_PEA = 16,[\s\S]{0,300}PROJECTILE_SPORESHROOM = 17,[\s\S]{0,200}NUM_PROJECTILES = 18' 'Spore projectile must be appended as value 17.'
-Assert-Source (P 'src/ConstEnums.h') 'REANIM_THREE_GATLINGPEA,[\s\S]{0,500}REANIM_SPORESHROOM,[\s\S]{0,200}REANIM_SPORESHROOM_PROJECTILE,[\s\S]{0,300}NUM_REANIMS' 'Spore reanimations must be appended before NUM_REANIMS.'
+Assert-Source (P 'src/ConstEnums.h') 'PROJECTILE_PURPLE_FIRE_PEA = 16,[\s\S]{0,300}PROJECTILE_LASER_PEA = 17,[\s\S]{0,300}PROJECTILE_SPORESHROOM = 18,[\s\S]{0,200}NUM_PROJECTILES = 19' 'Spore projectile must be appended as value 18 (after the laser pea beam added earlier).'
+Assert-Source (P 'src/ConstEnums.h') 'REANIM_THREE_GATLINGPEA,[\s\S]{0,900}REANIM_SPORESHROOM,[\s\S]{0,200}REANIM_SPORESHROOM_PROJECTILE,[\s\S]{0,600}NUM_REANIMS' 'Spore reanimations must be appended before NUM_REANIMS (later mod reanimations appended after them are fine).'
 Assert-Source (P 'src/ConstEnums.h') 'SEED_THREE_GATLING_PEA,[\s\S]{0,300}SEED_SPORESHROOM,[\s\S]{0,200}NUM_SEED_TYPES' 'Spore-shroom must be appended before NUM_SEED_TYPES.'
 Assert-Source (P 'src/Lawn/Plant.h') 'STATE_UMBRELLA_KNOCKING,[\s\S]{0,200}STATE_SPORESHROOM_GROWING' 'The growing state must be appended to PlantState.'
 

@@ -239,6 +239,31 @@ constexpr const int   LASER_PEA_MUZZLE_MARGIN = 8;
 // 超出的僵尸本轮不再挨打（植物照常进入下一轮冷却）。
 constexpr const int   MAX_PULT_PROJECTILES_PER_VOLLEY = 10;
 
+// ===== 魅惑大喷菇（旅行专属形态 SEED_HYPNOSHROOM_FUME）=====
+// 获得方式：把**魅惑菇**卡种在已种的**大喷菇群**上升级得到；把**小喷菇**卡种在它上面即可切回大喷菇群
+// （两条都走 Plant::IsUpgradableTo + Board::MouseDownWithPlant 的"改写要种的种子"路径，
+//   与寒冰/火焰机枪射手的合成完全同一套做法）。它没有任何单独卡牌，普通关卡也拿不到。
+//
+// 攻击：与**大喷菇**完全同一条管道（本行 340px 穿透烟雾、60 伤害/轮、mLaunchRate = 90），
+//   但**没有**两侧小喷菇（大喷菇群的那两只），所以只有中间一个头在打。
+//
+// 每次攻击（= 每一轮 anim_shooting 真的出烟那一下）掷一次骰：
+//   HYPNOSHROOM_FUME_CHARM_PERCENT% 的概率把这团烟雾里**所有**血量低于一半的僵尸变成魅惑僵尸。
+//   想改成"每只僵尸各掷一次"就只把下面那一次 Rand(100) 挪进遍历循环体内
+//   （见 Plant::TryHypnotizeFumeTargets）。
+// 例外：BOSS 路障射手僵尸与僵王博士**不吃魅惑**。
+constexpr const int   HYPNOSHROOM_FUME_CHARM_PERCENT    = 15;   // 每次攻击的魅惑概率（%）
+constexpr const int   HYPNOSHROOM_FUME_CHARM_HP_PERCENT = 50;   // 只有本体血量低于该百分比（%）的僵尸会被魅惑
+
+// 魅惑僵尸的"阵营对抗"伤害（见 Zombie::DamageOpposingZombiesInAttackRect）：
+//   - 被魅惑的巨人/红眼巨人砸击时，对范围内**未被魅惑**的僵尸造成 GARGANTUAR_ZOMBIE_SMASH_DAMAGE 点；
+//   - 未被魅惑的巨人/红眼巨人砸击时，同样对范围内**被魅惑**的僵尸造成这份伤害；
+//   - 被魅惑的冰车每游戏刻对范围内**未被魅惑**的僵尸造成 ZAMBONI_ZOMBIE_GRIND_DAMAGE 点；
+//   - 未被魅惑的冰车每游戏刻对范围内**被魅惑**的僵尸造成同一份伤害。
+//   两个数值对两个方向一视同仁，想分别调就把它们拆成四个常量。
+constexpr const int   GARGANTUAR_ZOMBIE_SMASH_DAMAGE = 500;     // 巨人僵尸砸击对僵尸的伤害（红眼同为 500）
+constexpr const int   ZAMBONI_ZOMBIE_GRIND_DAMAGE    = 2;       // 冰车僵尸每游戏刻对僵尸的碾压伤害
+
 constexpr const int HIGH_GROUND_HEIGHT = 30;
 
 constexpr const int SEEDBANK_MAX = 10;

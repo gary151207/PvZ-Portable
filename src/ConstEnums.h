@@ -999,6 +999,8 @@ enum ReanimationType : uint32_t {
                                     // 于是整株只画一根枪管、一张嘴（见 Plant.cpp）
     REANIM_SPORESHROOM,             // 孢子菇：由 PvZ2 PAM 动画转换的独立 reanim
     REANIM_SPORESHROOM_PROJECTILE,  // 孢子菇弹丸：飞行及两套命中特效
+    REANIM_HYPNOSHROOM_FUME,        // 魅惑大喷菇：与 REANIM_FUMESHROOM 同一个 reanim 文件，
+                                    // 但装载后把脑袋换成 reanim/HypnoFumeshroom_head.png（见 Plant.cpp）
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1135,6 +1137,7 @@ enum SeedType : int32_t
     SEED_THREE_GATLING_PEA,                         // 三线机枪射手（三线射手种在机枪射手上时合成：每轮每行 4 连发；大招每行 0.2 秒一发 ±15px、持续 3 秒）
     SEED_LASER_PEA,                                 // 激光豌豆（旅行红卡：400 阳光，每 0.8 秒一道贯穿本行的绿色激光、每只僵尸 20 伤害，优先索敌空中僵尸）
     SEED_SPORESHROOM,                               // 孢子菇（斗蛐蛐 2 专属：抛射孢子，直接击杀后原格繁殖）
+    SEED_HYPNOSHROOM_FUME,                          // 魅惑大喷菇（旅行专属形态：魅惑菇 × 大喷菇群 切换，小喷菇切回）
     NUM_SEED_TYPES,
     SEED_BEGHOULED_BUTTON_SHUFFLE,
     SEED_BEGHOULED_BUTTON_CRATER,

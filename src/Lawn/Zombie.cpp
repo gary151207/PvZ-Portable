@@ -30,6 +30,7 @@
 #include "Projectile.h"
 #include "../LawnApp.h"
 #include "../Resources.h"
+#include "../GameConstants.h"
 #include "System/Music.h"
 #include "Widget/AlmanacDialog.h"
 #include "../Sexy.TodLib/TodFoley.h"
@@ -2256,18 +2257,16 @@ void Zombie::UpdateZombieGargantuar()
         Reanimation* aBodyReanim = mApp->ReanimationGet(mBodyReanimID);
         if (aBodyReanim->ShouldTriggerTimedEvent(0.64f))
         {
-#ifdef DO_FIX_BUGS
-            if (mMindControlled)  // 魅惑巨人砸僵尸
-            {
-                Zombie* aZombie = FindZombieTarget();
-                if (aZombie)
-                {
-                    int aDamage = mZombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR ? 1000 : 500;
-                    aZombie->TakeDamage(aDamage, 0U);
-                }
-            }
-            else
-#endif
+            // 砸击对"敌对阵营"的僵尸同样有效：
+            //   - 被魅惑的巨人/红眼巨人砸**未被魅惑**的僵尸（原本 DO_FIX_BUGS 下只砸一只，现在打一片）；
+            //   - 未被魅惑的巨人/红眼巨人砸**被魅惑**的僵尸（魅惑大喷菇造出来的那批）。
+            // 两种方向共用 GARGANTUAR_ZOMBIE_SMASH_DAMAGE（红眼也一样是 500，不再翻倍）。
+            DamageOpposingZombiesInAttackRect(GARGANTUAR_ZOMBIE_SMASH_DAMAGE);
+
+            // 被魅惑的巨人不砸植物 —— 只砸上面那一片对面阵营的僵尸。
+            //（CanTargetPlant 也已经对魅惑僵尸一律返回 false，这里是第二道闸，
+            //  顺便挡住 ScaryPotter / IZombie 那两条不走 CanTargetPlant 的分支。）
+            if (!mMindControlled)
             {
                 Plant* aPlant = FindPlantTarget(ZombieAttackType::ATTACKTYPE_CHEW);
                 if (aPlant)
@@ -2386,21 +2385,28 @@ void Zombie::UpdateZombieGargantuar()
             aZombieImp->mScaleZombie = mScaleZombie;
             aZombieImp->mBodyHealth *= mScaleZombie * mScaleZombie;
             aZombieImp->mBodyMaxHealth *= mScaleZombie * mScaleZombie;
-
+#endif
+            // 被魅惑的巨人（含红眼巨人）扔出的小鬼**同样是魅惑状态**：改从巨人右侧抛出、向右飞，
+            // 落地后自动向右走、只打未被魅惑的僵尸（IsWalkingBackwards 由 mMindControlled 决定，
+            // 攻击目标由 FindZombieTarget 的阵营判定给出）。
+            // 这一段**必须始终生效、不受 DO_FIX_BUGS 影响** —— 魅惑大喷菇魅惑出来的巨人全靠它。
+            // 水平速度取负值 = 向右飞（UpdateZombieImp 里是 mPosX -= mVelX）；负值只作用于飞行段，
+            // 落地时 StartWalkAnim → PickRandomSpeed 会把 mVelX 恢复成正常行走速度（同时刷新动画速率）。
             if (mMindControlled)
             {
                 aZombieImp->mPosX = mPosX + mWidth;
-                aZombieImp->StartMindControlled();
+                aZombieImp->ApplyCharmedByPlant();
                 aZombieImp->mVelX = -3.0f;
             }
             else
             {
                 aZombieImp->mVelX = 3.0f;
             }
-#else
-            aZombieImp->mVelX = 3.0f;
-#endif
             aZombieImp->mChilledCounter = mChilledCounter;
+            // mVelX 为负时这条弹道公式给出的 mVelZ 也是负的 —— 被魅惑的小鬼因此是"平抛下降"
+            // 而不是普通巨人那种镜像的上抛弧线，横向也只飞约 120~160px（起点 mPosX + mWidth）。
+            // 故意保留这个较短的射程：飞到 850 之外的魅惑僵尸会被 CheckForBoardEdge 判为离场，
+            // 射程再远一点小鬼就会频繁"落地即出界"。
             aZombieImp->mVelZ = 0.5f * (aThrowingDistance / aZombieImp->mVelX) * THOWN_ZOMBIE_GRAVITY;
             aZombieImp->PlayZombieReanim("anim_thrown", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 18.0f);
             aZombieImp->UpdateReanim();
@@ -2426,37 +2432,19 @@ void Zombie::UpdateZombieGargantuar()
         return;
     }
 
-#ifdef DO_FIX_BUGS
-    bool doSmash = false;
-    if (mMindControlled)
-    {
-        doSmash = FindZombieTarget() != nullptr;
-    }
-    else if (FindPlantTarget(ZombieAttackType::ATTACKTYPE_CHEW))
-    {
-        doSmash = true;
-    }
-    else if (mApp->IsScaryPotterLevel())
-    {
-        int aGridX = mBoard->PixelToGridX(mPosX, mPosY);
-        if (mBoard->GetScaryPotAt(aGridX, mRow))
-        {
-            doSmash = true;
-        }
-    }
-    else if (mApp->IsIZombieLevel())
-    {
-        if (mBoard->mChallenge->IZombieGetBrainTarget(this))
-        {
-            doSmash = true;
-        }
-    }
-#else
+    // 起手判定：面前有**对面阵营**的僵尸时也会砸下去（FindZombieTarget 只认 mMindControlled 相反的僵尸）：
+    //   - 被魅惑的巨人 → 找未被魅惑的僵尸（CanTargetPlant 对魅惑僵尸返回 false，所以它永远找不到植物）；
+    //   - 未被魅惑的巨人 → 找被魅惑的僵尸（魅惑大喷菇造出来的那批）。
+    // 这一段不受 DO_FIX_BUGS 影响 —— 魅惑大喷菇的巨人砸击是这只植物的机制之一，必须始终生效。
     bool doSmash = false;
     if (FindPlantTarget(ZombieAttackType::ATTACKTYPE_CHEW))
     {
         doSmash = true;
     }
+    else if (FindZombieTarget() != nullptr)
+    {
+        doSmash = true;
+    }
     else if (mApp->IsScaryPotterLevel())
     {
         int aGridX = mBoard->PixelToGridX(mPosX, mPosY);
@@ -2472,7 +2460,6 @@ void Zombie::UpdateZombieGargantuar()
             doSmash = true;
         }
     }
-#endif
 
     if (doSmash)
     {
@@ -4539,6 +4526,15 @@ void Zombie::CheckForZombieStep()
     {
         CheckSquish(ZombieAttackType::ATTACKTYPE_DRIVE_OVER);
     }
+
+    // 冰车的僵尸碾压：每游戏刻（= 每一逻辑帧）对"敌对阵营"的僵尸造成
+    // ZAMBONI_ZOMBIE_GRIND_DAMAGE 点。被魅惑的冰车碾未被魅惑的僵尸、未被魅惑的冰车碾被魅惑的僵尸，
+    // 两个方向共用同一个数值与同一个判定矩形（见 DamageOpposingZombiesInAttackRect）。
+    // 爆胎（mFlatTires）后不再碾压，与"爆胎后压不动植物"保持一致。
+    if (mZombieType == ZombieType::ZOMBIE_ZAMBONI && !mFlatTires && !IsDeadOrDying())
+    {
+        DamageOpposingZombiesInAttackRect(ZAMBONI_ZOMBIE_GRIND_DAMAGE);
+    }
 }
 
 void Zombie::UpdateZombiePosition()
@@ -5158,13 +5154,8 @@ void Zombie::AnimateChewSound()
             mApp->PlayFoley(FoleyType::FOLEY_FLOOP);
             aPlant->Die();
 
-            StartMindControlled();
-            mApp->AddTodParticle(mPosX + 60.0f, mPosY + 40.0f, mRenderOrder + 1, ParticleEffect::PARTICLE_MIND_CONTROL);
+            ApplyCharmedByPlant();
             TrySpawnLevelAward();
-
-            mVelX = 0.17f;
-            mAnimTicksPerFrame = 18;
-            UpdateAnimSpeed();
         }
         else if (aPlant->mSeedType == SeedType::SEED_GARLIC)
         {
@@ -6713,6 +6704,11 @@ void Zombie::Draw(Graphics* g)
 
 bool Zombie::CanTargetPlant(Plant* thePlant, ZombieAttackType theAttackType)
 {
+    // 被魅惑的僵尸一律不攻击植物：它已经"倒戈"了，只会打对面阵营的僵尸
+    // （冰车/投石车被魅惑时尤其明显 —— 否则它会一边向右开一边把自己的植物碾平）。
+    if (mMindControlled)
+        return false;
+
     if (mApp->IsWallnutBowlingLevel() && theAttackType != ZombieAttackType::ATTACKTYPE_VAULT)
         return false;
 
@@ -7469,6 +7465,56 @@ void Zombie::StartMindControlled()
     }
 }
 
+// 魅惑上身：把"被魅惑菇咬到"那一整套效果集中在这里，供两条路径共用：
+//   1) 僵尸啃到魅惑菇（AnimateChewSound）；
+//   2) 魅惑大喷菇的烟雾命中（Plant::TryHypnotizeFumeTargets）。
+// 数值（mVelX = 0.17 / mAnimTicksPerFrame = 18）与原版魅惑菇保持一致 —— 被魅惑的僵尸
+// 改成向右慢慢走，并播放 PARTICLE_MIND_CONTROL 提示。
+// 免疫魅惑的类型（BOSS 路障射手僵尸）在 StartMindControlled() 里直接返回，因此这里用
+// mMindControlled 再确认一次：没被真正魅惑就什么都不做（不会挂粒子、也不会改速度）。
+void Zombie::ApplyCharmedByPlant()
+{
+    StartMindControlled();
+    if (!mMindControlled)
+        return;   // 免疫魅惑的类型（BOSS 路障射手僵尸）
+
+    mApp->AddTodParticle(mPosX + 60.0f, mPosY + 40.0f, mRenderOrder + 1, ParticleEffect::PARTICLE_MIND_CONTROL);
+
+    mVelX = 0.17f;
+    mAnimTicksPerFrame = 18;
+    UpdateAnimSpeed();
+}
+
+// 魅惑阵营对抗：只打"敌对阵营"的僵尸。
+//   - 自己未被魅惑 → 打被魅惑的僵尸（需要 DAMAGES_ONLY_MINDCONTROLLED 位）；
+//   - 自己被魅惑   → 打未被魅惑的僵尸（不加该位，EffectedByDamage 会自动排除被魅惑的）。
+// 判定矩形取自 GetZombieAttackRect()：它跟着 IsWalkingBackwards() 做镜像，所以被魅惑的
+// 巨人/冰车打的是它面朝的那一侧（与 FindZombieTarget / CheckSquish 用的是同一个矩形）。
+void Zombie::DamageOpposingZombiesInAttackRect(int theDamage)
+{
+    unsigned int aRangeFlags = static_cast<unsigned int>(1 << static_cast<int>(DamageRangeFlags::DAMAGES_GROUND));
+    if (!mMindControlled)
+    {
+        aRangeFlags |= static_cast<unsigned int>(1 << static_cast<int>(DamageRangeFlags::DAMAGES_ONLY_MINDCONTROLLED));
+    }
+
+    Rect aAttackRect = GetZombieAttackRect();
+
+    Zombie* aZombie = nullptr;
+    while (mBoard->IterateZombies(aZombie))
+    {
+        if (aZombie == this || aZombie->mRow != mRow)
+            continue;
+        if (!aZombie->EffectedByDamage(aRangeFlags))
+            continue;
+        if (GetRectOverlap(aAttackRect, aZombie->GetZombieRect()) <= 0)
+            continue;
+
+        // 0U：不绕盾、不吃冰冻、不加成 —— 与巨人砸僵尸原本那一发同一种"物理"伤害
+        aZombie->TakeDamage(theDamage, 0U);
+    }
+}
+
 void Zombie::EatPlant(Plant* thePlant)
 {
     if (mZombiePhase == ZombiePhase::PHASE_DANCER_DANCING_IN)
@@ -7973,27 +8019,6 @@ void Zombie::DieNoLoot()
     if (mZombieType == ZombieType::ZOMBIE_BOSS)
     {
         BossDie();
-    }
-
-    // 魅惑僵尸死亡时释放樱桃炸弹效果（火炬召唤的除外）
-    if (mMindControlled && !mTorchwoodSummoned && mBoard)
-    {
-        static bool sCherryInProgress = false;
-        if (!sCherryInProgress)
-        {
-            sCherryInProgress = true;
-
-            int aPosX = mPosX + mWidth / 2;
-            int aPosY = mPosY + mHeight / 2;
-
-            mApp->PlayFoley(FoleyType::FOLEY_CHERRYBOMB);
-            mApp->PlayFoley(FoleyType::FOLEY_JUICY);
-            mBoard->KillAllZombiesInRadius(mRow, aPosX, aPosY, 115, 1, true, 127);
-            mApp->AddTodParticle(aPosX, aPosY, static_cast<int>(RenderLayer::RENDER_LAYER_TOP), ParticleEffect::PARTICLE_POWIE);
-            mBoard->ShakeBoard(3, -4);
-
-            sCherryInProgress = false;
-        }
     }
 }
 

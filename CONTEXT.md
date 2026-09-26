@@ -147,6 +147,53 @@ _避免_：分页、换页
 左小喷菇图层在大喷菇之上，右小喷菇在其之下。铲掉/被吃整格消失（不还原）。
 _避免_：喷菇群、三头喷菇、Fume 群
 
+**魅惑大喷菇 (Hypno Fume-shroom)**：
+旅行专属**形态**（`SEED_HYPNOSHROOM_FUME`，**没有自己的卡**）：把**魅惑菇**卡种在已种的**大喷菇群**上升级得到，
+把**小喷菇**卡种在它上面即可切回**大喷菇群**（两条都走 `Plant::IsUpgradableTo` +
+`Board::MouseDownWithPlant` 的"照常扣款、改写实际创建的种子"路径，与寒冰/火焰机枪射手合成同一套做法）。
+它**没有**大喷菇群左右两侧的小喷菇，只有中间一个头，攻击管道与**大喷菇**完全一致
+（本行 340px 穿透烟雾、60 伤害/轮、`mLaunchRate = 90`、攻击矩形同大喷菇）。
+它是**隐藏形态**（与寒冰/火焰/三线机枪射手、孢子菇同类），**不登记**进 `gTravelPlantDefs`，
+所以选卡器页 1 上没有它的卡、`HasSeedType` 也一律为假；"旅行专属"是**推导出来的**——
+它只能从同样旅行专属的**大喷菇群**切换而来。沙盒的**旅行页**里可以单独种下它，方便验收。
+**贴图** = 大喷菇，只把脑袋换成 `reanim/HypnoFumeshroom_head.png`（92×71，与
+`reanim/FumeShroom_head.png` 同尺寸；缺图/无透明通道/尺寸不符就整体回退成普通大喷菇）。
+接入方式与火豌豆射手同一套：新增 `ReanimationType::REANIM_HYPNOSHROOM_FUME`
+（与 `REANIM_FUMESHROOM` **同一个 reanim 文件**、**独立定义槽**、`REANIM_NO_ATLAS`），
+装载后由 `HypnoFumeshroomHasCustomArt()` 把定义里的 `reanim/FUMESHROOM_HEAD` 逐帧按原图指针换掉。
+**魅惑判定**：每次攻击（每一轮 `anim_shooting` 真的出烟那一下）**掷一次骰**，
+`HYPNOSHROOM_FUME_CHARM_PERCENT = 15`% 的概率把这团烟雾里**所有**本体血量低于
+`HYPNOSHROOM_FUME_CHARM_HP_PERCENT = 50`% 的僵尸一起魅惑（判定口径与烟雾伤害完全一致：
+本行 / 攻击矩形重叠 / 高地一致 / `EffectedByDamage`）。
+**例外**：BOSS 路障射手僵尸（`ZOMBIE_BOSS_CONHEAD_PEA`）与僵王博士（`ZOMBIE_BOSS`）免疫。
+想改成"每只僵尸各掷一次"，把 `Plant::TryHypnotizeFumeTargets` 里那一次 `Rand(100)` 的判断
+挪进遍历循环体即可（常量都在 `src/GameConstants.h` 的 `HYPNOSHROOM_FUME_*`）。
+_避免_：催眠大喷菇、魅惑喷射菇
+
+**魅惑阵营对抗 (Charmed Faction Combat)**：
+魅惑大喷菇造出来的魅惑僵尸与"对面阵营"之间可以互相伤害，由
+`Zombie::DamageOpposingZombiesInAttackRect(theDamage)` 一处实现，判定矩形取
+`GetZombieAttackRect()`（跟着 `IsWalkingBackwards()` 镜像，所以打的是它面朝的那一侧）：
+- **巨人/红眼巨人砸击**（`UpdateZombieGargantuar` 的 `anim_smash` 命中帧）：对范围内对面阵营的僵尸各造成
+  `GARGANTUAR_ZOMBIE_SMASH_DAMAGE = 500`（**红眼不再是 1000，与普通巨人同为 500**）。
+  被魅惑的巨人**不砸植物**（`CanTargetPlant` 对魅惑僵尸一律返回 false，砸击里另有一道闸）。
+- **被魅惑的巨人扔出的小鬼也是魅惑状态**（`PHASE_GARGANTUAR_THROWING` 的出手机）：
+  改从巨人**右侧**抛出（`mPosX + mWidth`）、水平速度取 **−3** 向右飞（`UpdateZombieImp` 里是
+  `mPosX -= mVelX`），落地后 `StartWalkAnim → PickRandomSpeed` 把 `mVelX` 恢复成正常行走速度，
+  于是它自动向右走、只打未被魅惑的僵尸。这一段**不受 `DO_FIX_BUGS` 影响**（魅惑大喷菇魅惑出来的
+  巨人全靠它，而 `DO_FIX_BUGS` 默认是关的）。`mVelX` 为负时弹道公式给出的 `mVelZ` 也为负 →
+  被魅惑的小鬼是**平抛下降**、横向只飞 ~120~160px；**故意保留这个较短射程**，
+  否则小鬼会频繁落到 850 之外被 `CheckForBoardEdge` 判为离场。
+- **冰车碾压**（`Zombie::CheckForZombieStep`，每游戏刻一次）：对范围内对面阵营的僵尸各造成
+  `ZAMBONI_ZOMBIE_GRIND_DAMAGE = 2`（100 刻/秒 → 200 DPS）；爆胎（`mFlatTires`）后停止。
+两个数值**双向通用**：被魅惑的一侧打未被魅惑的，未被魅惑的一侧也打被魅惑的
+（方向由 `DAMAGES_ONLY_MINDCONTROLLED` 位决定，见 `Zombie::EffectedByDamage`）。
+**魅惑僵尸死亡时不再爆炸**：曾经在 `Zombie::DieNoLoot` 里"死亡即释放樱桃炸弹效果"（115 半径、
+1 行、`PARTICLE_POWIE`）的那段已按需求**整段删除**，`check-hypno-fumeshroom.ps1` 有防回归断言。
+`Zombie::mTorchwoodSummoned`（火炬树桩召唤来源）**必须保留**——它当年只用来压制那次爆炸，
+但 `.v4` 的僵尸 tail 是逐字段顺序读写的，删掉中间这一段会让后面的 `mFireVulnCounter` 在旧存档里错位。
+_避免_：内讧、僵尸互殴
+
 **红卡 (Red Card)**：
 卡包底色渲染为红色系的旅行高阶卡级（对标紫卡升级卡）。由 `Plant::IsRedCard` 判定；
 当前六张 = **巨大坚果**（`SEED_GIANT_WALLNUT`）、**1.5 发射手**（`SEED_PEATER_1_5`）、
@@ -448,6 +495,12 @@ _避免_：激光射手、激光机枪射手、镭射豌豆
   **1.5 发射手**、**究极电能机枪射手**、**究极电能星星果**、**火豌豆射手**、**激光豌豆**）
 - **大喷菇群** = 紫卡升级卡：拖到已种**大喷菇**格执行升级；选卡时必须同选**大喷菇**（否则开始被拦）
 - **大喷菇群**三个头各喷各的：中间**大喷菇**烟雾（本行 3×3 穿透），两侧**小喷菇**孢子（单体、微斜、340px 内命中邻行边缘）
+- **魅惑大喷菇** = **大喷菇群**身上的**形态切换**（旅行专属、**没有卡**）：**魅惑菇**卡 → 魅惑大喷菇、
+  **小喷菇**卡 → 切回大喷菇群；只有中间一个头（没有两侧小喷菇），机制同**大喷菇**；
+  每次攻击 15% 概率魅惑烟雾里半血以下的僵尸（路障射手僵尸/僵王博士免疫）
+- **魅惑阵营对抗**：被魅惑的**巨人/红眼巨人**砸击范围内对面阵营的僵尸各 500 点、**冰车**每游戏刻
+  对范围内对面阵营的僵尸各 2 点；反过来**未被魅惑**的巨人与冰车打**被魅惑**的僵尸用的是同一套数值；
+  被魅惑的巨人**扔出的小鬼同样是魅惑状态**（从巨人右侧向右抛出，落地后替你打僵尸）
 - **巨大坚果** = **红卡** = **双坚果底座**产物：只出现在旅行关（传送带/页 1）；占两格、挡跳跃、
   32000 生命；普通模式不可选/不可拥有（`HasSeedType` 旅行特判）
 - **1.5 发射手** = **红卡**：只出现在旅行关（传送带/页 1/沙盒旅行页）；**可直接种下**、
@@ -482,7 +535,7 @@ _避免_：激光射手、激光机枪射手、镭射豌豆
   外观 = 机枪射手，但**只有一根枪管、一张嘴**；每 **0.8 秒**一道**绿色**激光，**可锁定射程内任意一行**的
   僵尸（**优先索敌空中僵尸**），贯穿这条斜线路径上的所有僵尸、每只 **20 点**伤害；
   普通模式不可选/不可拥有（`HasSeedType` 旅行特判）
-- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]`/`[FIRE_PEASHOOTER]`/`[FIRE_GATLING_PEA]`/`[THREE_GATLING_PEA]`/`[LASER_PEA]` 标准键）
+- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]`/`[FIRE_PEASHOOTER]`/`[FIRE_GATLING_PEA]`/`[THREE_GATLING_PEA]`/`[LASER_PEA]`/`[HYPNOSHROOM_FUME]` 标准键）
   - **必须把该文件复制到当前 `-resdir` 的 `properties/` 里**，否则所有 mod 字符串都显示成
     `<Missing [XXX]>`。`run-pvz.bat` 的 `RESDIR` 就是"当前资源目录"——它换一次，这里就要跟着装一次。
   - 加载顺序（`LawnApp::LoadingThreadProc`）：`TodStringListLoad(LawnStrings.txt)` → `LoadProperties(pvzp-strings.xml)`，

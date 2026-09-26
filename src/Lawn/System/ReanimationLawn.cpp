@@ -115,6 +115,12 @@ void ReanimatorCache::DrawReanimatorFrame(Graphics* g, float thePosX, float theP
 	{
 		LaserPeaHasCustomArt();
 	}
+	// 魅惑大喷菇：同样先换好脑袋贴图（卡面/图鉴/光标预览都会走这条路径）。
+	// 定义槽位用 REANIM_NO_ATLAS，换图本来就不挑时机，这里只是保持与其它专用贴图一致的写法。
+	if (theSeedType == SeedType::SEED_HYPNOSHROOM_FUME)
+	{
+		HypnoFumeshroomHasCustomArt();
+	}
 
 	Reanimation aReanim;
 	aReanim.ReanimationInitializeType(thePosX, thePosY, theReanimationType);
@@ -311,6 +317,8 @@ MemoryImage* ReanimatorCache::MakeCachedPlantFrame(SeedType theSeedType, DrawVar
 		aReanimType = FireGatlingReanimType();
 	else if (theSeedType == SeedType::SEED_LASER_PEA)
 		aReanimType = LaserPeaReanimType();
+	else if (theSeedType == SeedType::SEED_HYPNOSHROOM_FUME)
+		aReanimType = HypnoFumeshroomReanimType();
 
 	if (theSeedType == SeedType::SEED_POTATOMINE)
 	{

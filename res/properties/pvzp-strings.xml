@@ -44,6 +44,8 @@
 	<String id="LASER_PEA_TOOLTIP">每 0.2 秒发射一道绿色激光，锁定射程内任意一行的僵尸（优先瞄准空中的气球僵尸），沿途贯穿路径上的所有僵尸，每只造成 20 点伤害。外观与机枪射手一致，但只有一根枪管。</String>
 	<String id="SPORE_SHROOM">孢子菇</String>
 	<String id="SPORE_SHROOM_TOOLTIP">每约 2.9 秒向本行投出一枚造成 40 点伤害的孢子；由孢子直接击杀的僵尸会在原格长出一株新的孢子菇。</String>
+	<String id="HYPNOSHROOM_FUME">魅惑大喷菇</String>
+	<String id="HYPNOSHROOM_FUME_TOOLTIP">在大喷菇群上种一株魅惑菇即可切换成它（在它上面种小喷菇可以切回大喷菇群）。只有中间一个头、没有两侧小喷菇；每次攻击有 15% 的概率魅惑这团烟雾里血量低于一半的僵尸。</String>
 	<String id="GLOVE_LEVEL_TOOLTIP">手套（G 键）：把植物搬到本关能种下它的位置（南瓜可套在别的植物上、睡莲/花盆上也能站；冷却 10 秒）</String>
 	<String id="GLOVE_LEVEL_TOOLTIP_TRAVEL">手套（G 键）：把植物搬到本关能种下它的位置（南瓜可套在别的植物上、睡莲/花盆上也能站；旅行模式无冷却）</String>
 	<String id="ADVICE_GLOVE_CANT_MOVE">手套只能搬到能种下这株植物的格子。右键放下。</String>
@@ -66,4 +68,5 @@
 	<String id="THREE_GATLING_PEA_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}中等（每颗豌豆），但一次打满全场每一行&cr;{KEYWORD}发射速度：{STAT}每轮每行四发&cr;{KEYWORD}大招：{STAT}每一行每 0.03 秒一发、高度上下浮动 15 像素，持续 3 秒&cr;{KEYWORD}由机枪射手与三线射手合成&cr;{SHORTLINE}&cr;{FLAVOR}三线机枪射手把三张嘴都装上了弹链，还给每个脑袋配了一根枪管。僵尸们终于明白：所谓"三线"，是"每一条线都别想好过"的意思。</String>
 	<String id="LASER_PEA_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}每只被激光照到的僵尸 20 点&cr;{KEYWORD}发射速度：{STAT}每 0.2 秒一道&cr;{KEYWORD}特效：{STAT}可锁定射程内任意一行的僵尸（优先空中），贯穿路径上的所有僵尸&cr;{SHORTLINE}&cr;{FLAVOR}激光豌豆把机枪射手那四根枪管拧成了一根，然后给它通上了电。它说这叫"精简"，僵尸们说这叫"省事"——反正一道光斜着过去，谁也躲不掉。</String>
 	<String id="SPORE_SHROOM_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}40 点&cr;{KEYWORD}发射速度：{STAT}约每 2.9 秒一发&cr;{KEYWORD}特性：{STAT}孢子直接击杀僵尸后，在目标原格长出一株新的孢子菇&cr;{SHORTLINE}&cr;{FLAVOR}孢子菇相信分享会让世界更拥挤。僵尸们很快发现，他说的“分享”是字面意思。</String>
+	<String id="HYPNOSHROOM_FUME_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}普通，可以穿透铁丝网门&cr;{KEYWORD}范围：{STAT}被气泡喷中的僵尸&cr;{KEYWORD}特性：{STAT}每次攻击有 15% 的概率魅惑这团烟雾里血量低于一半的僵尸（路障射手僵尸与僵王博士免疫）&cr;{KEYWORD}切换：{STAT}在大喷菇群上种魅惑菇变成它，在它上面种小喷菇切回大喷菇群&cr;{NOCTURNAL}白天要睡觉&cr;{SHORTLINE}&cr;{FLAVOR}魅惑大喷菇没有找搭伙的，它只是往烟雾里加了一点"要不要考虑换个阵营"的暗示。被喷到的巨人僵尸会沉默三秒，然后开始思考人生。</String>
 </Properties>

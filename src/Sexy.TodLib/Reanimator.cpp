@@ -215,6 +215,11 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	{ ReanimationType::REANIM_LASER_PEA,                            "reanim/GatlingPea.reanim",                        1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_SPORESHROOM,                           "reanim/SporeShroom.reanim",                       1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_SPORESHROOM_PROJECTILE,                "reanim/SporeShroomProjectile.reanim",             1 << ReanimFlags::REANIM_NO_ATLAS },
+	// 魅惑大喷菇：与 REANIM_FUMESHROOM 同一个文件，但 Plant.cpp 会把脑袋换成
+	// reanim/HypnoFumeshroom_head.png（尺寸必须与原图 92x71 完全一致，否则 ApplyReanimArtSwaps 整体回退）。
+	// 同样用 REANIM_NO_ATLAS：定义里的 mImage 始终是真实指针，换贴图在任何时机都安全，
+	// 也不会和普通大喷菇的 Atlas 共用同一批源贴图。
+	{ ReanimationType::REANIM_HYPNOSHROOM_FUME,                      "reanim/FumeShroom.reanim",                        1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

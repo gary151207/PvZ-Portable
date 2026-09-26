@@ -279,6 +279,9 @@ public:
     void                    UpdateAbilities();
     void                    Squish();
     void                    DoRowAreaDamage(int theDamage, unsigned int theDamageFlags);
+    // 魅惑大喷菇（SEED_HYPNOSHROOM_FUME）：每次攻击掷一次骰，命中则把这一团烟里所有
+    // 血量低于一半的僵尸魅惑（BOSS 路障射手僵尸与僵王博士除外）。由 Fire() 调用。
+    void                    TryHypnotizeFumeTargets();
     int                     GetDamageRangeFlags(PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY);
     Rect                    GetPlantRect();
     Rect                    GetPlantAttackRect(PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY);
@@ -463,6 +466,15 @@ void                        LaserPeaShiftBarrel(Reanimation* theReanim);
 //   - 究极电能星星果（5 颗电能星星）
 // 故意不认"普通机枪射手 3% 概率的那颗电能豌豆"：那颗是机枪射手打出来的，不属于究极形态。
 bool                        PlantFiresElectricChainProjectile(const Plant* thePlant);
+
+// 魅惑大喷菇（旅行专属形态 SEED_HYPNOSHROOM_FUME）专用贴图：
+// **只换脑袋一张**（reanim/HypnoFumeshroom_head.png，必须与 reanim/FumeShroom_head.png 同为 92x71
+// 且带透明通道），身体/喷口/尖端/眨眼全部沿用原版大喷菇。
+// 缺图 / 无透明通道 / 尺寸不符时返回 false —— 此时 HypnoFumeshroomReanimType() 退回 REANIM_FUMESHROOM，
+// 整株看起来就是普通大喷菇（宁可不好看，也不画白块或串帧）。幂等，可随时调用。
+bool                        HypnoFumeshroomHasCustomArt();
+bool                        HypnoFumeshroomUsesCustomArt();
+ReanimationType             HypnoFumeshroomReanimType();
 
 class PlantDefinition
 {

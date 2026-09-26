@@ -54,6 +54,7 @@ namespace
 		SeedType::SEED_THREE_GATLING_PEA,     // 三线机枪射手（三线射手 × 机枪射手 合成）
 		SeedType::SEED_LASER_PEA,             // 激光豌豆（旅行红卡：只有一根枪管，每 0.8 秒一道贯穿本行的激光）
 		SeedType::SEED_SPORESHROOM,           // 孢子菇（斗蛐蛐 2 第二选卡页）
+		SeedType::SEED_HYPNOSHROOM_FUME,      // 魅惑大喷菇（旅行专属形态：魅惑菇 × 大喷菇群 切换而来）
 	};
 
 	// 图鉴「僵尸」页末尾追加的僵尸：排在第 5 行（原版僵尸博士那一行）的空位上。

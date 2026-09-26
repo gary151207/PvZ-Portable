@@ -114,10 +114,11 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_FIRE_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 175, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "FIRE_GATLING_PEA" },  // 隐藏合成态（火豌豆射手 × 机枪射手）：消耗火豌豆射手卡，属性与机枪射手一致
     { SeedType::SEED_THREE_GATLING_PEA, nullptr, ReanimationType::REANIM_THREE_GATLINGPEA, 12, 325, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "THREE_GATLING_PEA" },  // 隐藏合成态（三线射手 × 机枪射手）：消耗三线射手卡（325），每轮每行 4 连发
     { SeedType::SEED_LASER_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 400, 750, PlantSubClass::SUBCLASS_SHOOTER, LASER_PEA_LAUNCH_RATE, "LASER_PEA" },  // 激光豌豆（旅行红卡）：400 阳光，每 0.8 秒一道贯穿本行的绿色激光、每只僵尸 20 伤害
-    { SeedType::SEED_SPORESHROOM, nullptr, ReanimationType::REANIM_SPORESHROOM, 6, 150, 500, PlantSubClass::SUBCLASS_SHOOTER, 290, "SPORE_SHROOM" }
-    // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
-    //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
-    //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
+    { SeedType::SEED_SPORESHROOM, nullptr, ReanimationType::REANIM_SPORESHROOM, 6, 150, 500, PlantSubClass::SUBCLASS_SHOOTER, 290, "SPORE_SHROOM" },
+    { SeedType::SEED_HYPNOSHROOM_FUME, nullptr, ReanimationType::REANIM_FUMESHROOM, 9, 0, 3000, PlantSubClass::SUBCLASS_SHOOTER, 90, "HYPNOSHROOM_FUME" }
+    // ↑ 魅惑大喷菇（旅行专属形态）：没有单独卡牌，属性沿用大喷菇（60 伤害穿透烟雾 / 90 帧节奏）。
+    //   默认写原版大喷菇的 reanim：只有专用贴图确实可用时，HypnoFumeshroomReanimType() 才会把运行时
+    //   类型换成 REANIM_HYPNOSHROOM_FUME —— 这样即使漏改某个调用点，也只会退回原版观感，不会出问题。
 };
 
 Plant::Plant()
@@ -582,6 +583,39 @@ bool PlantFiresElectricChainProjectile(const Plant* thePlant)
            thePlant->mSeedType == SeedType::SEED_ELECTRIC_STARFRUIT;
 }
 
+// 魅惑大喷菇专用贴图：**只换脑袋一张**（reanim/HypnoFumeshroom_head.png，92x71，
+// 与 reanim/FumeShroom_head.png 同尺寸），身体/喷口/尖端/眨眼全部沿用原版大喷菇。
+// 玩家若没打包这张图，就整体回退成普通大喷菇的观感（HypnoFumeshroomReanimType() 返回 REANIM_FUMESHROOM）。
+static bool sHypnoFumeshroomArtChecked = false;
+static bool sHypnoFumeshroomArtApplied = false;
+
+bool HypnoFumeshroomHasCustomArt()
+{
+    if (sHypnoFumeshroomArtChecked)
+        return sHypnoFumeshroomArtApplied;
+    sHypnoFumeshroomArtChecked = true;
+
+    static const ReanimArtSwap aSwaps[] = {
+        { "reanim/FUMESHROOM_HEAD", "reanim/HYPNOFUMESHROOM_HEAD", "IMAGE_REANIM_HYPNOFUMESHROOM_HEAD" },
+    };
+
+    sHypnoFumeshroomArtApplied = ApplyReanimArtSwaps(
+        ReanimationType::REANIM_HYPNOSHROOM_FUME, aSwaps, LENGTH(aSwaps), "Hypno Fume-shroom");
+    return sHypnoFumeshroomArtApplied;
+}
+
+bool HypnoFumeshroomUsesCustomArt()
+{
+    return HypnoFumeshroomHasCustomArt();
+}
+
+ReanimationType HypnoFumeshroomReanimType()
+{
+    return HypnoFumeshroomUsesCustomArt()
+        ? ReanimationType::REANIM_HYPNOSHROOM_FUME
+        : ReanimationType::REANIM_FUMESHROOM;
+}
+
 // GOTY @Patoke: 0x461483
 void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType)
 {
@@ -597,6 +631,8 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         aReanimType = FireGatlingReanimType();
     else if (theSeedType == SeedType::SEED_LASER_PEA)
         aReanimType = LaserPeaReanimType();
+    else if (theSeedType == SeedType::SEED_HYPNOSHROOM_FUME)
+        aReanimType = HypnoFumeshroomReanimType();
 
     mPlantCol = theGridX;
     mRow = theGridY;
@@ -874,6 +910,13 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         mPuffRShootCounter = 20;
         break;
     }
+    case SeedType::SEED_HYPNOSHROOM_FUME:
+    {
+        // 魅惑大喷菇：只有中间那个大喷菇头，**没有**左右两只小喷菇
+        //（这正是它与大喷菇群的区别），所以这里不建任何子 reanim。
+        mPlantHealth = 300;
+        break;
+    }
     case SeedType::SEED_WALLNUT:
         mPlantHealth = 4000;
         mBlinkCountdown = 1000 + Sexy::Rand(1000);
@@ -1138,7 +1181,7 @@ void Plant::SetSleeping(bool theIsAsleep)
     {
         float aPosX = mX + 50.0f;
         float aPosY = mY + 40.0f;
-        if (mSeedType == SeedType::SEED_FUMESHROOM)
+        if (mSeedType == SeedType::SEED_FUMESHROOM || mSeedType == SeedType::SEED_HYPNOSHROOM_FUME)
             aPosX += 12.0f;
         else if (mSeedType == SeedType::SEED_SCAREDYSHROOM)
             aPosY -= 20.0f;
@@ -1224,6 +1267,7 @@ int Plant::GetDamageRangeFlags(PlantWeapon thePlantWeapon)
     case SeedType::SEED_SEASHROOM:
     case SeedType::SEED_FUMESHROOM:
     case SeedType::SEED_FUMESHROOM_GROUP:
+    case SeedType::SEED_HYPNOSHROOM_FUME:
     case SeedType::SEED_GLOOMSHROOM:
     case SeedType::SEED_CHOMPER:
         return 9;
@@ -1319,6 +1363,53 @@ void Plant::DoRowAreaDamage(int theDamage, unsigned int theDamageFlags)
                 }
             }
         }
+    }
+}
+
+// 魅惑大喷菇的魅惑判定（由 Fire() 在"这一团烟刚打完"之后调用）。
+//
+// 判定口径与 DoRowAreaDamage 完全一致（本行 / 攻击矩形重叠 / 高地一致 / EffectedByDamage），
+// 只是把"造成伤害"换成"掷一次骰后集体魅惑"：
+//   - 骰子**每轮攻击只掷一次**（"每次攻击有 15% 的概率"）。中了就把这一团烟里
+//     **所有**血量低于一半的僵尸一起魅惑。想改成"每只僵尸各掷一次"，把这一次
+//     Rand(100) 的判断挪进循环体、并把这里的 return 换成 continue 即可。
+//   - 例外：BOSS 路障射手僵尸与僵王博士不吃魅惑。
+//   - "血量低于一半"按本体血量算（mBodyHealth / mBodyMaxHealth，护盾与头盔不计入），
+//     与游戏里"巨人僵尸半血扔小鬼"用的是同一个口径。
+void Plant::TryHypnotizeFumeTargets()
+{
+    if (Sexy::Rand(100) >= HYPNOSHROOM_FUME_CHARM_PERCENT)
+        return;
+
+    Rect aAttackRect = GetPlantAttackRect(PlantWeapon::WEAPON_PRIMARY);
+    unsigned int aDamageRangeFlags = static_cast<unsigned int>(GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY));
+
+    Zombie* aZombie = nullptr;
+    while (mBoard->IterateZombies(aZombie))
+    {
+        if (aZombie->mMindControlled || aZombie->IsDeadOrDying())
+            continue;
+
+        // 僵王博士（BOSS）与 BOSS 路障射手僵尸免疫魅惑
+        if (aZombie->mZombieType == ZombieType::ZOMBIE_BOSS ||
+            aZombie->mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA)
+            continue;
+
+        if (aZombie->mRow != mRow)
+            continue;
+
+        // 只有本体血量低于一半的僵尸会被魅惑（整数比较，避免整除截断）
+        if (aZombie->mBodyHealth * 100 >= aZombie->mBodyMaxHealth * HYPNOSHROOM_FUME_CHARM_HP_PERCENT)
+            continue;
+
+        if (aZombie->mOnHighGround != IsOnHighGround() || !aZombie->EffectedByDamage(aDamageRangeFlags))
+            continue;
+
+        if (GetRectOverlap(aAttackRect, aZombie->GetZombieRect()) <= 0)
+            continue;
+
+        // 魅惑流程与大喷菇群/魅惑菇完全共用一套（见 Zombie::ApplyCharmedByPlant）
+        aZombie->ApplyCharmedByPlant();
     }
 }
 
@@ -1434,7 +1525,8 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
         switch (mSeedType)
         {
         case SeedType::SEED_FUMESHROOM:
-        case SeedType::SEED_FUMESHROOM_GROUP: mShootingCounter = 50;  break;
+        case SeedType::SEED_FUMESHROOM_GROUP:
+        case SeedType::SEED_HYPNOSHROOM_FUME: mShootingCounter = 50;  break;
         case SeedType::SEED_PUFFSHROOM:     mShootingCounter = 29;  break;
         case SeedType::SEED_SCAREDYSHROOM:  mShootingCounter = 25;  break;
         case SeedType::SEED_CABBAGEPULT:    mShootingCounter = 32;  break;
@@ -2242,13 +2334,9 @@ void Plant::SpawnCharmedGatlingZombie()
     mTorchwoodPeaCount = 0;
     aZombie->mPosX = mBoard->GridToPixelX(mPlantCol, mRow);  // 摆到火炬所在格子
 
-    // 以下复刻魅惑菇路径（src/Lawn/Zombie.cpp:4964）
-    aZombie->StartMindControlled();  // 魅惑：mMindControlled = true + SOUND_MINDCONTROLLED
-    aZombie->mTorchwoodSummoned = true;  // 火炬召唤的魅惑僵尸死亡时不爆炸
-    mApp->AddTodParticle(aZombie->mPosX + 60.0f, aZombie->mPosY + 40.0f, aZombie->mRenderOrder + 1, ParticleEffect::PARTICLE_MIND_CONTROL);
-    aZombie->mVelX = 0.17f;
-    aZombie->mAnimTicksPerFrame = 18;
-    aZombie->UpdateAnimSpeed();
+    // 魅惑流程与魅惑菇 / 魅惑大喷菇完全共用一套（见 Zombie::ApplyCharmedByPlant）
+    aZombie->ApplyCharmedByPlant();
+    aZombie->mTorchwoodSummoned = true;  // 只记录来源（该字段必须留在存档 tail 里，见 Zombie.h）
 }
 
 void Plant::DoSquashDamage()
@@ -3714,6 +3802,17 @@ bool Plant::IsUpgradableTo(SeedType theUpgradedType)
     {
         return true;
     }
+    // 魅惑大喷菇（旅行专属形态）：大喷菇群上种魅惑菇 → 切换成魅惑大喷菇；
+    // 魅惑大喷菇上种小喷菇 → 切回大喷菇群。两条都只是"改写要种的种子"，
+    // 实际创建的植物由 Board::MouseDownWithPlant 换成 SEED_HYPNOSHROOM_FUME / SEED_FUMESHROOM_GROUP。
+    if (theUpgradedType == SeedType::SEED_HYPNOSHROOM && mSeedType == SeedType::SEED_FUMESHROOM_GROUP)
+    {
+        return true;
+    }
+    if (theUpgradedType == SeedType::SEED_PUFFSHROOM && mSeedType == SeedType::SEED_HYPNOSHROOM_FUME)
+    {
+        return true;
+    }
     if (theUpgradedType == SeedType::SEED_CATTAIL && mSeedType == SeedType::SEED_LILYPAD)
     {
         Plant* aPlant = mBoard->GetTopPlantAt(mPlantCol, mRow, PlantPriority::TOPPLANT_ONLY_NORMAL_POSITION);
@@ -4190,6 +4289,8 @@ Reanimation* Plant::AttachBlinkAnim(Reanimation* theReanimBody)
         aBlinkReanimType = FireGatlingReanimType();   // 眨眼用的眼睛图也要是火焰版
     else if (mSeedType == SeedType::SEED_LASER_PEA)
         aBlinkReanimType = LaserPeaReanimType();      // 与场上植物同一个槽位（专用枪管贴图也在那里）
+    else if (mSeedType == SeedType::SEED_HYPNOSHROOM_FUME)
+        aBlinkReanimType = HypnoFumeshroomReanimType();   // 眨眼用的脑袋图也要是魅惑版
 
     Reanimation* aBlinkReanim = aApp->mEffectSystem->mReanimationHolder->AllocReanimation(0.0f, 0.0f, 0, aBlinkReanimType);
     aBlinkReanim->SetFramesForLayer(aTrackToPlay);
@@ -4625,7 +4726,8 @@ void Plant::UpdateShooting()
         return;
     }
 
-    if ((mSeedType == SeedType::SEED_FUMESHROOM || mSeedType == SeedType::SEED_FUMESHROOM_GROUP) && mShootingCounter == 15)
+    if ((mSeedType == SeedType::SEED_FUMESHROOM || mSeedType == SeedType::SEED_FUMESHROOM_GROUP ||
+         mSeedType == SeedType::SEED_HYPNOSHROOM_FUME) && mShootingCounter == 15)
     {
         int aRenderPosition = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PARTICLE, mRow, 0);
         AddAttachedParticle(mX + 85, mY + 31, aRenderPosition, ParticleEffect::PARTICLE_FUMECLOUD);
@@ -5340,7 +5442,8 @@ void Plant::DrawShadow(Sexy::Graphics* g, float theOffsetX, float theOffsetY)
         aShadowOffsetX = -7.0f;
         aShadowOffsetY = 52.0f;
     }
-    else if (mSeedType == SeedType::SEED_FUMESHROOM || mSeedType == SeedType::SEED_GLOOMSHROOM)
+    else if (mSeedType == SeedType::SEED_FUMESHROOM || mSeedType == SeedType::SEED_GLOOMSHROOM ||
+             mSeedType == SeedType::SEED_HYPNOSHROOM_FUME)
     {
         aScale = 1.3f;
         aShadowOffsetY = 47.0f;
@@ -6000,9 +6103,15 @@ void Plant::CobCannonFire(int theTargetX, int theTargetY)
 
 void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon, int theYOffset)
 {
-    if (mSeedType == SeedType::SEED_FUMESHROOM || mSeedType == SeedType::SEED_FUMESHROOM_GROUP)
+    if (mSeedType == SeedType::SEED_FUMESHROOM || mSeedType == SeedType::SEED_FUMESHROOM_GROUP ||
+        mSeedType == SeedType::SEED_HYPNOSHROOM_FUME)
     {
         DoRowAreaDamage(60, 2U);
+        if (mSeedType == SeedType::SEED_HYPNOSHROOM_FUME)
+        {
+            // 魅惑大喷菇：这一团烟打完就掷一次骰（每次攻击 15%），命中者里"血量低于一半"的会被魅惑
+            TryHypnotizeFumeTargets();
+        }
         mApp->PlayFoley(FoleyType::FOLEY_FUME);
         return;
     }
@@ -6839,7 +6948,8 @@ bool Plant::IsNocturnal(SeedType theSeedtype)
         theSeedtype == SeedType::SEED_MAGNETSHROOM ||
         theSeedtype == SeedType::SEED_SCAREDYSHROOM ||
         theSeedtype == SeedType::SEED_GLOOMSHROOM ||
-        theSeedtype == SeedType::SEED_FUMESHROOM_GROUP;
+        theSeedtype == SeedType::SEED_FUMESHROOM_GROUP ||
+        theSeedtype == SeedType::SEED_HYPNOSHROOM_FUME;
 }
 
 // GOTY @Patoke: inlined 0x40FB2B
@@ -6857,6 +6967,7 @@ bool Plant::IsFungus(SeedType theSeedtype)
         theSeedtype == SeedType::SEED_MAGNETSHROOM ||
         theSeedtype == SeedType::SEED_GLOOMSHROOM ||
         theSeedtype == SeedType::SEED_FUMESHROOM_GROUP ||
+        theSeedtype == SeedType::SEED_HYPNOSHROOM_FUME ||
         theSeedtype == SeedType::SEED_SPORESHROOM;
 }
 
@@ -6970,7 +7081,8 @@ Rect Plant::GetPlantAttackRect(PlantWeapon thePlantWeapon)
     case SeedType::SEED_PUFFSHROOM:
     case SeedType::SEED_SEASHROOM:      aRect = Rect(mX + 60,       mY,             230,                mHeight);               break;
     case SeedType::SEED_FUMESHROOM:
-    case SeedType::SEED_FUMESHROOM_GROUP: aRect = Rect(mX + 60,      mY,             340,                mHeight);               break;
+    case SeedType::SEED_FUMESHROOM_GROUP:
+    case SeedType::SEED_HYPNOSHROOM_FUME: aRect = Rect(mX + 60,      mY,             340,                mHeight);               break;
     case SeedType::SEED_GLOOMSHROOM:    aRect = Rect(mX - 80,       mY - 80,        240,                240);                   break;
     case SeedType::SEED_TANGLEKELP:     aRect = Rect(mX,            mY,             mWidth,             mHeight);               break;
     case SeedType::SEED_CATTAIL:        aRect = Rect(-BOARD_WIDTH,  -BOARD_HEIGHT,  BOARD_WIDTH * 2,    BOARD_HEIGHT * 2);      break;
@@ -6997,6 +7109,8 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
         aReanimType = FireGatlingReanimType();
     else if (theSeedType == SeedType::SEED_LASER_PEA)
         aReanimType = LaserPeaReanimType();
+    else if (theSeedType == SeedType::SEED_HYPNOSHROOM_FUME)
+        aReanimType = HypnoFumeshroomReanimType();
 
     if (aReanimType != ReanimationType::REANIM_NONE)
     {

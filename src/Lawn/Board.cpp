@@ -1955,6 +1955,7 @@ namespace
 		SeedType::SEED_FIRE_GATLING_PEA,     // 火焰机枪射手（合成态：沙盒内需先在机枪射手上种火豌豆射手）
 		SeedType::SEED_THREE_GATLING_PEA,    // 三线机枪射手（合成态：沙盒内需先在机枪射手上种三线射手）
 		SeedType::SEED_LASER_PEA,            // 激光豌豆（旅行红卡：只有一根枪管的机枪射手，直接种下）
+		SeedType::SEED_HYPNOSHROOM_FUME,     // 魅惑大喷菇（旅行专属形态：沙盒内可直接成株查看）
 	};
 	constexpr int ICE_PLANT_COUNT = sizeof(gIceSandboxPlantSeeds) / sizeof(gIceSandboxPlantSeeds[0]);
 	constexpr int ICE_ZOMBIE_COUNT = sizeof(gIceSandboxZombieTypes) / sizeof(gIceSandboxZombieTypes[0]);
@@ -5851,11 +5852,31 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 			aPlantImitaterType = SeedType::SEED_NONE;
 			aIsUltimateSwitch = true;
 		}
+		// 魅惑大喷菇（旅行专属形态）：没有自己的卡，靠两张普通卡在已种植物上来回切换。
+		//   魅惑菇 @ 大喷菇群   → 魅惑大喷菇
+		//   小喷菇 @ 魅惑大喷菇 → 大喷菇群
+		// 与上面几种合成一样：照常按手里那张卡扣款，只把**实际创建的种子**改写掉。
+		// 放行判定来自 Plant::IsUpgradableTo（CanPlantAt 早已返回 PLANTING_OK），
+		// 所以太阳花盆/睡莲等"下层植物"不受影响。
+		else if (aPlantingSeedType == SeedType::SEED_HYPNOSHROOM && aNormalPlant->mSeedType == SeedType::SEED_FUMESHROOM_GROUP)
+		{
+			aPlantSeedType = SeedType::SEED_HYPNOSHROOM_FUME;
+			aPlantImitaterType = SeedType::SEED_NONE;
+		}
+		else if (aPlantingSeedType == SeedType::SEED_PUFFSHROOM && aNormalPlant->mSeedType == SeedType::SEED_HYPNOSHROOM_FUME)
+		{
+			aPlantSeedType = SeedType::SEED_FUMESHROOM_GROUP;
+			aPlantImitaterType = SeedType::SEED_NONE;
+		}
 	}
 
 	if (aNormalPlant && aNormalPlant->IsUpgradableTo(aPlantingSeedType))
 	{
-		if (aPlantingSeedType == SeedType::SEED_GLOOMSHROOM)
+		// 大喷菇系的更迭（忧郁菇 / 魅惑大喷菇 / 大喷菇群）保留"醒着还是睡着"的状态：
+		// 白天用咖啡豆叫醒过的蘑菇，切换形态后依然是醒的。
+		if (aPlantingSeedType == SeedType::SEED_GLOOMSHROOM ||
+			aPlantingSeedType == SeedType::SEED_HYPNOSHROOM ||
+			aPlantingSeedType == SeedType::SEED_PUFFSHROOM)
 		{
 			aIsAwake = !aNormalPlant->mIsAsleep;
 			aWakeUpCounter = aNormalPlant->mWakeUpCounter;

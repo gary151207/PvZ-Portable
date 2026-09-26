@@ -148,7 +148,11 @@ public:
     // 并且整体染红；每帧自减，归零即恢复原样。重复命中只刷新为满 FIRE_PEA_VULN_TICKS（不叠加）。
     int32_t                         mFireVulnCounter;
     bool                            mMindControlled;
-    bool                            mTorchwoodSummoned;   // 火炬树桩召唤的魅惑僵尸（死亡时不爆炸）
+    // 火炬树桩召唤出来的魅惑僵尸（只记录来源）。
+    // 它原本的用途是"死亡时不释放樱桃炸弹爆炸"——那条特性已按需求删除，
+    // 但字段本身必须保留：`.v4` 的僵尸 tail 是按顺序逐字段读写的，删掉中间这一段会让
+    // 后面的字段（如 mFireVulnCounter）在旧存档里错位。
+    bool                            mTorchwoodSummoned;
     bool                            mBlowingAway;
     bool                            mHasHead;
     bool                            mHasArm;
@@ -303,6 +307,14 @@ public:
     /*inline*/ void                 ReanimShowTrack(const char* theTrackName, int theRenderGroup);
     /*inline*/ void                 PlayZombieAppearSound();
     void                            StartMindControlled();
+    // 魅惑上身（药效、粒子、速度与动画节奏）：魅惑菇被啃食时与魅惑大喷菇的烟雾命中时共用同一套流程。
+    // 免疫魅惑的类型（BOSS 路障射手僵尸）在 StartMindControlled() 里直接返回，这里不会产生任何效果。
+    void                            ApplyCharmedByPlant();
+    // 对"敌对阵营"的僵尸造成范围伤害：自己未被魅惑就打**被魅惑**的僵尸，自己被魅惑就打**未被魅惑**的僵尸。
+    // 判定矩形 = GetZombieAttackRect()（跟着朝向翻转，所以被魅惑的僵尸打的是它面朝的那一侧）。
+    // 用途：巨人/红眼巨人的砸击（GARGANTUAR_ZOMBIE_SMASH_DAMAGE）与冰车的碾压
+    // （ZAMBONI_ZOMBIE_GRIND_DAMAGE，每游戏刻一次）。
+    void                            DamageOpposingZombiesInAttackRect(int theDamage);
     bool                            IsFlying();
     void                            DropHead(unsigned int theDamageFlags);
     bool                            CanTargetPlant(Plant* thePlant, ZombieAttackType theAttackType);

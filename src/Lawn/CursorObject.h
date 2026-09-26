@@ -29,7 +29,7 @@ class CursorObject : public GameObject
 {
 public:
 	int32_t					mSeedBankIndex;
-	SeedType				mType;
+	PacketType				mType;
 	SeedType				mImitaterType;
 	CursorType				mCursorType;
 	CoinID					mCoinID;

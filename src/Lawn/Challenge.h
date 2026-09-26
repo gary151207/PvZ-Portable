@@ -126,7 +126,7 @@ public:
     void                    CheckForCompleteArtChallenge(int theGridX, int theGridY);
     /*inline*/ SeedType     GetArtChallengeSeed(int theGridX, int theGridY);
     void                    PlantAdded(Plant* thePlant);
-    PlantingReason          CanPlantAt(int theGridX, int theGridY, SeedType theSeedType);
+    PlantingReason          CanPlantAt(int theGridX, int theGridY, PacketType thePacketType);
     void                    DrawBeghouled(Graphics* g);
     int                    BeghouledIsValidMove(int theFromX, int theFromY, int theToX, int theToY, BeghouledBoardState* theBoardState);
     int                    BeghouledCheckForPossibleMoves(BeghouledBoardState* theBoardState);
@@ -188,8 +188,8 @@ public:
     void                    ScaryPotterFillColumnWithPlant(int theCol, SeedType theSeedType, TodWeightedGridArray* theGridArray, int theGridArrayCount);
     void                    PuzzleNextStageClear();
     void                    ScaryPotterMalletPot(GridItem* theScaryPot);
-    static ZombieType       IZombieSeedTypeToZombieType(SeedType theSeedType);
-    static /*inline*/ int  IsZombieSeedType(SeedType theSeedType);
+    static ZombieType       IZombieSeedTypeToZombieType(SpecialPacketType theSeedType);
+    static /*inline*/ int  IsZombieSeedType(PacketType thePacketType);
     void                    IZombieMouseDownWithZombie(int theX, int theY, int theClickCount);
     void                    IZombieStart();
     void                    IZombiePlacePlants(SeedType theSeedType, int theCount, int theGridY = -1);

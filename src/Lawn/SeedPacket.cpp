@@ -55,32 +55,32 @@ void SeedPacket::PickNextSlotMachineSeed()
 {
 	int aPeasCount = mBoard->CountPlantByType(SeedType::SEED_PEASHOOTER);
 
-	SeedType SLOT_SEED_TYPES[] = {
+	PacketType SLOT_SEED_TYPES[] = {
 		SeedType::SEED_SUNFLOWER,
 		SeedType::SEED_PEASHOOTER,
 		SeedType::SEED_SNOWPEA,
 		SeedType::SEED_WALLNUT,
-		SeedType::SEED_SLOT_MACHINE_SUN,
-		SeedType::SEED_SLOT_MACHINE_DIAMOND
+		SpecialPacketType::SEED_SLOT_MACHINE_SUN,
+		SpecialPacketType::SEED_SLOT_MACHINE_DIAMOND
 	};
 
 	int aSeedsCount = 0;
 	TodWeightedArray aSeedWeightArray[SeedType::NUM_SEED_TYPES];
 	for (size_t i = 0; i < LENGTH(SLOT_SEED_TYPES); i++)
 	{
-		SeedType aSeedType = SLOT_SEED_TYPES[i];
+		PacketType aSeedType = SLOT_SEED_TYPES[i];
 
 		int aWeight = 100;
 		if (aSeedType == SeedType::SEED_PEASHOOTER)
 		{
 			aWeight = TodAnimateCurve(0, 5, aPeasCount, 200, 100, TodCurves::CURVE_LINEAR);
 		}
-		else if (aSeedType == SeedType::SEED_SLOT_MACHINE_DIAMOND)
+		else if (aSeedType == SpecialPacketType::SEED_SLOT_MACHINE_DIAMOND)
 		{
 			aWeight = 30;
 		}
 
-		if (mIndex == 2 && aSeedType != SeedType::SEED_SLOT_MACHINE_DIAMOND)
+		if (mIndex == 2 && aSeedType != SpecialPacketType::SEED_SLOT_MACHINE_DIAMOND)
 		{
 			if (aSeedType == mBoard->mSeedBank->mSeedPackets[0].mSlotMachiningNextSeed || aSeedType == mBoard->mSeedBank->mSeedPackets[1].mSlotMachiningNextSeed)
 			{
@@ -88,12 +88,12 @@ void SeedPacket::PickNextSlotMachineSeed()
 			}
 		}
 
-		aSeedWeightArray[aSeedsCount].mItem = static_cast<int>(aSeedType);
+		aSeedWeightArray[aSeedsCount].mItem = aSeedsCount;
 		aSeedWeightArray[aSeedsCount].mWeight = aWeight;
 		aSeedsCount++;
 	}
 
-	mSlotMachiningNextSeed = static_cast<SeedType>(TodPickFromWeightedArray(aSeedWeightArray, aSeedsCount));
+	mSlotMachiningNextSeed = SLOT_SEED_TYPES[TodPickFromWeightedArray(aSeedWeightArray, aSeedsCount)];
 }
 
 void SeedPacket::SlotMachineStart()
@@ -205,11 +205,11 @@ void SeedPacket::Update()
 	}
 }
 
-void SeedPacketDrawSeed(Graphics* g, float x, float y, SeedType theSeedType, SeedType theImitaterType, float theOffsetX, float theOffsetY, float theScale)
+void SeedPacketDrawSeed(Graphics* g, float x, float y, PacketType thePacketType, SeedType theImitaterType, float theOffsetX, float theOffsetY, float theScale)
 {
 	Image* aImage = IMAGE_PACKET_PLANTS;
-	SeedType aSeedType = theSeedType;
-	if (theSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE)
+	SeedType aSeedType = thePacketType.mKind == PacketKind::PLANT ? thePacketType.PlantSeed() : SeedType::SEED_NONE;
+	if (aSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE)
 	{
 		aSeedType = theImitaterType;
 		FilterEffect aFilterEffect = FilterEffect::FILTER_EFFECT_WASHED_OUT;
@@ -276,18 +276,18 @@ void SeedPacketDrawSeed(Graphics* g, float x, float y, SeedType theSeedType, See
 		Graphics aSeedG(*g);
 		aSeedG.mScaleX = theScale * g->mScaleX;
 		aSeedG.mScaleY = theScale * g->mScaleY;
-		Plant::DrawSeedType(&aSeedG, theSeedType, theImitaterType, DrawVariation::VARIATION_NORMAL, x + theOffsetX, y + theOffsetY);
+		DrawPacketSeedType(&aSeedG, thePacketType, theImitaterType, DrawVariation::VARIATION_NORMAL, x + theOffsetX, y + theOffsetY);
 	}
 }
 
-void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedType theImitaterType, float thePercentDark, int theGrayness, bool theDrawCost, bool theUseCurrentCost)
+void DrawSeedPacket(Graphics* g, float x, float y, PacketType theSeedType, SeedType theImitaterType, float thePercentDark, int theGrayness, bool theDrawCost, bool theUseCurrentCost)
 {
-	SeedType aSeedType = theSeedType;
+	PacketType aSeedType = theSeedType;
 	if (aSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE)
 	{
 		aSeedType = theImitaterType;
 	}
-	bool aIsRedCard = Plant::IsRedCard(aSeedType);   // 红卡（巨大坚果）：卡包底色渲染为红色系
+	bool aIsRedCard = aSeedType.mKind == PacketKind::PLANT && Plant::IsRedCard(aSeedType.PlantSeed());   // 红卡（巨大坚果）：卡包底色渲染为红色系
 
 	if (theGrayness != 255)
 	{
@@ -302,13 +302,13 @@ void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedTyp
 
 	int aPacketBackground =
 		theSeedType == SeedType::SEED_IMITATER ? 0 :
-		Plant::IsUpgrade(aSeedType) ? 1 :
-		theSeedType == SeedType::SEED_BEGHOULED_BUTTON_CRATER ? 3 :
-		theSeedType == SeedType::SEED_BEGHOULED_BUTTON_SHUFFLE ? 4 :
-		theSeedType == SeedType::SEED_SLOT_MACHINE_SUN ? 5 :
-		theSeedType == SeedType::SEED_SLOT_MACHINE_DIAMOND ? 6 :
-		theSeedType == SeedType::SEED_ZOMBIQUARIUM_SNORKLE ? 7 :
-		theSeedType == SeedType::SEED_ZOMBIQUARIUM_TROPHY ? 8 : 2;
+		(aSeedType.mKind == PacketKind::PLANT && Plant::IsUpgrade(aSeedType.PlantSeed())) ? 1 :
+		theSeedType == SpecialPacketType::SEED_BEGHOULED_BUTTON_CRATER ? 3 :
+		theSeedType == SpecialPacketType::SEED_BEGHOULED_BUTTON_SHUFFLE ? 4 :
+		theSeedType == SpecialPacketType::SEED_SLOT_MACHINE_SUN ? 5 :
+		theSeedType == SpecialPacketType::SEED_SLOT_MACHINE_DIAMOND ? 6 :
+		theSeedType == SpecialPacketType::SEED_ZOMBIQUARIUM_SNORKLE ? 7 :
+		theSeedType == SpecialPacketType::SEED_ZOMBIQUARIUM_TROPHY ? 8 : 2;
 
 	if (g->mScaleX > 1)
 	{
@@ -334,7 +334,7 @@ void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedTyp
 	bool aDrawSeedInMiddle = true;
 	float aOffsetX = 5.0f;
 	float aOffsetY = 8.0f;
-	switch (aSeedType)
+	switch (aSeedType.mKind == PacketKind::PLANT ? aSeedType.PlantSeed() : SeedType::SEED_NONE)
 	{
 	case SeedType::SEED_TALLNUT:
 		aScale = 0.3f;
@@ -390,6 +390,12 @@ void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedTyp
 	case SeedType::SEED_SPORESHROOM:
 		// 按修正后的 PvZ2 本体边界居中，不影响战场的原生比例。
 		aScale = 0.5f;
+		aOffsetX = 4.0f;
+		aOffsetY = 8.0f;
+		break;
+
+	case SeedType::SEED_POISON_PEASHOOTER:
+		aScale = 0.48f;
 		aOffsetX = 4.0f;
 		aOffsetY = 8.0f;
 		break;
@@ -471,81 +477,89 @@ void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedTyp
 		aOffsetY = 8.0f;
 		break;
 
-	case SeedType::SEED_ZOMBIE_NORMAL:
-	case SeedType::SEED_ZOMBIE_TRAFFIC_CONE:
-	case SeedType::SEED_ZOMBIE_PAIL:
+	default:
+		break;
+	}
+	if (aSeedType.mKind == PacketKind::SPECIAL)
+	{
+		switch (aSeedType.SpecialSeed())
+		{
+	case SpecialPacketType::SEED_ZOMBIE_NORMAL:
+	case SpecialPacketType::SEED_ZOMBIE_TRAFFIC_CONE:
+	case SpecialPacketType::SEED_ZOMBIE_PAIL:
 		aScale = 0.35f;
 		aOffsetX = -3.0f;
 		aOffsetY = -7.0f;
 		break;
 
-	case SeedType::SEED_ZOMBIE_DANCER:
+	case SpecialPacketType::SEED_ZOMBIE_DANCER:
 		aScale = 0.375f;
 		aOffsetX = -19.0f;
 		aOffsetY = -40.0f;
 		break;
 
-	case SeedType::SEED_ZOMBIE_POLEVAULTER:
+	case SpecialPacketType::SEED_ZOMBIE_POLEVAULTER:
 		aScale = 0.35f;
 		aOffsetX = -8.0f;
 		aOffsetY = -12.0f;
 		break;
 
-	case SeedType::SEED_ZOMBIE_LADDER:
-	case SeedType::SEED_ZOMBIE_DIGGER:
-	case SeedType::SEED_ZOMBIE_SCREEN_DOOR:
-	case SeedType::SEED_ZOMBIE_POGO:
+	case SpecialPacketType::SEED_ZOMBIE_LADDER:
+	case SpecialPacketType::SEED_ZOMBIE_DIGGER:
+	case SpecialPacketType::SEED_ZOMBIE_SCREEN_DOOR:
+	case SpecialPacketType::SEED_ZOMBIE_POGO:
 		aScale = 0.35f;
 		aOffsetX = -3.0f;
 		aOffsetY = -10.0f;
 		break;
 
-	case SeedType::SEED_ZOMBIE_BUNGEE:
+	case SpecialPacketType::SEED_ZOMBIE_BUNGEE:
 		aScale = 0.3f;
 		aOffsetX = 1.0f;
 		aOffsetY = -1.0f;
 		break;
 
-	case SeedType::SEED_ZOMBIE_FOOTBALL:
+	case SpecialPacketType::SEED_ZOMBIE_FOOTBALL:
 		aScale = 0.33f;
 		aOffsetX = -7.0f;
 		aOffsetY = -9.0f;
 		break;
 
-	case SeedType::SEED_ZOMBIE_BALLOON:
+	case SpecialPacketType::SEED_ZOMBIE_BALLOON:
 		aScale = 0.35f;
 		aOffsetX = -3.0f;
 		aOffsetY = -5.0f;
 		break;
 
-	case SeedType::SEED_ZOMBIE_IMP:
+	case SpecialPacketType::SEED_ZOMBIE_IMP:
 		aScale = 0.4f;
 		aOffsetX = -12.0f;
 		aOffsetY = -17.0f;
 		break;
 
-	case SeedType::SEED_ZOMBONI:
+	case SpecialPacketType::SEED_ZOMBONI:
 		aScale = 0.23f;
 		aOffsetX = 12.0f;
 		aOffsetY = 3.0f;
 		break;
 
-	case SeedType::SEED_ZOMBIE_GARGANTUAR:
+	case SpecialPacketType::SEED_ZOMBIE_GARGANTUAR:
 		aScale = 0.23f;
 		aOffsetX = 4.0f;
 		aOffsetY = 3.0f;
 		break;
 
-	case SeedType::SEED_BEGHOULED_BUTTON_SHUFFLE:
-	case SeedType::SEED_BEGHOULED_BUTTON_CRATER:
-	case SeedType::SEED_SLOT_MACHINE_SUN:
-	case SeedType::SEED_SLOT_MACHINE_DIAMOND:
-	case SeedType::SEED_ZOMBIQUARIUM_SNORKLE:
-	case SeedType::SEED_ZOMBIQUARIUM_TROPHY:
+	case SpecialPacketType::SEED_BEGHOULED_BUTTON_SHUFFLE:
+	case SpecialPacketType::SEED_BEGHOULED_BUTTON_CRATER:
+	case SpecialPacketType::SEED_SLOT_MACHINE_SUN:
+	case SpecialPacketType::SEED_SLOT_MACHINE_DIAMOND:
+	case SpecialPacketType::SEED_ZOMBIQUARIUM_SNORKLE:
+	case SpecialPacketType::SEED_ZOMBIQUARIUM_TROPHY:
 		aDrawSeedInMiddle = false;
 		break;
-	default:
-		break;
+		default:
+			break;
+		}
 	}
 	if (((LawnApp*)gSexyAppBase)->mGameMode == GameMode::GAMEMODE_CHALLENGE_BIG_TIME)
 	{
@@ -585,7 +599,7 @@ void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedTyp
 	if (theDrawCost)
 	{
 		std::string aCostStr;
-		if (gLawnApp->mBoard && gLawnApp->mBoard->PlantUsesAcceleratedPricing(aSeedType))
+		if (gLawnApp->mBoard && aSeedType.mKind == PacketKind::PLANT && gLawnApp->mBoard->PlantUsesAcceleratedPricing(aSeedType.PlantSeed()))
 		{
 			if (theUseCurrentCost)
 			{
@@ -651,7 +665,7 @@ void SeedPacket::Draw(Graphics* g)
 	}
 	else
 	{
-		SeedType aUseSeedType = mPacketType;
+		PacketType aUseSeedType = mPacketType;
 		if (mPacketType == SeedType::SEED_IMITATER && mImitaterType != SeedType::SEED_NONE)
 		{
 			aUseSeedType = mImitaterType;
@@ -695,7 +709,8 @@ void SeedPacket::Draw(Graphics* g)
 		{
 			aPercentDark = 0.0f;
 		}
-		else if ((!mBoard->CanTakeSunMoney(aCost) && aDrawCost) || aPercentDark > 1.0f || !mBoard->PlantingRequirementsMet(aUseSeedType))
+		else if ((!mBoard->CanTakeSunMoney(aCost) && aDrawCost) || aPercentDark > 1.0f ||
+			(aUseSeedType.mKind == PacketKind::PLANT && !mBoard->PlantingRequirementsMet(aUseSeedType.PlantSeed())))
 		{
 			aGrayness = 128;
 		}
@@ -711,7 +726,7 @@ bool SeedPacket::CanPickUp()
 		return false;
 	}
 
-	SeedType aUseSeedType = mPacketType;
+	PacketType aUseSeedType = mPacketType;
 	if (mPacketType == SeedType::SEED_IMITATER && mImitaterType != SeedType::SEED_NONE)
 	{
 		aUseSeedType = mImitaterType;
@@ -735,7 +750,7 @@ bool SeedPacket::CanPickUp()
 			return false;
 		}
 
-		if (!mBoard->PlantingRequirementsMet(aUseSeedType))
+		if (aUseSeedType.mKind == PacketKind::PLANT && !mBoard->PlantingRequirementsMet(aUseSeedType.PlantSeed()))
 		{
 			return false;
 		}
@@ -763,7 +778,7 @@ void SeedPacket::MouseDown(int x, int y, int theClickCount)
 		return;
 	}
 
-	SeedType aUseSeedType = mPacketType;
+	PacketType aUseSeedType = mPacketType;
 	if (mPacketType == SeedType::SEED_IMITATER && mImitaterType != SeedType::SEED_NONE)
 	{
 		aUseSeedType = mImitaterType;
@@ -793,10 +808,10 @@ void SeedPacket::MouseDown(int x, int y, int theClickCount)
 			return;
 		}
 
-		if (!mBoard->PlantingRequirementsMet(aUseSeedType))
+		if (aUseSeedType.mKind == PacketKind::PLANT && !mBoard->PlantingRequirementsMet(aUseSeedType.PlantSeed()))
 		{
 			mApp->PlaySample(SOUND_BUZZER);
-			switch (aUseSeedType)
+			switch (aUseSeedType.PlantSeed())
 			{
 			case SeedType::SEED_GATLINGPEA:
 				mBoard->DisplayAdvice("[ADVICE_PLANT_NEEDS_REPEATER]", MessageStyle::MESSAGE_STYLE_HINT_LONG, AdviceType::ADVICE_PLANT_NEEDS_REPEATER);
@@ -1141,7 +1156,7 @@ int SeedBank::CountOfTypeOnConveyorBelt(SeedType theSeedType)
 	return aCount;
 }
 
-void SeedPacket::SetPacketType(SeedType theSeedType, SeedType theImitaterType)
+void SeedPacket::SetPacketType(PacketType theSeedType, SeedType theImitaterType)
 {
 	mPacketType = theSeedType;
 	mImitaterType = theImitaterType;
@@ -1150,7 +1165,7 @@ void SeedPacket::SetPacketType(SeedType theSeedType, SeedType theImitaterType)
 	mRefreshing = false;
 	mActive = true;
 
-	SeedType aUseSeedType = theSeedType;
+	PacketType aUseSeedType = theSeedType;
 	if (theSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE)
 	{
 		aUseSeedType = theImitaterType;
@@ -1169,13 +1184,13 @@ void SeedPacket::SetPacketType(SeedType theSeedType, SeedType theImitaterType)
 		// Gatling Pea / Giant Wall-nut use their own base cooldown (30.01 s / 50 s); do not apply the generic upgrade overrides.
 		// 究极电能机枪射手同样沿用机枪射手的 30.01 s 档位；究极电能星星果也是 30 秒档。
 	}
-	else if ((Plant::IsUpgrade(aUseSeedType) && !gLawnApp->IsSurvivalMode()) || Plant::GetRefreshTime(mPacketType, mImitaterType) == 5000)
+	else if ((aUseSeedType.mKind == PacketKind::PLANT && Plant::IsUpgrade(aUseSeedType.PlantSeed()) && !gLawnApp->IsSurvivalMode()) || Plant::GetRefreshTime(mPacketType, mImitaterType) == 5000)
 	{
 		mRefreshTime = 3500;
 		mRefreshing = true;
 		mActive = false;
 	}
-	else if (Plant::IsUpgrade(aUseSeedType) && gLawnApp->IsSurvivalMode())
+	else if (aUseSeedType.mKind == PacketKind::PLANT && Plant::IsUpgrade(aUseSeedType.PlantSeed()) && gLawnApp->IsSurvivalMode())
 	{
 		mRefreshTime = 8000;
 		mRefreshing = true;

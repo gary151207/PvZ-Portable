@@ -53,7 +53,7 @@ public:
     CoinMotion              mCoinMotion;
     AttachmentID            mAttachmentID;
     float                   mCollectionDistance;
-    SeedType                mUsableSeedType;
+    PacketType              mUsableSeedType;
     PottedPlant             mPottedPlantSpec;
     bool                    mNeedsBouncyArrow;
     bool                    mHasBouncyArrow;

@@ -115,10 +115,14 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_THREE_GATLING_PEA, nullptr, ReanimationType::REANIM_THREE_GATLINGPEA, 12, 325, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "THREE_GATLING_PEA" },  // 隐藏合成态（三线射手 × 机枪射手）：消耗三线射手卡（325），每轮每行 4 连发
     { SeedType::SEED_LASER_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 400, 750, PlantSubClass::SUBCLASS_SHOOTER, LASER_PEA_LAUNCH_RATE, "LASER_PEA" },  // 激光豌豆（旅行红卡）：400 阳光，每 0.8 秒一道贯穿本行的绿色激光、每只僵尸 20 伤害
     { SeedType::SEED_SPORESHROOM, nullptr, ReanimationType::REANIM_SPORESHROOM, 6, 150, 500, PlantSubClass::SUBCLASS_SHOOTER, 290, "SPORE_SHROOM" },
-    { SeedType::SEED_HYPNOSHROOM_FUME, nullptr, ReanimationType::REANIM_FUMESHROOM, 9, 0, 3000, PlantSubClass::SUBCLASS_SHOOTER, 90, "HYPNOSHROOM_FUME" }
+    { SeedType::SEED_HYPNOSHROOM_FUME, nullptr, ReanimationType::REANIM_FUMESHROOM, 9, 0, 3000, PlantSubClass::SUBCLASS_SHOOTER, 90, "HYPNOSHROOM_FUME" },
     // ↑ 魅惑大喷菇（旅行专属形态）：没有单独卡牌，属性沿用大喷菇（60 伤害穿透烟雾 / 90 帧节奏）。
     //   默认写原版大喷菇的 reanim：只有专用贴图确实可用时，HypnoFumeshroomReanimType() 才会把运行时
     //   类型换成 REANIM_HYPNOSHROOM_FUME —— 这样即使漏改某个调用点，也只会退回原版观感，不会出问题。
+    { SeedType::SEED_POISON_PEASHOOTER, nullptr, ReanimationType::REANIM_POISON_PEASHOOTER, 0, 175, 500, PlantSubClass::SUBCLASS_SHOOTER, 150, "POISON_PEASHOOTER" },
+    // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
+    //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
+    //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
 };
 
 Plant::Plant()
@@ -741,6 +745,14 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     switch (theSeedType)
     {
     case SeedType::SEED_SPORESHROOM:
+        if (aBodyReanim)
+        {
+            aBodyReanim->mAnimRate = 30.0f;
+            aBodyReanim->SetFramesForLayer("anim_idle");
+        }
+        mState = PlantState::STATE_READY;
+        break;
+    case SeedType::SEED_POISON_PEASHOOTER:
         if (aBodyReanim)
         {
             aBodyReanim->mAnimRate = 30.0f;
@@ -1454,7 +1466,14 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
     Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
     Reanimation* aHeadReanim = mApp->ReanimationTryToGet(mHeadReanimID);
 
-    if (mSeedType == SeedType::SEED_SPORESHROOM)
+    if (mSeedType == SeedType::SEED_POISON_PEASHOOTER)
+    {
+        PlayBodyReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 10, 35.0f);
+        // 48 帧攻击段在 35 FPS 下约 137 tick；第 155 帧的 use_action
+        // 位于段内第 11 帧，31 tick 后出弹（见 UpdateShooting 的 106）。
+        mShootingCounter = 137;
+    }
+    else if (mSeedType == SeedType::SEED_SPORESHROOM)
     {
         PlayBodyReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 10, 30.0f);
         // PAM 的 use_action 位于攻击段第 29 帧；30 FPS 动画在 100 Hz 逻辑下约 97 刻到达。
@@ -4707,6 +4726,16 @@ void Plant::UpdateShooting()
 
     mShootingCounter--;
 
+    if (mSeedType == SeedType::SEED_POISON_PEASHOOTER)
+    {
+        if (mShootingCounter == 106)
+        {
+            Fire(FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY), mRow, PlantWeapon::WEAPON_PRIMARY);
+        }
+        // 该植物只在 use_action 出弹；不能继续落入计数为 1 的普通射手分支。
+        return;
+    }
+
     // 激光豌豆：节奏由 mLaunchRate = LASER_PEA_LAUNCH_RATE（20 帧 = 0.2 秒）决定。
     //
     // ⚠ 这里**不播开火动画、也不占 mShootingCounter**：
@@ -5720,19 +5749,6 @@ void Plant::DrawSeedType(Graphics* g, SeedType theSeedType, SeedType theImitater
         aSeedG.mScaleX *= -1.0f;
     }
 
-    if (Challenge::IsZombieSeedType(aSeedType))
-    {
-        ZombieType aZombieType = Challenge::IZombieSeedTypeToZombieType(aSeedType);
-        if (aZombieType == ZombieType::ZOMBIE_DANCER)
-        {
-            aSeedG.mScaleX *= 0.8f;
-            aSeedG.mScaleY *= 0.8f;
-            aOffsetX = 20.0f;
-            aOffsetY = 42.0f;
-        }
-        gLawnApp->mReanimatorCache->DrawCachedZombie(&aSeedG, thePosX + aOffsetX, thePosY + aOffsetY, aZombieType);
-    }
-    else
     {
         const PlantDefinition& aPlantDef = GetPlantDefinition(aSeedType);
 
@@ -5765,6 +5781,30 @@ void Plant::DrawSeedType(Graphics* g, SeedType theSeedType, SeedType theImitater
 
             TodDrawImageCelScaledF(&aSeedG, aPlantImage, thePosX + aOffsetX, thePosY + aOffsetY, aCelCol, aCelRow, aSeedG.mScaleX, aSeedG.mScaleY);
         }
+    }
+}
+
+void DrawPacketSeedType(Graphics* g, PacketType thePacketType, SeedType theImitaterType,
+                        DrawVariation theDrawVariation, float thePosX, float thePosY)
+{
+    if (thePacketType.mKind == PacketKind::PLANT)
+    {
+        Plant::DrawSeedType(g, thePacketType.PlantSeed(), theImitaterType, theDrawVariation, thePosX, thePosY);
+    }
+    else if (Challenge::IsZombieSeedType(thePacketType))
+    {
+        Graphics aSeedG(*g);
+        ZombieType aZombieType = Challenge::IZombieSeedTypeToZombieType(thePacketType.SpecialSeed());
+        float aOffsetX = 0.0f;
+        float aOffsetY = 0.0f;
+        if (aZombieType == ZombieType::ZOMBIE_DANCER)
+        {
+            aSeedG.mScaleX *= 0.8f;
+            aSeedG.mScaleY *= 0.8f;
+            aOffsetX = 20.0f;
+            aOffsetY = 42.0f;
+        }
+        gLawnApp->mReanimatorCache->DrawCachedZombie(&aSeedG, thePosX + aOffsetX, thePosY + aOffsetY, aZombieType);
     }
 }
 
@@ -6177,6 +6217,9 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     case SeedType::SEED_SPORESHROOM:
         aProjectileType = ProjectileType::PROJECTILE_SPORESHROOM;
         break;
+    case SeedType::SEED_POISON_PEASHOOTER:
+        aProjectileType = ProjectileType::PROJECTILE_POISON_PEA;
+        break;
     case SeedType::SEED_CACTUS:
     case SeedType::SEED_CATTAIL:
         aProjectileType = ProjectileType::PROJECTILE_SPIKE;
@@ -6267,6 +6310,12 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     {
         aOriginX = mX + 70;
         aOriginY = mY + 18;
+    }
+    else if (mSeedType == SeedType::SEED_POISON_PEASHOOTER)
+    {
+        // 攻击帧枪口约在本体原点 (+89, +32)；出弹点使一级弹体主体贴近枪口。
+        aOriginX = mX + 101;
+        aOriginY = mY + 35;
     }
     else if (mSeedType == SeedType::SEED_CABBAGEPULT)
     {
@@ -6822,14 +6871,48 @@ void Plant::Die()
 
 PlantDefinition& GetPlantDefinition(SeedType theSeedType)
 {
-    TOD_ASSERT(gPlantDefs[theSeedType].mSeedType == theSeedType);
     TOD_ASSERT(theSeedType >= 0 && theSeedType < static_cast<int>(SeedType::NUM_SEED_TYPES));
+    TOD_ASSERT(gPlantDefs[theSeedType].mSeedType == theSeedType);
     
     return gPlantDefs[theSeedType];
 }
 
-int Plant::GetCost(SeedType theSeedType, SeedType theImitaterType)
+int Plant::GetCost(PacketType thePacketType, SeedType theImitaterType)
 {
+    if (thePacketType.mKind == PacketKind::SPECIAL)
+    {
+        switch (thePacketType.SpecialSeed())
+        {
+        case SpecialPacketType::SEED_BEGHOULED_BUTTON_SHUFFLE: return 100;
+        case SpecialPacketType::SEED_BEGHOULED_BUTTON_CRATER: return 200;
+        case SpecialPacketType::SEED_SLOT_MACHINE_SUN:
+        case SpecialPacketType::SEED_SLOT_MACHINE_DIAMOND: return 0;
+        case SpecialPacketType::SEED_ZOMBIQUARIUM_SNORKLE: return 100;
+        case SpecialPacketType::SEED_ZOMBIQUARIUM_TROPHY: return 1000;
+        case SpecialPacketType::SEED_ZOMBIE_NORMAL: return 50;
+        case SpecialPacketType::SEED_ZOMBIE_TRAFFIC_CONE:
+        case SpecialPacketType::SEED_ZOMBIE_POLEVAULTER: return 75;
+        case SpecialPacketType::SEED_ZOMBIE_PAIL: return 125;
+        case SpecialPacketType::SEED_ZOMBIE_LADDER: return 150;
+        case SpecialPacketType::SEED_ZOMBIE_DIGGER: return 125;
+        case SpecialPacketType::SEED_ZOMBIE_BUNGEE: return 125;
+        case SpecialPacketType::SEED_ZOMBIE_FOOTBALL: return 175;
+        case SpecialPacketType::SEED_ZOMBIE_BALLOON: return 150;
+        case SpecialPacketType::SEED_ZOMBIE_SCREEN_DOOR: return 100;
+        case SpecialPacketType::SEED_ZOMBONI: return 175;
+        case SpecialPacketType::SEED_ZOMBIE_POGO: return 200;
+        case SpecialPacketType::SEED_ZOMBIE_DANCER: return 350;
+        case SpecialPacketType::SEED_ZOMBIE_GARGANTUAR: return 300;
+        case SpecialPacketType::SEED_ZOMBIE_IMP: return 50;
+        }
+        TOD_ASSERT(false);
+        return 0;
+    }
+
+    if (thePacketType.mKind != PacketKind::PLANT)
+        return 0;
+
+    SeedType theSeedType = thePacketType.PlantSeed();
     if (gLawnApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || gLawnApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST)
     {
         if (theSeedType == SeedType::SEED_REPEATER)
@@ -6844,51 +6927,10 @@ int Plant::GetCost(SeedType theSeedType, SeedType theImitaterType)
         {
             return 250;
         }
-        else if (theSeedType == SeedType::SEED_BEGHOULED_BUTTON_SHUFFLE)
-        {
-            return 100;
-        }
-        else if (theSeedType == SeedType::SEED_BEGHOULED_BUTTON_CRATER)
-        {
-            return 200;
-        }
     }
-
-    switch (theSeedType)
-    {
-    case SeedType::SEED_SLOT_MACHINE_SUN:           return 0;
-    case SeedType::SEED_SLOT_MACHINE_DIAMOND:       return 0;
-    case SeedType::SEED_ZOMBIQUARIUM_SNORKLE:       return 100;
-    case SeedType::SEED_ZOMBIQUARIUM_TROPHY:        return 1000;
-    case SeedType::SEED_ZOMBIE_NORMAL:              return 50;
-    case SeedType::SEED_ZOMBIE_TRAFFIC_CONE:        return 75;
-    case SeedType::SEED_ZOMBIE_POLEVAULTER:         return 75;
-    case SeedType::SEED_ZOMBIE_PAIL:                return 125;
-    case SeedType::SEED_ZOMBIE_LADDER:              return 150;
-    case SeedType::SEED_ZOMBIE_DIGGER:              return 125;
-    case SeedType::SEED_ZOMBIE_BUNGEE:              return 125;
-    case SeedType::SEED_ZOMBIE_FOOTBALL:            return 175;
-    case SeedType::SEED_ZOMBIE_BALLOON:             return 150;
-    case SeedType::SEED_ZOMBIE_SCREEN_DOOR:         return 100;
-    case SeedType::SEED_ZOMBONI:                    return 175;
-    case SeedType::SEED_ZOMBIE_POGO:                return 200;
-    case SeedType::SEED_ZOMBIE_DANCER:              return 350;
-    case SeedType::SEED_ZOMBIE_GARGANTUAR:          return 300;
-    case SeedType::SEED_ZOMBIE_IMP:                 return 50;
-    default:
-    {
-        if (theSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE)
-        {
-            const PlantDefinition& aPlantDef = GetPlantDefinition(theImitaterType);
-            return aPlantDef.mSeedCost;
-        }
-        else
-        {
-            const PlantDefinition& aPlantDef = GetPlantDefinition(theSeedType);
-            return aPlantDef.mSeedCost;
-        }
-    }
-    }
+    const SeedType aPlantType = theSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE
+        ? theImitaterType : theSeedType;
+    return GetPlantDefinition(aPlantType).mSeedCost;
 }
 
 // GOTY @Patoke: 0x46B6C0
@@ -6916,12 +6958,14 @@ std::string Plant::GetToolTip(SeedType theSeedType)
     return TodStringTranslate(aToolTip);
 }
 
-int Plant::GetRefreshTime(SeedType theSeedType, SeedType theImitaterType)
+int Plant::GetRefreshTime(PacketType thePacketType, SeedType theImitaterType)
 {
-    if (Challenge::IsZombieSeedType(theSeedType))
+    if (thePacketType.mKind != PacketKind::PLANT)
     {
         return 0;
     }
+
+    SeedType theSeedType = thePacketType.PlantSeed();
 
     if (theSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE)
     {
@@ -7140,6 +7184,10 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
     else if (theSeedType == SeedType::SEED_SPORESHROOM)
     {
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_SPORESHROOM_PROJECTILE, true);
+    }
+    else if (theSeedType == SeedType::SEED_POISON_PEASHOOTER)
+    {
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_POISON_PEA_PROJECTILE, true);
     }
     else if (Plant::IsNocturnal(theSeedType))
     {

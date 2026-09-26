@@ -313,10 +313,12 @@ elseif (ANDROID)
 elseif (IOS)
 	target_link_libraries(pvz-portable PRIVATE
 		"-framework Foundation"
+		"-framework CoreFoundation"
 		"-framework UIKit"
 		"-framework OpenGLES"
 		"-framework QuartzCore"
 		"-framework CoreGraphics"
+		"-framework CoreText"
 		"-framework CoreMotion"
 		"-framework GameController"
 		"-framework AVFoundation"
@@ -351,6 +353,13 @@ elseif (IOS)
 		set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/ios/Assets.xcassets"
 			PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 	endif()
+endif()
+
+if(APPLE AND NOT IOS)
+	target_link_libraries(pvz-portable PRIVATE
+		"-framework CoreFoundation"
+		"-framework CoreGraphics"
+		"-framework CoreText")
 endif()
 
 # Keep the unpacked PAK tree and external properties separate, then stage a

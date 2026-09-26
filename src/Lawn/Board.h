@@ -281,7 +281,7 @@ public:
 	void							RemoveAllZombies();
 	void							RemoveCutsceneZombies();
 	void							SpawnZombiesFromGraves();
-	PlantingReason					CanPlantAt(int theGridX, int theGridY, SeedType theSeedType);
+	PlantingReason					CanPlantAt(int theGridX, int theGridY, PacketType thePacketType);
 	virtual void					MouseMove(int x, int y);
 	virtual void					MouseDrag(int x, int y);
 	virtual void					MouseDown(int x, int y, int theClickCount);
@@ -470,8 +470,8 @@ public:
 	float							GetPosYBasedOnRow(float thePosX, int theRow);
 	void							NextWaveComing();
 	bool							BungeeIsTargetingCell(int theGridX, int theGridY);
-	/*inline*/ int					PlantingPixelToGridX(int theX, int theY, SeedType theSeedType);
-	/*inline*/ int					PlantingPixelToGridY(int theX, int theY, SeedType theSeedType);
+	/*inline*/ int					PlantingPixelToGridX(int theX, int theY, PacketType thePacketType);
+	/*inline*/ int					PlantingPixelToGridY(int theX, int theY, PacketType thePacketType);
 	Plant*							FindUmbrellaPlant(int theGridX, int theGridY);
 	void							SetTutorialState(TutorialState theTutorialState);
 	void							DoFwoosh(int theRow);
@@ -570,7 +570,7 @@ public:
 	bool							ProgressMeterHasFlags();
 	/*inline*/ bool					IsLastStandFinalStage();
 	/*inline*/ int					GetNumWavesPerFlag();
-	int								GetCurrentPlantCost(SeedType theSeedType, SeedType theImitaterType);
+	int								GetCurrentPlantCost(PacketType thePacketType, SeedType theImitaterType);
 	/*inline*/ bool					PlantUsesAcceleratedPricing(SeedType theSeedType);
 	void							FreezeEffectsForCutscene(bool theFreeze);
 	void							LoadBackgroundImages();

@@ -831,7 +831,8 @@ enum ProjectileType : int32_t
     PROJECTILE_PURPLE_FIRE_PEA = 16,  // 紫火豌豆（火豌豆射手：65 伤害单体命中，命中后僵尸易伤 4 秒）
     PROJECTILE_LASER_PEA = 17,  // 激光豌豆的贯穿光束（激光豌豆：每 0.8 秒一道绿色激光，路径上每只僵尸 20 伤害）
     PROJECTILE_SPORESHROOM = 18,  // 孢子菇孢子（40 伤害；直接击杀后在目标所在格繁殖）
-    NUM_PROJECTILES = 19
+    PROJECTILE_POISON_PEA = 19,  // 毒液豌豆射手的一阶毒液豌豆
+    NUM_PROJECTILES = 20
 };
 enum ReanimationType : uint32_t {
     REANIM_NONE = static_cast<uint32_t>(-1),
@@ -1001,6 +1002,8 @@ enum ReanimationType : uint32_t {
     REANIM_SPORESHROOM_PROJECTILE,  // 孢子菇弹丸：飞行及两套命中特效
     REANIM_HYPNOSHROOM_FUME,        // 魅惑大喷菇：与 REANIM_FUMESHROOM 同一个 reanim 文件，
                                     // 但装载后把脑袋换成 reanim/HypnoFumeshroom_head.png（见 Plant.cpp）
+    REANIM_POISON_PEASHOOTER,
+    REANIM_POISON_PEA_PROJECTILE,
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1138,8 +1141,16 @@ enum SeedType : int32_t
     SEED_LASER_PEA,                                 // 激光豌豆（旅行红卡：400 阳光，每 0.8 秒一道贯穿本行的绿色激光、每只僵尸 20 伤害，优先索敌空中僵尸）
     SEED_SPORESHROOM,                               // 孢子菇（斗蛐蛐 2 专属：抛射孢子，直接击杀后原格繁殖）
     SEED_HYPNOSHROOM_FUME,                          // 魅惑大喷菇（旅行专属形态：魅惑菇 × 大喷菇群 切换，小喷菇切回）
+    SEED_POISON_PEASHOOTER,                         // 毒液豌豆射手（斗蛐蛐 2 专属，一阶）
     NUM_SEED_TYPES,
-    SEED_BEGHOULED_BUTTON_SHUFFLE,
+    NUM_SEEDS_IN_CHOOSER = 49,
+    SEED_NONE = -1
+};
+
+// 特殊卡片与植物编号分属不同类型；旧存档中的特殊卡片从 64 起编号。
+enum class SpecialPacketType : int32_t
+{
+    SEED_BEGHOULED_BUTTON_SHUFFLE = 64,
     SEED_BEGHOULED_BUTTON_CRATER,
     SEED_SLOT_MACHINE_SUN,
     SEED_SLOT_MACHINE_DIAMOND,
@@ -1159,9 +1170,28 @@ enum SeedType : int32_t
     SEED_ZOMBIE_POGO,
     SEED_ZOMBIE_DANCER,
     SEED_ZOMBIE_GARGANTUAR,
-    SEED_ZOMBIE_IMP,
-    NUM_SEEDS_IN_CHOOSER = 49,
-    SEED_NONE = -1
+    SEED_ZOMBIE_IMP
+};
+
+enum class PacketKind : int32_t { NONE = 0, PLANT = 1, SPECIAL = 2 };
+
+struct PacketType
+{
+    PacketKind mKind;
+    int32_t mId;
+
+    constexpr PacketType() : mKind(PacketKind::NONE), mId(-1) {}
+    constexpr PacketType(SeedType theSeedType) :
+        mKind(theSeedType == SeedType::SEED_NONE ? PacketKind::NONE : PacketKind::PLANT),
+        mId(theSeedType) {}
+    constexpr PacketType(SpecialPacketType theSpecialType) :
+        mKind(PacketKind::SPECIAL), mId(static_cast<int32_t>(theSpecialType)) {}
+
+    constexpr bool operator==(const PacketType&) const = default;
+    constexpr bool operator==(SeedType theSeedType) const { return *this == PacketType(theSeedType); }
+    constexpr bool operator==(SpecialPacketType theSpecialType) const { return *this == PacketType(theSpecialType); }
+    constexpr SeedType PlantSeed() const { return static_cast<SeedType>(mId); }
+    constexpr SpecialPacketType SpecialSeed() const { return static_cast<SpecialPacketType>(mId); }
 };
 enum ShieldType : int32_t
 {

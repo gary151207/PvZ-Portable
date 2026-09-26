@@ -29,6 +29,7 @@ Usage:
     python pvzp-v4-converter.py export <input.v4> <output.yaml>
     python pvzp-v4-converter.py import <input.yaml> <output.v4>
     python pvzp-v4-converter.py info <input.v4>
+    python pvzp-v4-converter.py migrate-packet-ids --legacy-special-base 64 <input.v4> <output.v4>
 
 The YAML format:
 - Human-readable fields for game-relevant data (sun, plants, zombies, etc.)
@@ -68,7 +69,7 @@ from typing import Any, Optional, Type
 # ============================================================================
 
 SAVE_MAGIC = b"PVZP_SAVE4\x00\x00"  # 12 bytes with null padding
-SAVE_VERSION = 1
+SAVE_VERSION = 2
 HEADER_SIZE = 24  # magic(12) + version(4) + payloadSize(4) + payloadCrc(4)
 
 # Board constants from Board.h
@@ -226,6 +227,52 @@ class SeedType(IntEnum):
     SEED_SPIKEROCK = 46
     SEED_COBCANNON = 47
     SEED_IMITATER = 48
+    SEED_EXPLODE_O_NUT = 49
+    SEED_GIANT_WALLNUT = 50
+    SEED_SPROUT = 51
+    SEED_LEFTPEATER = 52
+    SEED_FUMESHROOM_GROUP = 53
+    SEED_PEATER_1_5 = 54
+    SEED_ELECTRIC_GATLING_PEA = 55
+    SEED_ELECTRIC_STARFRUIT = 56
+    SEED_SNOW_GATLING_PEA = 57
+    SEED_FIRE_PEASHOOTER = 58
+    SEED_FIRE_GATLING_PEA = 59
+    SEED_THREE_GATLING_PEA = 60
+    SEED_LASER_PEA = 61
+    SEED_SPORESHROOM = 62
+    SEED_HYPNOSHROOM_FUME = 63
+    SEED_POISON_PEASHOOTER = 64
+
+
+class PacketKind(IntEnum):
+    NONE = 0
+    PLANT = 1
+    SPECIAL = 2
+
+
+class SpecialPacketType(IntEnum):
+    SEED_BEGHOULED_BUTTON_SHUFFLE = 64
+    SEED_BEGHOULED_BUTTON_CRATER = 65
+    SEED_SLOT_MACHINE_SUN = 66
+    SEED_SLOT_MACHINE_DIAMOND = 67
+    SEED_ZOMBIQUARIUM_SNORKLE = 68
+    SEED_ZOMBIQUARIUM_TROPHY = 69
+    SEED_ZOMBIE_NORMAL = 70
+    SEED_ZOMBIE_TRAFFIC_CONE = 71
+    SEED_ZOMBIE_POLEVAULTER = 72
+    SEED_ZOMBIE_PAIL = 73
+    SEED_ZOMBIE_LADDER = 74
+    SEED_ZOMBIE_DIGGER = 75
+    SEED_ZOMBIE_BUNGEE = 76
+    SEED_ZOMBIE_FOOTBALL = 77
+    SEED_ZOMBIE_BALLOON = 78
+    SEED_ZOMBIE_SCREEN_DOOR = 79
+    SEED_ZOMBONI = 80
+    SEED_ZOMBIE_POGO = 81
+    SEED_ZOMBIE_DANCER = 82
+    SEED_ZOMBIE_GARGANTUAR = 83
+    SEED_ZOMBIE_IMP = 84
 
 
 class BackgroundType(IntEnum):
@@ -477,6 +524,19 @@ def parse_tlv_fields(data: bytes) -> dict[int, bytes]:
             break
         field_data = reader.read_bytes(field_size)
         fields[field_id] = field_data
+    return fields
+
+
+def parse_tlv_fields_strict(data: bytes) -> dict[int, bytes]:
+    """Parse migration input without silently discarding malformed or duplicate fields."""
+    reader = BinaryReader(data)
+    fields = {}
+    while reader.remaining:
+        field_id = reader.read_u32()
+        field_size = reader.read_u32()
+        if field_id in fields:
+            raise ValueError(f"Duplicate TLV field {field_id}")
+        fields[field_id] = reader.read_bytes(field_size)
     return fields
 
 
@@ -1071,6 +1131,7 @@ def parse_plant_tail(data: bytes) -> dict:
         "start_row": reader.read_i32(),
         "particle_id": reader.read_u32(),
         "shooting_counter": reader.read_i32(),
+        "scaredy_shroom_launch_rate": reader.read_i32(),
         "body_reanim_id": reader.read_u32(),
         "head_reanim_id": reader.read_u32(),
         "head_reanim_id2": reader.read_u32(),
@@ -1128,6 +1189,7 @@ def write_plant_tail(plant: dict) -> bytes:
     writer.write_i32(plant.get("start_row", 0))
     writer.write_u32(plant.get("particle_id", 0))
     writer.write_i32(plant.get("shooting_counter", 0))
+    writer.write_i32(plant.get("scaredy_shroom_launch_rate", 0))
     writer.write_u32(plant.get("body_reanim_id", 0))
     writer.write_u32(plant.get("head_reanim_id", 0))
     writer.write_u32(plant.get("head_reanim_id2", 0))
@@ -1406,10 +1468,12 @@ def write_seedpacket_tail(packet: dict) -> bytes:
     writer.write_i32(packet.get("refresh_time", 0))
     writer.write_i32(packet.get("index", 0))
     writer.write_i32(packet.get("offset_x", 0))
-    writer.write_i32(enum_value(SeedType, packet.get("packet_type", "SEED_NONE")))
+    packet_enum = SpecialPacketType if packet.get("packet_kind") == "SPECIAL" else SeedType
+    next_enum = SpecialPacketType if packet.get("slot_machining_next_kind") == "SPECIAL" else SeedType
+    writer.write_i32(enum_value(packet_enum, packet.get("packet_type", "SEED_NONE")))
     writer.write_i32(enum_value(SeedType, packet.get("imitater_type", "SEED_NONE")))
     writer.write_i32(packet.get("slot_machine_countdown", 0))
-    writer.write_i32(enum_value(SeedType, packet.get("slot_machining_next_seed", "SEED_NONE")))
+    writer.write_i32(enum_value(next_enum, packet.get("slot_machining_next_seed", "SEED_NONE")))
     writer.write_f32(packet.get("slot_machining_position", 0.0))
     writer.write_bool(packet.get("active", False))
     writer.write_bool(packet.get("refreshing", False))
@@ -1445,6 +1509,22 @@ def parse_seedpackets(data: bytes) -> list[dict[str, Any]]:
                 packet.update(tail)
             except Exception:
                 packet["_tail_raw"] = base64.b64encode(item_fields[100]).decode('ascii')
+
+        for field_id, key, value_key in ((101, "packet_kind", "packet_type"),
+                                           (102, "slot_machining_next_kind", "slot_machining_next_seed")):
+            if field_id in item_fields:
+                if len(item_fields[field_id]) == 4:
+                    kind = struct.unpack("<i", item_fields[field_id])[0]
+                    packet[key] = enum_name(PacketKind, kind)
+                    if kind == PacketKind.SPECIAL and value_key in packet:
+                        value = enum_value(SeedType, packet[value_key])
+                        packet[value_key] = enum_name(SpecialPacketType, value)
+                else:
+                    packet[f"_field_{field_id}"] = base64.b64encode(item_fields[field_id]).decode('ascii')
+
+        for field_id, field_data in item_fields.items():
+            if field_id not in (1, 100, 101, 102):
+                packet[f"_field_{field_id}"] = base64.b64encode(field_data).decode('ascii')
         
         packets.append(packet)
     
@@ -1468,6 +1548,13 @@ def write_seedpackets(packets: list) -> bytes:
             fields[100] = base64.b64decode(packet["_tail_raw"])
         else:
             fields[100] = write_seedpacket_tail(packet)
+
+        for field_id, key in ((101, "packet_kind"), (102, "slot_machining_next_kind")):
+            if key in packet:
+                fields[field_id] = struct.pack("<i", enum_value(PacketKind, packet[key]))
+        for key, value in packet.items():
+            if key.startswith("_field_"):
+                fields[int(key.split("_")[-1])] = base64.b64decode(value)
         
         item_data = write_tlv_fields(fields)
         writer.write_u32(len(item_data))
@@ -1664,8 +1751,8 @@ def parse_save_file(data: bytes) -> SaveFile:
         sys.exit(1)
     
     version = struct.unpack("<I", data[12:16])[0]
-    if version != SAVE_VERSION:
-        print(f"Warning: File header says version {version}, but script expects version {SAVE_VERSION}.")
+    if version not in (1, SAVE_VERSION):
+        print(f"Warning: File header says version {version}, but script supports versions 1 and {SAVE_VERSION}.")
         print("Proceeding anyway, but errors may occur.")
     
     payload_size = struct.unpack("<I", data[16:20])[0]
@@ -1814,6 +1901,129 @@ def write_save_file(save: SaveFile) -> bytes:
     result.write_bytes(payload_bytes)
     
     return result.get_bytes()
+
+
+def migrate_legacy_packet_id(tail: bytes, offset: int, legacy_special_base: int) -> tuple[bytes, PacketKind]:
+    """Attach a packet kind to an untagged v1 ID without guessing its numbering scheme."""
+    if len(tail) < offset + 4:
+        raise ValueError("Truncated packet tail")
+    packet_id = struct.unpack_from("<i", tail, offset)[0]
+    if packet_id == -1:
+        return tail, PacketKind.NONE
+    if 0 <= packet_id < legacy_special_base:
+        return tail, PacketKind.PLANT
+    if legacy_special_base <= packet_id < legacy_special_base + 21:
+        new_id = packet_id + 64 - legacy_special_base
+        result = bytearray(tail)
+        struct.pack_into("<i", result, offset, new_id)
+        return bytes(result), PacketKind.SPECIAL
+    raise ValueError(f"Packet ID {packet_id} is outside the selected legacy scheme")
+
+
+def migrate_packet_fields(fields: dict[int, bytes], packet_offsets: list[tuple[int, int]],
+                          legacy_special_base: int) -> dict[int, bytes]:
+    if 100 not in fields:
+        raise ValueError("Packet tail field 100 is missing")
+    result = dict(fields)
+    tail = result[100]
+    for offset, kind_field in packet_offsets:
+        tail, kind = migrate_legacy_packet_id(tail, offset, legacy_special_base)
+        result[kind_field] = struct.pack("<i", kind)
+    result[100] = tail
+    return result
+
+
+def migrate_packet_chunk(chunk_type: int, inner: bytes, legacy_special_base: int) -> bytes:
+    if chunk_type == ChunkType.SEEDPACKETS:
+        reader = BinaryReader(inner)
+        count = reader.read_i32()
+        if count < 0 or count > 100:
+            raise ValueError("Invalid seed packet count")
+        writer = BinaryWriter()
+        writer.write_i32(count)
+        for _ in range(count):
+            item_size = reader.read_u32()
+            fields = parse_tlv_fields_strict(reader.read_bytes(item_size))
+            item = write_tlv_fields(migrate_packet_fields(fields, [(16, 101), (28, 102)], legacy_special_base))
+            writer.write_u32(len(item))
+            writer.write_bytes(item)
+        if reader.remaining:
+            raise ValueError("Unexpected data after seed packets")
+        return writer.get_bytes()
+
+    if chunk_type == ChunkType.CURSOR:
+        reader = BinaryReader(inner)
+        blob_size = reader.read_u32()
+        fields = parse_tlv_fields_strict(reader.read_bytes(blob_size))
+        if reader.remaining:
+            raise ValueError("Unexpected data after cursor")
+        blob = write_tlv_fields(migrate_packet_fields(fields, [(4, 101)], legacy_special_base))
+        return struct.pack("<I", len(blob)) + blob
+
+    if chunk_type == ChunkType.COINS:
+        reader = BinaryReader(inner)
+        header = DataArrayHeader(reader.read_u32(), reader.read_u32(), reader.read_u32(),
+                                 reader.read_u32(), reader.read_u32())
+        if header.max_used_count > header.max_size:
+            raise ValueError("Invalid coin array header")
+        items = []
+        for _ in range(header.max_used_count):
+            item_id = reader.read_u32()
+            item_size = reader.read_u32()
+            item_data = reader.read_bytes(item_size)
+            fields = parse_tlv_fields_strict(item_data) if item_data else {}
+            items.append(DataArrayItem(item_id=item_id, data=item_data, fields=fields))
+        if reader.remaining:
+            raise ValueError("Unexpected data after coin array")
+        for item in items:
+            if 100 in item.fields:
+                item.data = write_tlv_fields(migrate_packet_fields(item.fields, [(62, 101)], legacy_special_base))
+        return write_data_array_tlv(header, items)
+
+    raise ValueError(f"Unexpected packet chunk {chunk_type}")
+
+
+def migrate_packet_ids(data: bytes, legacy_special_base: int) -> bytes:
+    """Upgrade an explicitly selected v1 numbering scheme to tagged v2 packets."""
+    if legacy_special_base != 64:
+        raise ValueError("Only the pre-Hypno special packet base 64 is supported")
+    if len(data) < HEADER_SIZE or data[:12] != SAVE_MAGIC:
+        raise ValueError("Not a PvZ-Portable .v4 save")
+    version, payload_size, stored_crc = struct.unpack_from("<III", data, 12)
+    if version != 1:
+        raise ValueError(f"Expected a version 1 save, found version {version}")
+    if len(data) != HEADER_SIZE + payload_size:
+        raise ValueError("Save payload size does not match header")
+    payload = data[HEADER_SIZE:]
+    if zlib.crc32(payload) & 0xFFFFFFFF != stored_crc:
+        raise ValueError("Save payload CRC does not match header")
+
+    reader = BinaryReader(payload)
+    writer = BinaryWriter()
+    seen = set()
+    while reader.remaining:
+        if reader.remaining < 8:
+            raise ValueError("Truncated chunk header")
+        chunk_type = reader.read_u32()
+        chunk_size = reader.read_u32()
+        chunk_data = reader.read_bytes(chunk_size)
+        if chunk_type in (ChunkType.COINS, ChunkType.CURSOR, ChunkType.SEEDPACKETS):
+            if len(chunk_data) < 12:
+                raise ValueError(f"Truncated packet chunk {chunk_type}")
+            chunk_version, field_id, field_size = struct.unpack_from("<III", chunk_data)
+            if chunk_version != 1 or field_id != 1 or len(chunk_data) != 12 + field_size:
+                raise ValueError(f"Unsupported packet chunk wrapper {chunk_type}")
+            inner = migrate_packet_chunk(chunk_type, chunk_data[12:], legacy_special_base)
+            chunk_data = write_chunk(chunk_type, inner)
+            seen.add(chunk_type)
+        writer.write_u32(chunk_type)
+        writer.write_u32(len(chunk_data))
+        writer.write_bytes(chunk_data)
+    if seen != {ChunkType.COINS, ChunkType.CURSOR, ChunkType.SEEDPACKETS}:
+        raise ValueError("Save is missing a packet-bearing chunk")
+    new_payload = writer.get_bytes()
+    return SAVE_MAGIC + struct.pack("<III", SAVE_VERSION, len(new_payload),
+                                    zlib.crc32(new_payload) & 0xFFFFFFFF) + new_payload
 
 
 # ============================================================================
@@ -2068,6 +2278,22 @@ def cmd_import(args):
         return 1
 
 
+def cmd_migrate_packet_ids(args):
+    """Convert an explicitly selected old packet numbering scheme to v2."""
+    try:
+        input_path = Path(args.input)
+        output_path = Path(args.output)
+        if input_path.resolve() == output_path.resolve():
+            raise ValueError("Choose a different output path to preserve the original save")
+        result = migrate_packet_ids(input_path.read_bytes(), args.legacy_special_base)
+        output_path.write_bytes(result)
+        print(f"Converted version 2 save: {output_path}")
+        return 0
+    except (OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+
 def main():
     global EXPAND_ZOMBIES_IN_WAVE
     
@@ -2080,6 +2306,7 @@ Examples:
   %(prog)s export game1.v4 game1.yaml      Export to YAML format (lossless)
   %(prog)s export --expand-waves game1.v4 game1.yaml  Export with expanded wave data
   %(prog)s import game1.yaml game1_new.v4  Import YAML back to v4 format
+  %(prog)s migrate-packet-ids --legacy-special-base 64 old.v4 converted.v4
 
 This converter is LOSSLESS - the YAML contains all data needed to
 recreate an identical v4 save file. Human-readable fields can be
@@ -2106,6 +2333,13 @@ edited, while complex binary data is preserved as base64.
     import_parser.add_argument("input", help="Input YAML file")
     import_parser.add_argument("output", help="Output v4 save file")
     import_parser.set_defaults(func=cmd_import)
+
+    migrate_parser = subparsers.add_parser("migrate-packet-ids", help="Convert pre-Hypno v1 packet IDs to tagged v2")
+    migrate_parser.add_argument("--legacy-special-base", type=int, choices=[64], required=True,
+                                help="Old special packet base (64 for pre-Hypno saves)")
+    migrate_parser.add_argument("input", help="Original version 1 .v4 save")
+    migrate_parser.add_argument("output", help="New version 2 .v4 save")
+    migrate_parser.set_defaults(func=cmd_migrate_packet_ids)
     
     args = parser.parse_args()
     

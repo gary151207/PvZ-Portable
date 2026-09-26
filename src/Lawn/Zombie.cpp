@@ -132,6 +132,9 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mIceTrapCounter = 0;
     mButteredCounter = 0;
     mFireVulnCounter = 0;
+    mPoisonPeaStacks = 0;
+    mPoisonPeaTicks = 0;
+    mPoisonPeaPulseTicks = 0;
     mMindControlled = false;
     mTorchwoodSummoned = false;
     mBlowingAway = false;
@@ -4210,10 +4213,7 @@ void Zombie::UpdateDamageStates(unsigned int theDamageFlags)
 float Zombie::ZombieTargetLeadX(float theTime)
 {
     float aSpeed = mVelX;
-    if (mChilledCounter > 0)
-    {
-        aSpeed *= CHILLED_SPEED_FACTOR;
-    }
+    aSpeed *= GetMovementSlowFactor();
     if (IsWalkingBackwards())
     {
         aSpeed = -aSpeed;
@@ -4395,15 +4395,12 @@ void Zombie::UpdateZombieWalking()
             mZombiePhase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL || mZombieType == ZombieType::ZOMBIE_CATAPULT)
         {
             aSpeed = mVelX;
-            if (IsMovingAtChilledSpeed())
-            {
-                aSpeed *= CHILLED_SPEED_FACTOR;
-            }
+            aSpeed *= GetMovementSlowFactor();
         }
         else if (mZombieType == ZombieType::ZOMBIE_ZAMBONI || mZombiePhase == ZombiePhase::PHASE_DIGGER_TUNNELING || mZombiePhase == ZombiePhase::PHASE_DOLPHIN_IN_JUMP || 
             IsBobsledTeamWithSled() || mZombiePhase == ZombiePhase::PHASE_POLEVAULTER_IN_VAULT || mZombiePhase == ZombiePhase::PHASE_SNORKEL_INTO_POOL)
         {
-            aSpeed = mVelX;
+            aSpeed = mVelX * GetMovementSlowFactor();
         }
         else if (aBodyReanim->TrackExists("_ground"))
         {
@@ -4412,10 +4409,7 @@ void Zombie::UpdateZombieWalking()
         else
         {
             aSpeed = mVelX;
-            if (IsMovingAtChilledSpeed())
-            {
-                aSpeed *= CHILLED_SPEED_FACTOR;
-            }
+            aSpeed *= GetMovementSlowFactor();
         }
 
         if (IsWalkingBackwards() || mZombiePhase == ZombiePhase::PHASE_DANCER_DANCING_IN)
@@ -4480,10 +4474,7 @@ void Zombie::UpdateZombieWalking()
         if (doWalk)
         {
             float aSpeed = mVelX;
-            if (IsMovingAtChilledSpeed())
-            {
-                aSpeed *= CHILLED_SPEED_FACTOR;
-            }
+            aSpeed *= GetMovementSlowFactor();
 
             if (IsWalkingBackwards())
             {
@@ -4932,6 +4923,9 @@ void Zombie::UpdatePlaying()
             UpdateAnimSpeed();
         }
     }
+    UpdatePoisonPea();
+    if (IsDeadOrDying())
+        return;
     if (mButteredCounter > 0)
     {
         mButteredCounter--;
@@ -6069,7 +6063,16 @@ void Zombie::DrawReanim(Graphics* g, const ZombieDrawPosition& theDrawPos, int t
     }
     else if (mChilledCounter > 0 || mIceTrapCounter > 0)
     {
-        aColorOverride = Color(75, 75, 255, aFadeAlpha);
+        // 同时中毒时保留寒冰的蓝色提示，并混入毒液豌豆的紫色。
+        aColorOverride = mPoisonPeaTicks > 0
+            ? Color(130, 75, 235, aFadeAlpha)
+            : Color(75, 75, 255, aFadeAlpha);
+        aExtraAdditiveColor = aColorOverride;
+        aEnableExtraAdditiveDraw = true;
+    }
+    else if (mPoisonPeaTicks > 0)
+    {
+        aColorOverride = Color(165, 75, 220, aFadeAlpha);
         aExtraAdditiveColor = aColorOverride;
         aEnableExtraAdditiveDraw = true;
     }
@@ -7030,6 +7033,64 @@ bool Zombie::IsMovingAtChilledSpeed()
     return false;
 }
 
+float Zombie::GetMovementSlowFactor()
+{
+    if (IsMovingAtChilledSpeed())
+        return CHILLED_SPEED_FACTOR;
+    return mPoisonPeaTicks > 0 ? POISON_PEA_SLOW_FACTOR : 1.0f;
+}
+
+void Zombie::ApplyPoisonPea()
+{
+    if (IsDeadOrDying())
+        return;
+
+    const bool aWasPoisoned = mPoisonPeaTicks > 0;
+    mPoisonPeaStacks = aWasPoisoned ? std::min(mPoisonPeaStacks + 1, POISON_PEA_MAX_STACKS) : 1;
+    mPoisonPeaTicks = POISON_PEA_DURATION_TICKS;
+    if (!aWasPoisoned)
+    {
+        mPoisonPeaPulseTicks = POISON_PEA_PULSE_TICKS;
+        UpdateAnimSpeed();
+    }
+}
+
+void Zombie::UpdatePoisonPea()
+{
+    if (mPoisonPeaTicks <= 0 || IsDeadOrDying())
+    {
+        mPoisonPeaStacks = 0;
+        mPoisonPeaTicks = 0;
+        mPoisonPeaPulseTicks = 0;
+        return;
+    }
+
+    --mPoisonPeaTicks;
+    if (--mPoisonPeaPulseTicks <= 0)
+    {
+        mPoisonPeaPulseTicks = POISON_PEA_PULSE_TICKS;
+        int aDamage = mPoisonPeaStacks * POISON_PEA_DAMAGE_PER_STACK;
+        if (mFireVulnCounter > 0)
+            aDamage = aDamage * (100 + FIRE_PEA_VULN_PERCENT) / 100;
+        if (mZombieType != ZombieType::ZOMBIE_BOSS)
+        {
+            Zombie* aBoss = mBoard->GetBossZombie();
+            if (aBoss && !aBoss->IsDeadOrDying())
+                aDamage = std::max(1, aDamage * 40 / 100);
+        }
+        // 直接作用于本体生命；头盔与护盾只拦截弹丸的直击伤害。
+        TakeBodyDamage(aDamage, 1U << static_cast<int>(DamageFlags::DAMAGE_DOESNT_CAUSE_FLASH));
+    }
+    if (mPoisonPeaTicks == 0 || IsDeadOrDying())
+    {
+        mPoisonPeaStacks = 0;
+        mPoisonPeaTicks = 0;
+        mPoisonPeaPulseTicks = 0;
+        if (!IsDeadOrDying())
+            UpdateAnimSpeed();
+    }
+}
+
 void Zombie::SetAnimRate(float theAnimRate)
 {
     mOriginalAnimRate = theAnimRate;
@@ -7041,7 +7102,7 @@ void Zombie::ApplyAnimRate(float theAnimRate)
     Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
     if (aBodyReanim)
     {
-        aBodyReanim->mAnimRate = IsMovingAtChilledSpeed() ? theAnimRate * 0.5f : theAnimRate;
+        aBodyReanim->mAnimRate = (IsMovingAtChilledSpeed() || mPoisonPeaTicks > 0) ? theAnimRate * 0.5f : theAnimRate;
     }
 }
 
@@ -8000,6 +8061,9 @@ void Zombie::BungeeDie()
 
 void Zombie::DieNoLoot()
 {
+    mPoisonPeaStacks = 0;
+    mPoisonPeaTicks = 0;
+    mPoisonPeaPulseTicks = 0;
     StopZombieSound();
     AttachmentDie(mAttachmentID);
     mApp->RemoveReanimation(mBodyReanimID);
@@ -9553,6 +9617,10 @@ void Zombie::PlayDeathAnim(unsigned int theDamageFlags)
 {
     if (mZombiePhase == ZombiePhase::PHASE_ZOMBIE_DYING || mZombiePhase == ZombiePhase::PHASE_ZOMBIE_BURNED || mZombiePhase == ZombiePhase::PHASE_ZOMBIE_MOWERED)
         return;
+
+    mPoisonPeaStacks = 0;
+    mPoisonPeaTicks = 0;
+    mPoisonPeaPulseTicks = 0;
 
     Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
     if (aBodyReanim == nullptr || !aBodyReanim->TrackExists("anim_death"))

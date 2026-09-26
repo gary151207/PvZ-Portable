@@ -220,6 +220,8 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	// 同样用 REANIM_NO_ATLAS：定义里的 mImage 始终是真实指针，换贴图在任何时机都安全，
 	// 也不会和普通大喷菇的 Atlas 共用同一批源贴图。
 	{ ReanimationType::REANIM_HYPNOSHROOM_FUME,                      "reanim/FumeShroom.reanim",                        1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_POISON_PEASHOOTER,                     "reanim/PoisonPeashooter.reanim",                  1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_POISON_PEA_PROJECTILE,                 "reanim/PoisonPeashooterProjectile.reanim",        1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

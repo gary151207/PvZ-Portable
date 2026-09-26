@@ -58,7 +58,8 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_ELECTRIC_STAR, 0,  ELECTRIC_STAR_HIT_DAMAGE },
 	{ ProjectileType::PROJECTILE_PURPLE_FIRE_PEA, 0, 65 },   // 紫火豌豆（火豌豆射手）：65 伤害 + 命中后僵尸易伤
 	{ ProjectileType::PROJECTILE_LASER_PEA, 0, LASER_PEA_DAMAGE },   // 激光豌豆的贯穿光束：路径上每只僵尸 20 伤害
-	{ ProjectileType::PROJECTILE_SPORESHROOM,     0, 40 }   // 孢子菇孢子：40 伤害 + 直接击杀后原格繁殖
+	{ ProjectileType::PROJECTILE_SPORESHROOM,     0, 40 },  // 孢子菇孢子
+	{ ProjectileType::PROJECTILE_POISON_PEA,     0, 10 }   // 一阶毒液豌豆：直击 10 伤害
 };
 
 Projectile::Projectile()
@@ -193,6 +194,18 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		aSporeReanim->mAnimRate = 30.0f;
 		aSporeReanim->SetFramesForLayer("anim_fly");
 		AttachReanim(mAttachmentID, aSporeReanim, 0.0f, 0.0f);
+		break;
+	}
+	case ProjectileType::PROJECTILE_POISON_PEA:
+	{
+		Reanimation* aPeaReanim = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 1, ReanimationType::REANIM_POISON_PEA_PROJECTILE);
+		aPeaReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
+		aPeaReanim->mAnimRate = 30.0f;
+		aPeaReanim->SetFramesForLayer("anim_fly");
+		// PAM 的弹体主体每帧会换一个 display-list 轨道。默认的消失帧截断会
+		// 在两帧之间立刻隐藏旧轨道，使飞行中的豌豆反复只剩拖尾。
+		aPeaReanim->SetTruncateDisappearingFrames(nullptr, false);
+		AttachReanim(mAttachmentID, aPeaReanim, 0.0f, 0.0f);
 		break;
 	}
 	case ProjectileType::PROJECTILE_COBBIG:
@@ -1102,6 +1115,7 @@ bool Projectile::CantHitHighGround()
 
 	return (
 		mProjectileType == ProjectileType::PROJECTILE_PEA ||
+		mProjectileType == ProjectileType::PROJECTILE_POISON_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
 		mProjectileType == ProjectileType::PROJECTILE_STAR ||
 		mProjectileType == ProjectileType::PROJECTILE_PUFF ||
@@ -1114,8 +1128,12 @@ bool Projectile::CantHitHighGround()
 void Projectile::CheckForHighGround()
 {
 	float aShadowDelta = mShadowY - mPosY;
+	// 毒液豌豆的枪口比普通豌豆低，影子仍按所在行绘制；屋顶行的
+	// 12px 高度修正后，出生时与影子的间距约为 20px。
+	float aGroundHitHeight = mProjectileType == ProjectileType::PROJECTILE_POISON_PEA ? 18.0f : 28.0f;
 
 	if (mProjectileType == ProjectileType::PROJECTILE_PEA ||
+		mProjectileType == ProjectileType::PROJECTILE_POISON_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREBALL ||
 		mProjectileType == ProjectileType::PROJECTILE_SPIKE ||
@@ -1123,7 +1141,7 @@ void Projectile::CheckForHighGround()
 		mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 	{
-		if (aShadowDelta < 28.0f)
+		if (aShadowDelta < aGroundHitHeight)
 		{
 			DoImpact(nullptr);
 			return;
@@ -1706,6 +1724,8 @@ void Projectile::DoImpact(Zombie* theZombie)
 		unsigned int aDamageFlags = GetDamageFlags(theZombie);
 		int aDamage = mDamageOverride > 0 ? mDamageOverride : GetProjectileDef().mDamage;
 		theZombie->TakeDamage(aDamage, aDamageFlags);
+		if (mProjectileType == ProjectileType::PROJECTILE_POISON_PEA && !theZombie->IsDeadOrDying())
+			theZombie->ApplyPoisonPea();
 	}
 
 	if (aSporeTargetWasAlive && theZombie->IsDeadOrDying())
@@ -1733,6 +1753,14 @@ void Projectile::DoImpact(Zombie* theZombie)
 		aHitReanim->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
 		aHitReanim->mAnimRate = 30.0f;
 		aHitReanim->SetFramesForLayer(Rand(2) == 0 ? "anim_hit" : "anim_hit2");
+	}
+	else if (mProjectileType == ProjectileType::PROJECTILE_POISON_PEA)
+	{
+		Reanimation* aHitReanim = mApp->AddReanimation(mPosX, mPosY + mPosZ, mRenderOrder + 1, ReanimationType::REANIM_POISON_PEA_PROJECTILE);
+		aHitReanim->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+		aHitReanim->mAnimRate = 30.0f;
+		aHitReanim->SetFramesForLayer("anim_hit");
+		aHitReanim->SetTruncateDisappearingFrames(nullptr, false);
 	}
 	switch (mProjectileType)
 	{
@@ -1860,7 +1888,8 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR ||
 		mProjectileType == ProjectileType::PROJECTILE_LASER_PEA ||
-		mProjectileType == ProjectileType::PROJECTILE_SPORESHROOM)
+		mProjectileType == ProjectileType::PROJECTILE_SPORESHROOM ||
+		mProjectileType == ProjectileType::PROJECTILE_POISON_PEA)
 	{
 		aTime = 0;
 	}
@@ -1948,6 +1977,7 @@ void Projectile::Draw(Graphics* g)
 		// 激光豌豆的光束：本体不画贴图。光束是"一道很长的线"，跟着弹丸渲染项画会被同层
 		// 后面渲染的僵尸盖住，所以统一交给 Board::Draw 顶层的 DrawAllLaserBeams 画。
 	case ProjectileType::PROJECTILE_SPORESHROOM:
+	case ProjectileType::PROJECTILE_POISON_PEA:
 		aImage = nullptr;
 		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
@@ -2138,6 +2168,9 @@ void Projectile::DrawShadow(Graphics* g)
 	case ProjectileType::PROJECTILE_SPORESHROOM:
 		aScale = 0.9f;
 		break;
+	case ProjectileType::PROJECTILE_POISON_PEA:
+		aScale = 0.65f;
+		break;
 	default:
 		break;
 	}
@@ -2171,6 +2204,7 @@ Rect Projectile::GetProjectileRect()
 	if (mProjectileType == ProjectileType::PROJECTILE_PEA || 
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
 		mProjectileType == ProjectileType::PROJECTILE_ZOMBIE_PEA ||
+		mProjectileType == ProjectileType::PROJECTILE_POISON_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 	{

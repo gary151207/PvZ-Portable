@@ -202,7 +202,8 @@ SeedChooserScreen::SeedChooserScreen()
 		for (int anIdx = 0; anIdx < mBoard->mSeedBank->mNumPackets; anIdx++)
 		{
 			SeedPacket* aSeedPacket = &mBoard->mSeedBank->mSeedPackets[anIdx];
-			ChosenSeed& aChosenSeed = mChosenSeeds[aSeedPacket->mPacketType];
+			TOD_ASSERT(aSeedPacket->mPacketType.mKind == PacketKind::PLANT);
+			ChosenSeed& aChosenSeed = mChosenSeeds[aSeedPacket->mPacketType.PlantSeed()];
 			aChosenSeed.mRefreshing = aSeedPacket->mRefreshing;
 			aChosenSeed.mRefreshCounter = aSeedPacket->mRefreshCounter;
 		}
@@ -303,11 +304,13 @@ bool SeedChooserScreen::Has7Rows()
 
 void SeedChooserScreen::GetSeedPositionInChooser(int theIndex, int& x, int& y)
 {
-	if ((SeedType)theIndex == SeedType::SEED_SPORESHROOM)
+	if ((SeedType)theIndex == SeedType::SEED_SPORESHROOM ||
+	    (SeedType)theIndex == SeedType::SEED_POISON_PEASHOOTER)
 	{
-		// 孢子菇只在斗蛐蛐 2 第二页显示，排在现有旅行植物之后。
-		int aRow = NUM_TRAVEL_PLANTS / 8;
-		int aCol = NUM_TRAVEL_PLANTS % 8;
+		// 第二页先放孢子菇，再放毒液豌豆射手。
+		int aPageIndex = NUM_TRAVEL_PLANTS + ((SeedType)theIndex == SeedType::SEED_POISON_PEASHOOTER ? 1 : 0);
+		int aRow = aPageIndex / 8;
+		int aCol = aPageIndex % 8;
 		x = aCol * 53 + 22;
 		y = aRow * 70 + 123;
 		return;
@@ -1159,10 +1162,12 @@ bool SeedChooserScreen::PickedPlantType(SeedType theSeedType)
 
 bool SeedChooserScreen::SeedShownOnChooserPage(SeedType theSeedType)
 {
-	bool aCricket2SporeShroom = mApp->IsCricketFight2Level() && theSeedType == SeedType::SEED_SPORESHROOM;
+	bool aCricket2Extra = mApp->IsCricketFight2Level() &&
+		(theSeedType == SeedType::SEED_SPORESHROOM || theSeedType == SeedType::SEED_POISON_PEASHOOTER);
 	if (mChooserPage == 1)
-		return (IsTravelOnlySeed(theSeedType) && mApp->HasTravelChooserPage()) || aCricket2SporeShroom;
-	return !IsTravelOnlySeed(theSeedType) && theSeedType != SeedType::SEED_SPORESHROOM;
+		return (IsTravelOnlySeed(theSeedType) && mApp->HasTravelChooserPage()) || aCricket2Extra;
+	return !IsTravelOnlySeed(theSeedType) && theSeedType != SeedType::SEED_SPORESHROOM &&
+	       theSeedType != SeedType::SEED_POISON_PEASHOOTER;
 }
 
 void SeedChooserScreen::CloseSeedChooser()

@@ -3114,11 +3114,14 @@ void Board::SetupCricketFight()
 	// 逐个登记容易漏（曾经漏掉双发射手/三线射手），所以改成从 SEED_PEASHOOTER..NUM_SEED_TYPES 里
 	// 自动收集，只排除"占位 / 必须有底座 / 朝反方向 / 不是真实植物"的几种：
 	//   南瓜头（包裹对象为空）、花盆（无意义）、玉米加农炮（需双格配对）、模仿者（占位符）、
-	//   爆炸坚果（隐藏原型）、左向双发射手（不是原版可获得的卡，只会背对僵尸挨打）。
-	// 旅行专属植物（巨大坚果等）本来就在这个区间里，因此与其它植物一样等概率混入，不再单独加权。
+	//   爆炸坚果（隐藏原型）、左向双发射手（不是原版可获得的卡，只会背对僵尸挨打）、
+	//   禅境花园幼苗（不是战斗植物：站桩时什么都不做，只会白白占掉 5 个位置之一）。
+	// **模组新增植物不需要登记**：枚举里的每个新种子都会自动进池、与老植物等概率参赛
+	//（含没有卡片的隐藏形态，如寒冰/火焰/三线机枪射手与魅惑大喷菇）；要调整只动这份排除名单。
 	static constexpr SeedType gCricketBannedSeeds[] = {
 		SeedType::SEED_PUMPKINSHELL, SeedType::SEED_FLOWERPOT, SeedType::SEED_COBCANNON,
-		SeedType::SEED_IMITATER, SeedType::SEED_EXPLODE_O_NUT, SeedType::SEED_LEFTPEATER
+		SeedType::SEED_IMITATER, SeedType::SEED_EXPLODE_O_NUT, SeedType::SEED_LEFTPEATER,
+		SeedType::SEED_SPROUT
 	};
 	SeedType aCandidatePool[SeedType::NUM_SEED_TYPES];
 	int aPoolSize = 0;

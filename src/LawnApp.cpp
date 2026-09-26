@@ -2755,10 +2755,10 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 {
 	if (IsCricketFight2Level())
 	{
-		// 斗蛐蛐 2（录制沙盒）：常规植物 + 旅行专属植物全部直接开放，不受存档/商店解锁限制。
+		// 斗蛐蛐 2（录制沙盒）：常规植物 + 旅行专属植物 + 孢子菇全部直接开放。
 		if (theSeedType >= SeedType::SEED_PEASHOOTER && theSeedType <= SeedType::SEED_IMITATER)
 			return true;
-		return IsTravelOnlySeed(theSeedType);
+		return theSeedType == SeedType::SEED_SPORESHROOM || IsTravelOnlySeed(theSeedType);
 	}
 
 	if (IsTrialStageLocked() && theSeedType >= SeedType::SEED_JALAPENO)
@@ -2803,6 +2803,8 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 		return IsTravelLevel(mGameMode);   // 旅行专属红卡：仅旅行关可选/拥有
 	case SeedType::SEED_LASER_PEA:
 		return IsTravelLevel(mGameMode);   // 旅行专属红卡：仅旅行关可选/拥有
+	case SeedType::SEED_SPORESHROOM:
+		return false;                       // 首版仅斗蛐蛐 2 可选
 	default:
 		return theSeedType < GetSeedsAvailable();
 	}

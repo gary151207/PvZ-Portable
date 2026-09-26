@@ -57,7 +57,8 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_FIREPEA_RED,   0,  30  },
 	{ ProjectileType::PROJECTILE_ELECTRIC_STAR, 0,  ELECTRIC_STAR_HIT_DAMAGE },
 	{ ProjectileType::PROJECTILE_PURPLE_FIRE_PEA, 0, 65 },   // 紫火豌豆（火豌豆射手）：65 伤害 + 命中后僵尸易伤
-	{ ProjectileType::PROJECTILE_LASER_PEA, 0, LASER_PEA_DAMAGE }   // 激光豌豆的贯穿光束：路径上每只僵尸 20 伤害
+	{ ProjectileType::PROJECTILE_LASER_PEA, 0, LASER_PEA_DAMAGE },   // 激光豌豆的贯穿光束：路径上每只僵尸 20 伤害
+	{ ProjectileType::PROJECTILE_SPORESHROOM,     0, 40 }   // 孢子菇孢子：40 伤害 + 直接击杀后原格繁殖
 };
 
 Projectile::Projectile()
@@ -183,6 +184,15 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		float aOffsetY = -25.0f;
 		aFireReanim->SetPosition(mPosX + aOffsetX, mPosY + aOffsetY);
 		AttachReanim(mAttachmentID, aFireReanim, aOffsetX, aOffsetY);
+		break;
+	}
+	case ProjectileType::PROJECTILE_SPORESHROOM:
+	{
+		Reanimation* aSporeReanim = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 1, ReanimationType::REANIM_SPORESHROOM_PROJECTILE);
+		aSporeReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
+		aSporeReanim->mAnimRate = 30.0f;
+		aSporeReanim->SetFramesForLayer("anim_fly");
+		AttachReanim(mAttachmentID, aSporeReanim, 0.0f, 0.0f);
 		break;
 	}
 	case ProjectileType::PROJECTILE_COBBIG:
@@ -1679,6 +1689,8 @@ void Projectile::PlayImpactSound(Zombie* theZombie)
 void Projectile::DoImpact(Zombie* theZombie)
 {
 	PlayImpactSound(theZombie);
+	bool aSporeTargetWasAlive = mProjectileType == ProjectileType::PROJECTILE_SPORESHROOM &&
+		theZombie != nullptr && !theZombie->IsDeadOrDying();
 
 	if (IsSplashDamage(theZombie))
 	{
@@ -1696,6 +1708,11 @@ void Projectile::DoImpact(Zombie* theZombie)
 		theZombie->TakeDamage(aDamage, aDamageFlags);
 	}
 
+	if (aSporeTargetWasAlive && theZombie->IsDeadOrDying())
+	{
+		mBoard->TrySpawnSporeShroom(theZombie);
+	}
+
 	// 紫火豌豆：把命中的僵尸点着（4 秒内受到的伤害 +40%）。
 	// 必须在伤害结算**之后**施加 —— 这一发本身吃不到自己的易伤加成，
 	// 加成是从下一发（以及这 4 秒内任何其它来源的伤害）才开始算的。
@@ -1710,6 +1727,13 @@ void Projectile::DoImpact(Zombie* theZombie)
 	ParticleEffect aEffect = ParticleEffect::PARTICLE_NONE;
 	float aSplatPosX = mPosX + 12.0f;
 	float aSplatPosY = mPosY + 12.0f;
+	if (mProjectileType == ProjectileType::PROJECTILE_SPORESHROOM)
+	{
+		Reanimation* aHitReanim = mApp->AddReanimation(mPosX, mPosY + mPosZ, mRenderOrder + 1, ReanimationType::REANIM_SPORESHROOM_PROJECTILE);
+		aHitReanim->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+		aHitReanim->mAnimRate = 30.0f;
+		aHitReanim->SetFramesForLayer(Rand(2) == 0 ? "anim_hit" : "anim_hit2");
+	}
 	switch (mProjectileType)
 	{
 	case ProjectileType::PROJECTILE_MELON:
@@ -1835,7 +1859,8 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED ||
 		mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR ||
-		mProjectileType == ProjectileType::PROJECTILE_LASER_PEA)
+		mProjectileType == ProjectileType::PROJECTILE_LASER_PEA ||
+		mProjectileType == ProjectileType::PROJECTILE_SPORESHROOM)
 	{
 		aTime = 0;
 	}
@@ -1922,6 +1947,7 @@ void Projectile::Draw(Graphics* g)
 	case ProjectileType::PROJECTILE_LASER_PEA:
 		// 激光豌豆的光束：本体不画贴图。光束是"一道很长的线"，跟着弹丸渲染项画会被同层
 		// 后面渲染的僵尸盖住，所以统一交给 Board::Draw 顶层的 DrawAllLaserBeams 画。
+	case ProjectileType::PROJECTILE_SPORESHROOM:
 		aImage = nullptr;
 		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
@@ -2108,6 +2134,9 @@ void Projectile::DrawShadow(Graphics* g)
 	case ProjectileType::PROJECTILE_PURPLE_FIRE_PEA:
 		// 与火球同一套体型（视觉是火球 reanim，比豌豆本体大一圈）
 		aScale = 1.4f;
+		break;
+	case ProjectileType::PROJECTILE_SPORESHROOM:
+		aScale = 0.9f;
 		break;
 	default:
 		break;

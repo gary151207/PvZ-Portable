@@ -386,6 +386,13 @@ void DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedTyp
 		aOffsetY = 12.0f;
 		break;
 
+	case SeedType::SEED_SPORESHROOM:
+		// 按修正后的 PvZ2 本体边界居中，不影响战场的原生比例。
+		aScale = 0.5f;
+		aOffsetX = 4.0f;
+		aOffsetY = 8.0f;
+		break;
+
 	case SeedType::SEED_TWINSUNFLOWER:
 	case SeedType::SEED_GLOOMSHROOM:
 		aScale = 0.45f;

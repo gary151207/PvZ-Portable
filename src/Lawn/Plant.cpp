@@ -113,7 +113,8 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_FIRE_PEASHOOTER, nullptr, ReanimationType::REANIM_FIRE_PEASHOOTER, 0, 175, 750,  PlantSubClass::SUBCLASS_SHOOTER,    FIRE_PEASHOOTER_LAUNCH_RATE, "FIRE_PEASHOOTER" },  // 火豌豆射手（旅行红卡）：175 阳光，每 1.125 秒一发 65 伤害紫火豌豆 + 命中易伤
     { SeedType::SEED_FIRE_GATLING_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 175, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "FIRE_GATLING_PEA" },  // 隐藏合成态（火豌豆射手 × 机枪射手）：消耗火豌豆射手卡，属性与机枪射手一致
     { SeedType::SEED_THREE_GATLING_PEA, nullptr, ReanimationType::REANIM_THREE_GATLINGPEA, 12, 325, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "THREE_GATLING_PEA" },  // 隐藏合成态（三线射手 × 机枪射手）：消耗三线射手卡（325），每轮每行 4 连发
-    { SeedType::SEED_LASER_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 400, 750, PlantSubClass::SUBCLASS_SHOOTER, LASER_PEA_LAUNCH_RATE, "LASER_PEA" }  // 激光豌豆（旅行红卡）：400 阳光，每 0.8 秒一道贯穿本行的绿色激光、每只僵尸 20 伤害
+    { SeedType::SEED_LASER_PEA, nullptr, ReanimationType::REANIM_GATLINGPEA, 5, 400, 750, PlantSubClass::SUBCLASS_SHOOTER, LASER_PEA_LAUNCH_RATE, "LASER_PEA" },  // 激光豌豆（旅行红卡）：400 阳光，每 0.8 秒一道贯穿本行的绿色激光、每只僵尸 20 伤害
+    { SeedType::SEED_SPORESHROOM, nullptr, ReanimationType::REANIM_SPORESHROOM, 6, 150, 500, PlantSubClass::SUBCLASS_SHOOTER, 290, "SPORE_SHROOM" }
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -703,6 +704,14 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
 
     switch (theSeedType)
     {
+    case SeedType::SEED_SPORESHROOM:
+        if (aBodyReanim)
+        {
+            aBodyReanim->mAnimRate = 30.0f;
+            aBodyReanim->SetFramesForLayer("anim_idle");
+        }
+        mState = PlantState::STATE_READY;
+        break;
     case SeedType::SEED_BLOVER:
     {
         mDoSpecialCountdown = 50;
@@ -1354,7 +1363,13 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
     Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
     Reanimation* aHeadReanim = mApp->ReanimationTryToGet(mHeadReanimID);
 
-    if (mSeedType == SeedType::SEED_SPLITPEA && thePlantWeapon == PlantWeapon::WEAPON_SECONDARY)
+    if (mSeedType == SeedType::SEED_SPORESHROOM)
+    {
+        PlayBodyReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 10, 30.0f);
+        // PAM 的 use_action 位于攻击段第 29 帧；30 FPS 动画在 100 Hz 逻辑下约 97 刻到达。
+        mShootingCounter = 97;
+    }
+    else if (mSeedType == SeedType::SEED_SPLITPEA && thePlantWeapon == PlantWeapon::WEAPON_SECONDARY)
     {
         Reanimation* aHeadReanim2 = mApp->ReanimationGet(mHeadReanimID2);
         aHeadReanim2->StartBlend(20);
@@ -3548,6 +3563,18 @@ void Plant::UpdateAbilities()
 
     if (mIsAsleep || mSquished || mOnBungeeState != PlantOnBungeeState::NOT_ON_BUNGEE)
         return;
+
+    if (mState == PlantState::STATE_SPORESHROOM_GROWING)
+    {
+        Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
+        if (aBodyReanim && aBodyReanim->mLoopCount > 0)
+        {
+            mState = PlantState::STATE_READY;
+            mLaunchCounter = mLaunchRate;
+            PlayIdleAnim(30.0f);
+        }
+        return;
+    }
     
     UpdateShooting();
 
@@ -4671,7 +4698,11 @@ void Plant::UpdateShooting()
     }
     else if (mShootingCounter == 1)
     {
-        if (mSeedType == SeedType::SEED_THREEPEATER)
+        if (mSeedType == SeedType::SEED_SPORESHROOM)
+        {
+            Fire(FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY), mRow, PlantWeapon::WEAPON_PRIMARY);
+        }
+        else if (mSeedType == SeedType::SEED_THREEPEATER)
         {
             for (int aRow = 0; aRow < MAX_GRID_SIZE_Y; aRow++)
             {
@@ -6034,6 +6065,9 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     case SeedType::SEED_SEASHROOM:
         aProjectileType = ProjectileType::PROJECTILE_PUFF;
         break;
+    case SeedType::SEED_SPORESHROOM:
+        aProjectileType = ProjectileType::PROJECTILE_SPORESHROOM;
+        break;
     case SeedType::SEED_CACTUS:
     case SeedType::SEED_CATTAIL:
         aProjectileType = ProjectileType::PROJECTILE_SPIKE;
@@ -6103,7 +6137,8 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     {
         mApp->PlayFoley(FoleyType::FOLEY_SNOW_PEA_SPARKLES);
     }
-    else if (mSeedType == SeedType::SEED_PUFFSHROOM || mSeedType == SeedType::SEED_SCAREDYSHROOM || mSeedType == SeedType::SEED_SEASHROOM)
+    else if (mSeedType == SeedType::SEED_PUFFSHROOM || mSeedType == SeedType::SEED_SCAREDYSHROOM ||
+             mSeedType == SeedType::SEED_SEASHROOM || mSeedType == SeedType::SEED_SPORESHROOM)
     {
         mApp->PlayFoley(FoleyType::FOLEY_PUFF);
     }
@@ -6118,6 +6153,11 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     {
         aOriginX = mX + 45;
         aOriginY = mY + 63;
+    }
+    else if (mSeedType == SeedType::SEED_SPORESHROOM)
+    {
+        aOriginX = mX + 70;
+        aOriginY = mY + 18;
     }
     else if (mSeedType == SeedType::SEED_CABBAGEPULT)
     {
@@ -6352,7 +6392,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         }
     }
 
-    if (IsPultPlant(mSeedType))
+    if (IsPultPlant(mSeedType) || mSeedType == SeedType::SEED_SPORESHROOM)
     {
         float aRangeX, aRangeY;
         if (theTargetZombie)
@@ -6816,7 +6856,8 @@ bool Plant::IsFungus(SeedType theSeedtype)
         theSeedtype == SeedType::SEED_SEASHROOM ||
         theSeedtype == SeedType::SEED_MAGNETSHROOM ||
         theSeedtype == SeedType::SEED_GLOOMSHROOM ||
-        theSeedtype == SeedType::SEED_FUMESHROOM_GROUP;
+        theSeedtype == SeedType::SEED_FUMESHROOM_GROUP ||
+        theSeedtype == SeedType::SEED_SPORESHROOM;
 }
 
 bool Plant::IsAquatic(SeedType theSeedType)
@@ -6982,6 +7023,10 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
         FirePeaShooterHasCustomArt();
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_FIRE_PEA, true);
     }
+    else if (theSeedType == SeedType::SEED_SPORESHROOM)
+    {
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_SPORESHROOM_PROJECTILE, true);
+    }
     else if (Plant::IsNocturnal(theSeedType))
     {
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_SLEEPING, true);
@@ -6999,4 +7044,13 @@ void Plant::PlayIdleAnim(float theRate)
             aBodyReanim->mAnimRate = 0.0f;
         }
     }
+}
+
+void Plant::StartSporeGrowth()
+{
+    TOD_ASSERT(mSeedType == SeedType::SEED_SPORESHROOM);
+    mState = PlantState::STATE_SPORESHROOM_GROWING;
+    mShootingCounter = 0;
+    mLaunchCounter = mLaunchRate;
+    PlayBodyReanim("anim_grow", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
 }

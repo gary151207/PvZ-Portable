@@ -830,7 +830,8 @@ enum ProjectileType : int32_t
     PROJECTILE_ELECTRIC_STAR = 15,  // 电能星星（究极电能星星果：追踪僵尸，命中后钉住 2.5 秒，每 0.15 秒 30 伤害）
     PROJECTILE_PURPLE_FIRE_PEA = 16,  // 紫火豌豆（火豌豆射手：65 伤害单体命中，命中后僵尸易伤 4 秒）
     PROJECTILE_LASER_PEA = 17,  // 激光豌豆的贯穿光束（激光豌豆：每 0.8 秒一道绿色激光，路径上每只僵尸 20 伤害）
-    NUM_PROJECTILES = 18
+    PROJECTILE_SPORESHROOM = 18,  // 孢子菇孢子（40 伤害；直接击杀后在目标所在格繁殖）
+    NUM_PROJECTILES = 19
 };
 enum ReanimationType : uint32_t {
     REANIM_NONE = static_cast<uint32_t>(-1),
@@ -996,6 +997,8 @@ enum ReanimationType : uint32_t {
                                     // 但装载后把枪管换成 reanim/LaserPea_barrel_small.png，
                                     // 并隐藏多余的三根枪管（barrel2/3/4）与枪口叠加层，
                                     // 于是整株只画一根枪管、一张嘴（见 Plant.cpp）
+    REANIM_SPORESHROOM,             // 孢子菇：由 PvZ2 PAM 动画转换的独立 reanim
+    REANIM_SPORESHROOM_PROJECTILE,  // 孢子菇弹丸：飞行及两套命中特效
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1131,6 +1134,7 @@ enum SeedType : int32_t
     SEED_FIRE_GATLING_PEA,                          // 火焰机枪射手（火豌豆射手种在机枪射手上时合成：普攻 4 发紫火豌豆，大招 50% 紫火 / 50% 火豌豆）
     SEED_THREE_GATLING_PEA,                         // 三线机枪射手（三线射手种在机枪射手上时合成：每轮每行 4 连发；大招每行 0.2 秒一发 ±15px、持续 3 秒）
     SEED_LASER_PEA,                                 // 激光豌豆（旅行红卡：400 阳光，每 0.8 秒一道贯穿本行的绿色激光、每只僵尸 20 伤害，优先索敌空中僵尸）
+    SEED_SPORESHROOM,                               // 孢子菇（斗蛐蛐 2 专属：抛射孢子，直接击杀后原格繁殖）
     NUM_SEED_TYPES,
     SEED_BEGHOULED_BUTTON_SHUFFLE,
     SEED_BEGHOULED_BUTTON_CRATER,

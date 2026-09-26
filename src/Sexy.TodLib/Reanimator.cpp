@@ -213,6 +213,8 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	// （GatlingPea_barrel2/3/4）与枪口叠加层（GatlingPea_mouth_overlay）——
 	// 于是整株只画一根枪管、一张嘴。用 REANIM_NO_ATLAS 的理由与上面几个改图槽位一致。
 	{ ReanimationType::REANIM_LASER_PEA,                            "reanim/GatlingPea.reanim",                        1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_SPORESHROOM,                           "reanim/SporeShroom.reanim",                       1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_SPORESHROOM_PROJECTILE,                "reanim/SporeShroomProjectile.reanim",             1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

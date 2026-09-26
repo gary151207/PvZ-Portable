@@ -3652,6 +3652,22 @@ Plant* Board::NewPlant(int theGridX, int theGridY, SeedType theSeedType, SeedTyp
 	return aPlant;
 }
 
+bool Board::TrySpawnSporeShroom(Zombie* theZombie)
+{
+	if (theZombie == nullptr)
+		return false;
+
+	Rect aZombieRect = theZombie->GetZombieRect();
+	int aGridX = PixelToGridX(aZombieRect.mX + aZombieRect.mWidth / 2, aZombieRect.mY + aZombieRect.mHeight / 2);
+	int aGridY = theZombie->mRow;
+	if (CanPlantAt(aGridX, aGridY, SeedType::SEED_SPORESHROOM) != PlantingReason::PLANTING_OK)
+		return false;
+
+	Plant* aSporeShroom = NewPlant(aGridX, aGridY, SeedType::SEED_SPORESHROOM, SeedType::SEED_NONE);
+	aSporeShroom->StartSporeGrowth();
+	return true;
+}
+
 void Board::DoPlantingEffects(int theGridX, int theGridY, Plant* thePlant)
 {
 	int aXPos = GridToPixelX(theGridX, theGridY) + 41;

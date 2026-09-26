@@ -532,6 +532,7 @@ public:
 	bool							GloveCanMovePlantTo(Plant* thePlant, int theGridX, int theGridY);
 	void							MovePlantWithGlove(Plant* thePlant, int theGridX, int theGridY);
 	Plant*							NewPlant(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
+	bool							TrySpawnSporeShroom(Zombie* theZombie);
 	void							DoPlantingEffects(int theGridX, int theGridY, Plant* thePlant);
 	bool							IsFinalSurvivalStage();
 	void							SurvivalSaveScore();

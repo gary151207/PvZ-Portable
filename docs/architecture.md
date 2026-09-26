@@ -200,3 +200,9 @@ Board
 运行时数据路径：
 - 只读资源：可执行文件所在目录
 - 可写数据（存档/缓存/设置）：OS 推荐的应用数据目录（如 Windows `%APPDATA%\io.github.wszqkzqk\PvZPortable\`）
+
+---
+
+## 实现指南
+
+- [PvZ2 植物原生移植指南：孢子菇已验证案例](pvz2-plant-porting-guide.md)

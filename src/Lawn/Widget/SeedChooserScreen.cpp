@@ -303,6 +303,16 @@ bool SeedChooserScreen::Has7Rows()
 
 void SeedChooserScreen::GetSeedPositionInChooser(int theIndex, int& x, int& y)
 {
+	if ((SeedType)theIndex == SeedType::SEED_SPORESHROOM)
+	{
+		// 孢子菇只在斗蛐蛐 2 第二页显示，排在现有旅行植物之后。
+		int aRow = NUM_TRAVEL_PLANTS / 8;
+		int aCol = NUM_TRAVEL_PLANTS % 8;
+		x = aCol * 53 + 22;
+		y = aRow * 70 + 123;
+		return;
+	}
+
 	if (IsTravelOnlySeed((SeedType)theIndex))
 	{
 		// 旅行专属种子：按其页内序号排布（第 0 个从左上角网格起）
@@ -1149,9 +1159,10 @@ bool SeedChooserScreen::PickedPlantType(SeedType theSeedType)
 
 bool SeedChooserScreen::SeedShownOnChooserPage(SeedType theSeedType)
 {
+	bool aCricket2SporeShroom = mApp->IsCricketFight2Level() && theSeedType == SeedType::SEED_SPORESHROOM;
 	if (mChooserPage == 1)
-		return IsTravelOnlySeed(theSeedType) && mApp->HasTravelChooserPage();
-	return !IsTravelOnlySeed(theSeedType);
+		return (IsTravelOnlySeed(theSeedType) && mApp->HasTravelChooserPage()) || aCricket2SporeShroom;
+	return !IsTravelOnlySeed(theSeedType) && theSeedType != SeedType::SEED_SPORESHROOM;
 }
 
 void SeedChooserScreen::CloseSeedChooser()

@@ -98,7 +98,8 @@ enum PlantState : int32_t
     STATE_MARIGOLD_ENDING,
     STATE_FLOWERPOT_INVULNERABLE,
     STATE_LILYPAD_INVULNERABLE,
-    STATE_UMBRELLA_KNOCKING   // proximity shove in progress
+    STATE_UMBRELLA_KNOCKING,  // proximity shove in progress
+    STATE_SPORESHROOM_GROWING
 };
 
 enum PLANT_LAYER : int32_t
@@ -250,6 +251,7 @@ public:
     void                    UpdateProductionPlant();
     void                    UpdateShooter();
     bool                    FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY);
+    void                    StartSporeGrowth();
     void                    LaunchThreepeater();
     // 三线机枪射手（SEED_THREE_GATLING_PEA）：每轮起手（3 个头播开火动画 + 4 连发计数 + 开大判定）；
     // 三个头的开火动画（theLoop = true 用于大招期间持续开火）；以及"向每一行各发一轮"的批量开火

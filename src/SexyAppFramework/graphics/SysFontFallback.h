@@ -38,7 +38,7 @@ class MemoryImage;
 // 绘制时当普通贴图用（白色字形 + alpha，交给 Graphics 按文字颜色着色），
 // 于是缺字也能正常显示。
 //
-// 目前只有 Windows（GDI）实现；其它平台 Available() 返回 false，
+// Windows 使用 GDI，Apple 平台使用 CoreText；其它平台 Available() 返回 false，
 // 调用方保持原行为（缺字仍画空白），不影响可移植性。
 class SysFontFallback
 {

@@ -156,8 +156,8 @@ void CursorObject::Draw(Graphics* g)
         // 关卡手套（任意关卡）：搬的是场上植物，画卡面即可
         if (mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN)
         {
-            float aOffsetY = PlantDrawHeightOffset(mBoard, nullptr, mType, -1, -1) - 25.0f;
-            Plant::DrawSeedType(g, mType, mImitaterType, DrawVariation::VARIATION_NORMAL, -10.0f, aOffsetY);
+            float aOffsetY = PlantDrawHeightOffset(mBoard, nullptr, mType.PlantSeed(), -1, -1) - 25.0f;
+            DrawPacketSeedType(g, mType, mImitaterType, DrawVariation::VARIATION_NORMAL, -10.0f, aOffsetY);
             break;
         }
 
@@ -196,8 +196,8 @@ void CursorObject::Draw(Graphics* g)
     case CursorType::CURSOR_TYPE_PLANT_FROM_DUPLICATOR:
     {
         float aOffsetX = -10.0f;
-        float aOffsetY = PlantDrawHeightOffset(mBoard, nullptr, mType, -1, -1) - 10.0f;
-        if (Plant::IsFlying(mType) || mType == SeedType::SEED_GRAVEBUSTER)
+        float aOffsetY = (mType.mKind == PacketKind::PLANT ? PlantDrawHeightOffset(mBoard, nullptr, mType.PlantSeed(), -1, -1) : 0.0f) - 10.0f;
+        if ((mType.mKind == PacketKind::PLANT && Plant::IsFlying(mType.PlantSeed())) || mType == SeedType::SEED_GRAVEBUSTER)
         {
             aOffsetY += 30.0f;
         }
@@ -208,7 +208,7 @@ void CursorObject::Draw(Graphics* g)
             aOffsetY -= 70.0f;
         }
 
-        Plant::DrawSeedType(g, mType, mImitaterType, DrawVariation::VARIATION_NORMAL, aOffsetX, aOffsetY);
+        DrawPacketSeedType(g, mType, mImitaterType, DrawVariation::VARIATION_NORMAL, aOffsetX, aOffsetY);
         break;
     }
     
@@ -251,7 +251,7 @@ void CursorPreview::Update()
         return;
     }
 
-    SeedType aSeedType = mBoard->GetSeedTypeInCursor();
+	PacketType aSeedType = mApp->IsIZombieLevel() ? mBoard->mCursorObject->mType : PacketType(mBoard->GetSeedTypeInCursor());
     int aMouseX = mApp->mWidgetManager->mLastMouseX;
     int aMouseY = mApp->mWidgetManager->mLastMouseY;
     bool aLevelGlove = mBoard->mCursorObject->mCursorType == CursorType::CURSOR_TYPE_PLANT_FROM_GLOVE &&
@@ -301,7 +301,7 @@ void CursorPreview::Update()
 
 void CursorPreview::Draw(Graphics* g)
 {
-    SeedType aSeedType = mBoard->GetSeedTypeInCursor();
+    PacketType aSeedType = mApp->IsIZombieLevel() ? mBoard->mCursorObject->mType : PacketType(mBoard->GetSeedTypeInCursor());
     if (aSeedType == SeedType::SEED_NONE)
         return;
 
@@ -333,8 +333,8 @@ void CursorPreview::Draw(Graphics* g)
         float aOffsetX, aOffsetY;
         if (mApp->IsIZombieLevel())
         {
-            float aHeight = PlantDrawHeightOffset(mBoard, nullptr, aSeedType, mGridX, mGridY);
-            if (aSeedType == SeedType::SEED_ZOMBIE_GARGANTUAR)
+            float aHeight = aSeedType.mKind == PacketKind::PLANT ? PlantDrawHeightOffset(mBoard, nullptr, aSeedType.PlantSeed(), mGridX, mGridY) : 0.0f;
+            if (aSeedType == SpecialPacketType::SEED_ZOMBIE_GARGANTUAR)
             {
                 aHeight -= 30.0f;
             }
@@ -344,11 +344,11 @@ void CursorPreview::Draw(Graphics* g)
         }
         else
         {
-            aOffsetY = PlantDrawHeightOffset(mBoard, nullptr, aSeedType, mGridX, mGridY);
+            aOffsetY = PlantDrawHeightOffset(mBoard, nullptr, aSeedType.PlantSeed(), mGridX, mGridY);
             aOffsetX = 0.0f;
         }
 
-        Plant::DrawSeedType(g, mBoard->mCursorObject->mType, mBoard->mCursorObject->mImitaterType, DrawVariation::VARIATION_NORMAL, aOffsetX, aOffsetY);
+        DrawPacketSeedType(g, mBoard->mCursorObject->mType, mBoard->mCursorObject->mImitaterType, DrawVariation::VARIATION_NORMAL, aOffsetX, aOffsetY);
     }
 
     if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_COLUMN)
@@ -357,8 +357,8 @@ void CursorPreview::Draw(Graphics* g)
         {
             if (y != mGridY && mBoard->CanPlantAt(mGridX, y, aSeedType) == PlantingReason::PLANTING_OK)
             {
-                float aOffsetY = 85.0f * (y - mGridY) + PlantDrawHeightOffset(mBoard, nullptr, aSeedType, mGridX, y);
-                Plant::DrawSeedType(g, mBoard->mCursorObject->mType, mBoard->mCursorObject->mImitaterType, DrawVariation::VARIATION_NORMAL, 0.0f, aOffsetY);
+                float aOffsetY = 85.0f * (y - mGridY) + PlantDrawHeightOffset(mBoard, nullptr, aSeedType.PlantSeed(), mGridX, y);
+                DrawPacketSeedType(g, mBoard->mCursorObject->mType, mBoard->mCursorObject->mImitaterType, DrawVariation::VARIATION_NORMAL, 0.0f, aOffsetY);
             }
         }
     }

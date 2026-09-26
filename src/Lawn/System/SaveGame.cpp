@@ -50,7 +50,8 @@ static constexpr const uint32_t SAVE_FILE_VERSION = 2U;
 static const uint32_t SAVE_FILE_DATE = crc32(0, (Bytef*)FILE_COMPILE_TIME_STRING, strlen(FILE_COMPILE_TIME_STRING));
 
 static constexpr const char SAVE_FILE_MAGIC_V4[12] = "PVZP_SAVE4";
-static constexpr const uint32_t SAVE_FILE_V4_VERSION = 1U;
+static constexpr const uint32_t SAVE_FILE_V4_VERSION = 2U;
+static uint32_t gReadingSaveFileV4Version = SAVE_FILE_V4_VERSION;
 
 struct SaveFileHeaderV4
 {
@@ -572,6 +573,55 @@ static void SyncEnum32(PortableSaveContext& theContext, TEnum& theValue)
 		theValue = static_cast<TEnum>(aValue);
 }
 
+static void SyncPacketId(PortableSaveContext& theContext, PacketType& thePacket)
+{
+	int32_t aId = thePacket.mId;
+	theContext.SyncInt32(aId);
+	if (!theContext.mReading)
+		return;
+	if (gReadingSaveFileV4Version == 1U)
+	{
+		if (aId == -1)
+			thePacket = PacketType();
+		else if (aId >= 0 && aId < 64)
+			thePacket = PacketType(static_cast<SeedType>(aId));
+		else if (aId >= 65 && aId <= 85)
+			thePacket = PacketType(static_cast<SpecialPacketType>(aId - 1));
+		else
+			theContext.mFailed = true;
+	}
+	else
+	{
+		thePacket.mId = aId;
+	}
+}
+
+static bool ValidPacketType(const PacketType& thePacket)
+{
+	return (thePacket.mKind == PacketKind::NONE && thePacket.mId == -1) ||
+		(thePacket.mKind == PacketKind::PLANT && thePacket.mId >= 0 && thePacket.mId < SeedType::NUM_SEED_TYPES) ||
+		(thePacket.mKind == PacketKind::SPECIAL && thePacket.mId >= 64 && thePacket.mId <= 84);
+}
+
+static bool ValidReanimationFrameRange(const Reanimation& theReanimation)
+{
+	const int aType = static_cast<int>(theReanimation.mReanimationType);
+	if (aType < 0 || aType >= static_cast<int>(ReanimationType::NUM_REANIMS) ||
+		theReanimation.mDefinition != &gReanimatorDefArray[aType])
+		return false;
+
+	const ReanimatorTrackArray& aTracks = theReanimation.mDefinition->mTracks;
+	if (aTracks.count == 0)
+		return true;
+	if (aTracks.tracks == nullptr || theReanimation.mTrackInstances == nullptr)
+		return false;
+
+	const int aTotalFrames = aTracks.tracks[0].mTransforms.count;
+	return theReanimation.mFrameStart >= 0 && theReanimation.mFrameCount > 0 &&
+		theReanimation.mFrameStart <= aTotalFrames &&
+		theReanimation.mFrameCount <= aTotalFrames - theReanimation.mFrameStart;
+}
+
 template <typename TEnum>
 static void SyncEnumU32(PortableSaveContext& theContext, TEnum& theValue)
 {
@@ -676,7 +726,7 @@ static void SyncAttachmentTailPortable(PortableSaveContext& theContext, Attachme
 static void SyncCursorObjectTailPortable(PortableSaveContext& theContext, CursorObject& theObject)
 {
 	theContext.SyncInt32(theObject.mSeedBankIndex);
-	SyncEnum32(theContext, theObject.mType);
+	SyncPacketId(theContext, theObject.mType);
 	SyncEnum32(theContext, theObject.mImitaterType);
 	SyncEnum32(theContext, theObject.mCursorType);
 	SyncEnumU32(theContext, theObject.mCoinID);
@@ -719,10 +769,10 @@ static void SyncSeedPacketTailPortable(PortableSaveContext& theContext, SeedPack
 	theContext.SyncInt32(thePacket.mRefreshTime);
 	theContext.SyncInt32(thePacket.mIndex);
 	theContext.SyncInt32(thePacket.mOffsetX);
-	SyncEnum32(theContext, thePacket.mPacketType);
+	SyncPacketId(theContext, thePacket.mPacketType);
 	SyncEnum32(theContext, thePacket.mImitaterType);
 	theContext.SyncInt32(thePacket.mSlotMachineCountDown);
-	SyncEnum32(theContext, thePacket.mSlotMachiningNextSeed);
+	SyncPacketId(theContext, thePacket.mSlotMachiningNextSeed);
 	theContext.SyncFloat(thePacket.mSlotMachiningPosition);
 	theContext.SyncBool(thePacket.mActive);
 	theContext.SyncBool(thePacket.mRefreshing);
@@ -990,7 +1040,7 @@ static void SyncCoinTailPortable(PortableSaveContext& theContext, Coin& theCoin)
 	SyncEnum32(theContext, theCoin.mCoinMotion);
 	SyncEnum32(theContext, theCoin.mAttachmentID);
 	theContext.SyncFloat(theCoin.mCollectionDistance);
-	SyncEnum32(theContext, theCoin.mUsableSeedType);
+	SyncPacketId(theContext, theCoin.mUsableSeedType);
 	SyncPottedPlantPortable(theContext, theCoin.mPottedPlantSpec);
 	theContext.SyncBool(theCoin.mNeedsBouncyArrow);
 	theContext.SyncBool(theCoin.mHasBouncyArrow);
@@ -1823,6 +1873,11 @@ static void SyncZombiesPortable(PortableSaveContext& theContext, Board* theBoard
 		[&](std::vector<unsigned char>& aOut, Zombie& theZombie)
 		{
 			WriteGameObjectField(aOut, 1U, theZombie);
+			AppendFieldWithSync(aOut, 3U, [&](PortableSaveContext& c){
+				c.SyncInt32(theZombie.mPoisonPeaStacks);
+				c.SyncInt32(theZombie.mPoisonPeaTicks);
+				c.SyncInt32(theZombie.mPoisonPeaPulseTicks);
+			});
 			AppendFieldWithSync(aOut, PORTABLE_FIELD_TAIL, [&](PortableSaveContext& c){ SyncZombieTailPortable(c, theZombie); });
 		},
 		[&](uint32_t aFieldId, const unsigned char* aData, size_t aSize, Zombie& theZombie)
@@ -1831,6 +1886,11 @@ static void SyncZombiesPortable(PortableSaveContext& theContext, Board* theBoard
 			{
 			case 1U: ReadGameObjectField(aData, aSize, theZombie); break;
 			case 2U: ReadPodTailField(aData, aSize, theZombie, &Zombie::mZombieType); break; // legacy
+			case 3U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){
+				c.SyncInt32(theZombie.mPoisonPeaStacks);
+				c.SyncInt32(theZombie.mPoisonPeaTicks);
+				c.SyncInt32(theZombie.mPoisonPeaPulseTicks);
+			}); break;
 			case PORTABLE_FIELD_TAIL: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ SyncZombieTailPortable(c, theZombie); }); break;
 			default: break;
 			}
@@ -1888,6 +1948,7 @@ static void SyncCoinsPortable(PortableSaveContext& theContext, Board* theBoard)
 		{
 			WriteGameObjectField(aOut, 1U, theCoin);
 			AppendFieldWithSync(aOut, PORTABLE_FIELD_TAIL, [&](PortableSaveContext& c){ SyncCoinTailPortable(c, theCoin); });
+			AppendFieldWithSync(aOut, 101U, [&](PortableSaveContext& c){ SyncEnum32(c, theCoin.mUsableSeedType.mKind); });
 		},
 		[&](uint32_t aFieldId, const unsigned char* aData, size_t aSize, Coin& theCoin)
 		{
@@ -1897,6 +1958,7 @@ static void SyncCoinsPortable(PortableSaveContext& theContext, Board* theBoard)
 			case 2U: ReadPodTailField(aData, aSize, theCoin, &Coin::mType); break; // legacy
 			case 3U: ReadPodTailField(aData, aSize, theCoin, &Coin::mPosX); break; // legacy
 			case PORTABLE_FIELD_TAIL: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ SyncCoinTailPortable(c, theCoin); }); break;
+			case 101U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ SyncEnum32(c, theCoin.mUsableSeedType.mKind); }); break;
 			default: break;
 			}
 		});
@@ -2054,6 +2116,7 @@ static void SyncCursorPortable(PortableSaveContext& theContext, Board* theBoard)
 			case 1U: ReadGameObjectField(aFieldData, aFieldSize, *theBoard->mCursorObject); break;
 			case 2U: ReadPodTailField(aFieldData, aFieldSize, *theBoard->mCursorObject, &CursorObject::mSeedBankIndex); break; // legacy
 			case PORTABLE_FIELD_TAIL: ApplyFieldWithSync(aFieldData, aFieldSize, [&](PortableSaveContext& c){ SyncCursorObjectTailPortable(c, *theBoard->mCursorObject); }); break;
+			case 101U: ApplyFieldWithSync(aFieldData, aFieldSize, [&](PortableSaveContext& c){ SyncEnum32(c, theBoard->mCursorObject->mType.mKind); }); break;
 			default: break;
 			}
 		}
@@ -2063,6 +2126,7 @@ static void SyncCursorPortable(PortableSaveContext& theContext, Board* theBoard)
 		std::vector<unsigned char> aBlob;
 		WriteGameObjectField(aBlob, 1U, *theBoard->mCursorObject);
 		AppendFieldWithSync(aBlob, PORTABLE_FIELD_TAIL, [&](PortableSaveContext& c){ SyncCursorObjectTailPortable(c, *theBoard->mCursorObject); });
+		AppendFieldWithSync(aBlob, 101U, [&](PortableSaveContext& c){ SyncEnum32(c, theBoard->mCursorObject->mType.mKind); });
 		WriteTLVBlob(theContext, aBlob);
 	}
 }
@@ -2201,6 +2265,8 @@ static void SyncSeedPacketsPortable(PortableSaveContext& theContext, Board* theB
 				case 1U: ReadGameObjectField(aFieldData, aFieldSize, theBoard->mSeedBank->mSeedPackets[i]); break;
 				case 2U: ReadPodTailField(aFieldData, aFieldSize, theBoard->mSeedBank->mSeedPackets[i], &SeedPacket::mRefreshCounter); break; // legacy
 				case PORTABLE_FIELD_TAIL: ApplyFieldWithSync(aFieldData, aFieldSize, [&](PortableSaveContext& c){ SyncSeedPacketTailPortable(c, theBoard->mSeedBank->mSeedPackets[i]); }); break;
+				case 101U: ApplyFieldWithSync(aFieldData, aFieldSize, [&](PortableSaveContext& c){ SyncEnum32(c, theBoard->mSeedBank->mSeedPackets[i].mPacketType.mKind); }); break;
+				case 102U: ApplyFieldWithSync(aFieldData, aFieldSize, [&](PortableSaveContext& c){ SyncEnum32(c, theBoard->mSeedBank->mSeedPackets[i].mSlotMachiningNextSeed.mKind); }); break;
 				default: break;
 				}
 			}
@@ -2210,6 +2276,8 @@ static void SyncSeedPacketsPortable(PortableSaveContext& theContext, Board* theB
 			std::vector<unsigned char> aItemData;
 			WriteGameObjectField(aItemData, 1U, theBoard->mSeedBank->mSeedPackets[i]);
 			AppendFieldWithSync(aItemData, PORTABLE_FIELD_TAIL, [&](PortableSaveContext& c){ SyncSeedPacketTailPortable(c, theBoard->mSeedBank->mSeedPackets[i]); });
+			AppendFieldWithSync(aItemData, 101U, [&](PortableSaveContext& c){ SyncEnum32(c, theBoard->mSeedBank->mSeedPackets[i].mPacketType.mKind); });
+			AppendFieldWithSync(aItemData, 102U, [&](PortableSaveContext& c){ SyncEnum32(c, theBoard->mSeedBank->mSeedPackets[i].mSlotMachiningNextSeed.mKind); });
 			uint32_t aItemSize = static_cast<uint32_t>(aItemData.size());
 			theContext.SyncUInt32(aItemSize);
 			if (aItemSize > 0)
@@ -2614,8 +2682,9 @@ static bool LawnLoadGameV4(Board* theBoard, const std::string& theFilePath)
 	aHeader.mPayloadCrc = FromLE32(aHeader.mPayloadCrc);
 	if (memcmp(aHeader.mMagic, SAVE_FILE_MAGIC_V4, sizeof(aHeader.mMagic)) != 0)
 		return false;
-	if (aHeader.mVersion != SAVE_FILE_V4_VERSION)
+	if (aHeader.mVersion != 1U && aHeader.mVersion != SAVE_FILE_V4_VERSION)
 		return false;
+	gReadingSaveFileV4Version = aHeader.mVersion;
 	if (aHeader.mPayloadSize + sizeof(SaveFileHeaderV4) > static_cast<uint32_t>(aBuffer.GetDataLen()))
 		return false;
 
@@ -2644,6 +2713,29 @@ static bool LawnLoadGameV4(Board* theBoard, const std::string& theFilePath)
 
 	if (!aBaseLoaded)
 		return false;
+	if (!ValidPacketType(theBoard->mCursorObject->mType))
+		return false;
+	for (const SeedPacket& aPacket : theBoard->mSeedBank->mSeedPackets)
+	{
+		if (!ValidPacketType(aPacket.mPacketType) || !ValidPacketType(aPacket.mSlotMachiningNextSeed))
+			return false;
+	}
+	Coin* aCoin = nullptr;
+	while (theBoard->IterateCoins(aCoin))
+	{
+		if (!ValidPacketType(aCoin->mUsableSeedType))
+			return false;
+	}
+	Reanimation* aReanimation = nullptr;
+	while (theBoard->mApp->mEffectSystem->mReanimationHolder->mReanimations.IterateNext(aReanimation))
+	{
+		if (!aReanimation->mDead && !ValidReanimationFrameRange(*aReanimation))
+		{
+			TodTrace("Save has an incompatible reanimation: type=%d, first=%d, count=%d",
+				static_cast<int>(aReanimation->mReanimationType), aReanimation->mFrameStart, aReanimation->mFrameCount);
+			return false;
+		}
+	}
 
 	FixBoardAfterLoad(theBoard);
 	theBoard->mApp->mGameScene = GameScenes::SCENE_PLAYING;

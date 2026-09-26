@@ -82,6 +82,13 @@ std::string GetZombieStatusLabel(const Zombie* theZombie)
 	aAppendTimedStatus("Chilled", theZombie->mChilledCounter);
 	aAppendTimedStatus("Ice trap", theZombie->mIceTrapCounter);
 	aAppendTimedStatus("Buttered", theZombie->mButteredCounter);
+	if (theZombie->mPoisonPeaTicks > 0)
+	{
+		if (!aStatusLabel.empty())
+			aStatusLabel += "  ";
+		aStatusLabel += StrFormat("Poison x%d: %.2fs left", theZombie->mPoisonPeaStacks,
+			theZombie->mPoisonPeaTicks / 100.0f);
+	}
 	aAppendTimedStatus("Scatter", theZombie->mGatlingScatterCountdown);
 
 	if (theZombie->mMindControlled)
@@ -2832,89 +2839,89 @@ void Board::InitLevel()
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_1)
 	{
 		TOD_ASSERT(mSeedBank->mNumPackets == 3);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
-		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_FOOTBALL);
+		mSeedBank->mSeedPackets[0].SetPacketType(SpecialPacketType::SEED_ZOMBIE_NORMAL);
+		mSeedBank->mSeedPackets[1].SetPacketType(SpecialPacketType::SEED_ZOMBIE_PAIL);
+		mSeedBank->mSeedPackets[2].SetPacketType(SpecialPacketType::SEED_ZOMBIE_FOOTBALL);
 	}
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_2)
 	{
 		TOD_ASSERT(mSeedBank->mNumPackets == 3);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_SCREEN_DOOR);
-		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
+		mSeedBank->mSeedPackets[0].SetPacketType(SpecialPacketType::SEED_ZOMBIE_NORMAL);
+		mSeedBank->mSeedPackets[1].SetPacketType(SpecialPacketType::SEED_ZOMBIE_SCREEN_DOOR);
+		mSeedBank->mSeedPackets[2].SetPacketType(SpecialPacketType::SEED_ZOMBIE_PAIL);
 	}
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_3)
 	{
 		TOD_ASSERT(mSeedBank->mNumPackets == 3);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
-		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_DIGGER);
+		mSeedBank->mSeedPackets[0].SetPacketType(SpecialPacketType::SEED_ZOMBIE_NORMAL);
+		mSeedBank->mSeedPackets[1].SetPacketType(SpecialPacketType::SEED_ZOMBIE_PAIL);
+		mSeedBank->mSeedPackets[2].SetPacketType(SpecialPacketType::SEED_ZOMBIE_DIGGER);
 	}
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_4)
 	{
 		TOD_ASSERT(mSeedBank->mNumPackets == 3);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
-		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_LADDER);
+		mSeedBank->mSeedPackets[0].SetPacketType(SpecialPacketType::SEED_ZOMBIE_NORMAL);
+		mSeedBank->mSeedPackets[1].SetPacketType(SpecialPacketType::SEED_ZOMBIE_PAIL);
+		mSeedBank->mSeedPackets[2].SetPacketType(SpecialPacketType::SEED_ZOMBIE_LADDER);
 	}
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_5)
 	{
 		TOD_ASSERT(mSeedBank->mNumPackets == 4);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
-		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_BUNGEE);
-		mSeedBank->mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_BALLOON);
+		mSeedBank->mSeedPackets[0].SetPacketType(SpecialPacketType::SEED_ZOMBIE_NORMAL);
+		mSeedBank->mSeedPackets[1].SetPacketType(SpecialPacketType::SEED_ZOMBIE_PAIL);
+		mSeedBank->mSeedPackets[2].SetPacketType(SpecialPacketType::SEED_ZOMBIE_BUNGEE);
+		mSeedBank->mSeedPackets[3].SetPacketType(SpecialPacketType::SEED_ZOMBIE_BALLOON);
 	}
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_6)
 	{
 		TOD_ASSERT(mSeedBank->mNumPackets == 4);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_POLEVAULTER);
-		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
-		mSeedBank->mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_GARGANTUAR);
+		mSeedBank->mSeedPackets[0].SetPacketType(SpecialPacketType::SEED_ZOMBIE_NORMAL);
+		mSeedBank->mSeedPackets[1].SetPacketType(SpecialPacketType::SEED_ZOMBIE_POLEVAULTER);
+		mSeedBank->mSeedPackets[2].SetPacketType(SpecialPacketType::SEED_ZOMBIE_PAIL);
+		mSeedBank->mSeedPackets[3].SetPacketType(SpecialPacketType::SEED_ZOMBIE_GARGANTUAR);
 	}
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_7)
 	{
 		TOD_ASSERT(mSeedBank->mNumPackets == 4);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_NORMAL);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_POLEVAULTER);
-		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
-		mSeedBank->mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_DANCER);
+		mSeedBank->mSeedPackets[0].SetPacketType(SpecialPacketType::SEED_ZOMBIE_NORMAL);
+		mSeedBank->mSeedPackets[1].SetPacketType(SpecialPacketType::SEED_ZOMBIE_POLEVAULTER);
+		mSeedBank->mSeedPackets[2].SetPacketType(SpecialPacketType::SEED_ZOMBIE_PAIL);
+		mSeedBank->mSeedPackets[3].SetPacketType(SpecialPacketType::SEED_ZOMBIE_DANCER);
 	}
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_8)
 	{
 		TOD_ASSERT(mSeedBank->mNumPackets == 6);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_IMP);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_TRAFFIC_CONE);
-		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
-		mSeedBank->mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_BUNGEE);
-		mSeedBank->mSeedPackets[4].SetPacketType(SeedType::SEED_ZOMBIE_DIGGER);
-		mSeedBank->mSeedPackets[5].SetPacketType(SeedType::SEED_ZOMBIE_LADDER);
+		mSeedBank->mSeedPackets[0].SetPacketType(SpecialPacketType::SEED_ZOMBIE_IMP);
+		mSeedBank->mSeedPackets[1].SetPacketType(SpecialPacketType::SEED_ZOMBIE_TRAFFIC_CONE);
+		mSeedBank->mSeedPackets[2].SetPacketType(SpecialPacketType::SEED_ZOMBIE_PAIL);
+		mSeedBank->mSeedPackets[3].SetPacketType(SpecialPacketType::SEED_ZOMBIE_BUNGEE);
+		mSeedBank->mSeedPackets[4].SetPacketType(SpecialPacketType::SEED_ZOMBIE_DIGGER);
+		mSeedBank->mSeedPackets[5].SetPacketType(SpecialPacketType::SEED_ZOMBIE_LADDER);
 	}
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_9)
 	{
 		TOD_ASSERT(mSeedBank->mNumPackets == 8);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_IMP);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_TRAFFIC_CONE);
-		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_POLEVAULTER);
-		mSeedBank->mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
-		mSeedBank->mSeedPackets[4].SetPacketType(SeedType::SEED_ZOMBIE_BUNGEE);
-		mSeedBank->mSeedPackets[5].SetPacketType(SeedType::SEED_ZOMBIE_DIGGER);
-		mSeedBank->mSeedPackets[6].SetPacketType(SeedType::SEED_ZOMBIE_LADDER);
-		mSeedBank->mSeedPackets[7].SetPacketType(SeedType::SEED_ZOMBIE_FOOTBALL);
+		mSeedBank->mSeedPackets[0].SetPacketType(SpecialPacketType::SEED_ZOMBIE_IMP);
+		mSeedBank->mSeedPackets[1].SetPacketType(SpecialPacketType::SEED_ZOMBIE_TRAFFIC_CONE);
+		mSeedBank->mSeedPackets[2].SetPacketType(SpecialPacketType::SEED_ZOMBIE_POLEVAULTER);
+		mSeedBank->mSeedPackets[3].SetPacketType(SpecialPacketType::SEED_ZOMBIE_PAIL);
+		mSeedBank->mSeedPackets[4].SetPacketType(SpecialPacketType::SEED_ZOMBIE_BUNGEE);
+		mSeedBank->mSeedPackets[5].SetPacketType(SpecialPacketType::SEED_ZOMBIE_DIGGER);
+		mSeedBank->mSeedPackets[6].SetPacketType(SpecialPacketType::SEED_ZOMBIE_LADDER);
+		mSeedBank->mSeedPackets[7].SetPacketType(SpecialPacketType::SEED_ZOMBIE_FOOTBALL);
 	}
 	else if (aGameMode == GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS)
 	{
 		TOD_ASSERT(mSeedBank->mNumPackets == 9);
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIE_IMP);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIE_TRAFFIC_CONE);
-		mSeedBank->mSeedPackets[2].SetPacketType(SeedType::SEED_ZOMBIE_POLEVAULTER);
-		mSeedBank->mSeedPackets[3].SetPacketType(SeedType::SEED_ZOMBIE_PAIL);
-		mSeedBank->mSeedPackets[4].SetPacketType(SeedType::SEED_ZOMBIE_BUNGEE);
-		mSeedBank->mSeedPackets[5].SetPacketType(SeedType::SEED_ZOMBIE_DIGGER);
-		mSeedBank->mSeedPackets[6].SetPacketType(SeedType::SEED_ZOMBIE_LADDER);
-		mSeedBank->mSeedPackets[7].SetPacketType(SeedType::SEED_ZOMBIE_FOOTBALL);
-		mSeedBank->mSeedPackets[8].SetPacketType(SeedType::SEED_ZOMBIE_DANCER);
+		mSeedBank->mSeedPackets[0].SetPacketType(SpecialPacketType::SEED_ZOMBIE_IMP);
+		mSeedBank->mSeedPackets[1].SetPacketType(SpecialPacketType::SEED_ZOMBIE_TRAFFIC_CONE);
+		mSeedBank->mSeedPackets[2].SetPacketType(SpecialPacketType::SEED_ZOMBIE_POLEVAULTER);
+		mSeedBank->mSeedPackets[3].SetPacketType(SpecialPacketType::SEED_ZOMBIE_PAIL);
+		mSeedBank->mSeedPackets[4].SetPacketType(SpecialPacketType::SEED_ZOMBIE_BUNGEE);
+		mSeedBank->mSeedPackets[5].SetPacketType(SpecialPacketType::SEED_ZOMBIE_DIGGER);
+		mSeedBank->mSeedPackets[6].SetPacketType(SpecialPacketType::SEED_ZOMBIE_LADDER);
+		mSeedBank->mSeedPackets[7].SetPacketType(SpecialPacketType::SEED_ZOMBIE_FOOTBALL);
+		mSeedBank->mSeedPackets[8].SetPacketType(SpecialPacketType::SEED_ZOMBIE_DANCER);
 	}
 	else if (mApp->IsScaryPotterLevel())
 	{
@@ -2929,8 +2936,8 @@ void Board::InitLevel()
 		mSeedBank->mSeedPackets[2].SetPacketType(mApp->IsAdventureMode() ? SeedType::SEED_CHERRYBOMB : SeedType::SEED_ICESHROOM);
 	}
 	else if (aGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM) {
-		mSeedBank->mSeedPackets[0].SetPacketType(SeedType::SEED_ZOMBIQUARIUM_SNORKLE);
-		mSeedBank->mSeedPackets[1].SetPacketType(SeedType::SEED_ZOMBIQUARIUM_TROPHY);
+		mSeedBank->mSeedPackets[0].SetPacketType(SpecialPacketType::SEED_ZOMBIQUARIUM_SNORKLE);
+		mSeedBank->mSeedPackets[1].SetPacketType(SpecialPacketType::SEED_ZOMBIQUARIUM_TROPHY);
 	}
 	else if (!ChooseSeedsOnCurrentLevel() && !HasConveyorBeltSeedBank())
 	{
@@ -3621,7 +3628,8 @@ SeedType Board::GetSeedTypeInCursor()
 	{
 		return SeedType::SEED_NONE;
 	}
-	return mCursorObject->mType == SeedType::SEED_IMITATER ? mCursorObject->mImitaterType : mCursorObject->mType;
+	return mCursorObject->mType == SeedType::SEED_IMITATER ? mCursorObject->mImitaterType :
+		(mCursorObject->mType.mKind == PacketKind::PLANT ? mCursorObject->mType.PlantSeed() : SeedType::SEED_NONE);
 }
 
 void Board::RefreshSeedPacketFromCursor()
@@ -4468,7 +4476,7 @@ bool Board::IsIceAt(int theGridX, int theGridY)
 	return theGridX >= PixelToGridXKeepOnBoard(mIceMinX[theGridY] + 12, 0);
 }
 
-PlantingReason Board::CanPlantAt(int theGridX, int theGridY, SeedType theSeedType)
+PlantingReason Board::CanPlantAt(int theGridX, int theGridY, PacketType thePacketType)
 {
 	// 目标位置不在场地内，则返回“不能种在那里”
 	if (theGridX < 0 || theGridX >= MAX_GRID_SIZE_X || theGridY < 0 || theGridY >= MAX_GRID_SIZE_Y)
@@ -4477,11 +4485,12 @@ PlantingReason Board::CanPlantAt(int theGridX, int theGridY, SeedType theSeedTyp
 	}
 
 	// 从关卡玩法上，判断能否种植
-	PlantingReason aReason = mChallenge->CanPlantAt(theGridX, theGridY, theSeedType);
-	if (aReason != PlantingReason::PLANTING_OK || Challenge::IsZombieSeedType(theSeedType))
+	PlantingReason aReason = mChallenge->CanPlantAt(theGridX, theGridY, thePacketType);
+	if (aReason != PlantingReason::PLANTING_OK || thePacketType.mKind != PacketKind::PLANT)
 	{
 		return aReason;
 	}
+	SeedType theSeedType = thePacketType.PlantSeed();
 
 	PlantsOnLawn aPlantOnLawn;
 	GetPlantsOnLawn(theGridX, theGridY, &aPlantOnLawn);
@@ -5301,7 +5310,7 @@ void Board::UpdateToolTip()
 	}
 
 	SeedPacket* aSeedPacket = (SeedPacket*)aHitResult.mObject;
-	SeedType aUseSeedType = aSeedPacket->mPacketType;
+	PacketType aUseSeedType = aSeedPacket->mPacketType;
 	if (aSeedPacket->mPacketType == SeedType::SEED_IMITATER && aSeedPacket->mImitaterType != SeedType::SEED_NONE)
 	{
 		aUseSeedType = aSeedPacket->mImitaterType;
@@ -5321,95 +5330,95 @@ void Board::UpdateToolTip()
 		{
 			mToolTip->SetLabel("[BEGHOULED_TALLNUT_UPGRADE_TOOLTIP]");
 		}
-		else if (aUseSeedType == SeedType::SEED_BEGHOULED_BUTTON_SHUFFLE)
+		else if (aUseSeedType == SpecialPacketType::SEED_BEGHOULED_BUTTON_SHUFFLE)
 		{
 			mToolTip->SetLabel("[BEGHOULED_SHUFFLE_TOOLTIP]");
 		}
-		else if (aUseSeedType == SeedType::SEED_BEGHOULED_BUTTON_CRATER)
+		else if (aUseSeedType == SpecialPacketType::SEED_BEGHOULED_BUTTON_CRATER)
 		{
 			mToolTip->SetLabel("[BEGHOULED_CRATER_TOOLTIP]");
 		}
 	}
-	else if (aUseSeedType == SeedType::SEED_SLOT_MACHINE_SUN)
+	else if (aUseSeedType == SpecialPacketType::SEED_SLOT_MACHINE_SUN)
 	{
 		mToolTip->SetLabel("[SLOT_MACHINE_SUN_TOOLTIP]");
 	}
-	else if (aUseSeedType == SeedType::SEED_SLOT_MACHINE_DIAMOND)
+	else if (aUseSeedType == SpecialPacketType::SEED_SLOT_MACHINE_DIAMOND)
 	{
 		mToolTip->SetLabel("[SLOT_MACHINE_DIAMOND_TOOLTIP]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIQUARIUM_SNORKLE)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIQUARIUM_SNORKLE)
 	{
 		mToolTip->SetLabel("[ZOMBIQUARIUM_SNORKEL_TOOLTIP]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIQUARIUM_TROPHY)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIQUARIUM_TROPHY)
 	{
 		mToolTip->SetLabel("[ZOMBIQUARIUM_TROPHY_TOOLTIP]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_NORMAL)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_NORMAL)
 	{
 		mToolTip->SetLabel("[ZOMBIE]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_TRAFFIC_CONE)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_TRAFFIC_CONE)
 	{
 		mToolTip->SetLabel("[CONEHEAD_ZOMBIE]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_POLEVAULTER)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_POLEVAULTER)
 	{
 		mToolTip->SetLabel("[POLE_VAULTING_ZOMBIE]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_PAIL)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_PAIL)
 	{
 		mToolTip->SetLabel("[BUCKETHEAD_ZOMBIE]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_LADDER)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_LADDER)
 	{
 		mToolTip->SetLabel("[LADDER_ZOMBIE]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_DIGGER)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_DIGGER)
 	{
 		mToolTip->SetLabel("[DIGGER_ZOMBIE]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_BUNGEE)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_BUNGEE)
 	{
 		mToolTip->SetLabel("[BUNGEE_ZOMBIE]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_FOOTBALL)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_FOOTBALL)
 	{
 		mToolTip->SetLabel("[FOOTBALL_ZOMBIE]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_BALLOON)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_BALLOON)
 	{
 		mToolTip->SetLabel("[BALLOON_ZOMBIE]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_SCREEN_DOOR)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_SCREEN_DOOR)
 	{
 		mToolTip->SetLabel("[SCREEN_DOOR_ZOMBIE]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBONI)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBONI)
 	{
 		mToolTip->SetLabel("[ZOMBONI]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_POGO)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_POGO)
 	{
 		mToolTip->SetLabel("[POGO_ZOMBIE]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_DANCER)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_DANCER)
 	{
 		mToolTip->SetLabel("[DANCING_ZOMBIE]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_GARGANTUAR)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_GARGANTUAR)
 	{
 		mToolTip->SetLabel("[GARGANTUAR]");
 	}
-	else if (aUseSeedType == SeedType::SEED_ZOMBIE_IMP)
+	else if (aUseSeedType == SpecialPacketType::SEED_ZOMBIE_IMP)
 	{
 		mToolTip->SetLabel("[IMP]");
 	}
 	else
 	{
 		// @Patoke: wrong function call
-		mToolTip->SetLabel(Plant::GetNameString(aUseSeedType));
+		mToolTip->SetLabel(Plant::GetNameString(aUseSeedType.PlantSeed()));
 	}
 
 	int aPlantCost = GetCurrentPlantCost(aSeedPacket->mPacketType, aSeedPacket->mImitaterType);
@@ -5419,7 +5428,7 @@ void Board::UpdateToolTip()
 	}
 	else if (!aSeedPacket->mActive && (gLawnApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || gLawnApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST))
 	{
-		if (aSeedPacket->mPacketType == SeedType::SEED_BEGHOULED_BUTTON_CRATER)
+		if (aSeedPacket->mPacketType == SpecialPacketType::SEED_BEGHOULED_BUTTON_CRATER)
 		{
 			mToolTip->SetWarningText("[BEGHOULED_NO_CRATERS]");
 		}
@@ -5438,70 +5447,70 @@ void Board::UpdateToolTip()
 	}
 	else if (aUseSeedType == SeedType::SEED_GATLINGPEA)
 	{
-		if (!PlantingRequirementsMet(aUseSeedType))
+		if (!PlantingRequirementsMet(aUseSeedType.PlantSeed()))
 		{
 			mToolTip->SetWarningText("[REQUIRES_REPEATER]");
 		}
 	}
 	else if (aUseSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
 	{
-		if (!PlantingRequirementsMet(aUseSeedType))
+		if (!PlantingRequirementsMet(aUseSeedType.PlantSeed()))
 		{
 			mToolTip->SetWarningText("[REQUIRES_GATLINGPEA]");
 		}
 	}
 	else if (aUseSeedType == SeedType::SEED_ELECTRIC_STARFRUIT)
 	{
-		if (!PlantingRequirementsMet(aUseSeedType))
+		if (!PlantingRequirementsMet(aUseSeedType.PlantSeed()))
 		{
 			mToolTip->SetWarningText("[REQUIRES_STARFRUIT]");
 		}
 	}
 	else if (aUseSeedType == SeedType::SEED_WINTERMELON)
 	{
-		if (!PlantingRequirementsMet(aUseSeedType))
+		if (!PlantingRequirementsMet(aUseSeedType.PlantSeed()))
 		{
 			mToolTip->SetWarningText("[REQUIRES_MELONPULT]");
 		}
 	}
 	else if (aUseSeedType == SeedType::SEED_TWINSUNFLOWER)
 	{
-		if (!PlantingRequirementsMet(aUseSeedType))
+		if (!PlantingRequirementsMet(aUseSeedType.PlantSeed()))
 		{
 			mToolTip->SetWarningText("[REQUIRES_SUNFLOWER]");
 		}
 	}
 	else if (aUseSeedType == SeedType::SEED_SPIKEROCK)
 	{
-		if (!PlantingRequirementsMet(aUseSeedType))
+		if (!PlantingRequirementsMet(aUseSeedType.PlantSeed()))
 		{
 			mToolTip->SetWarningText("[REQUIRES_SPIKEWEED]");
 		}
 	}
 	else if (aUseSeedType == SeedType::SEED_COBCANNON)
 	{
-		if (!PlantingRequirementsMet(aUseSeedType))
+		if (!PlantingRequirementsMet(aUseSeedType.PlantSeed()))
 		{
 			mToolTip->SetWarningText("[REQUIRES_KERNELPULTS]");
 		}
 	}
 	else if (aUseSeedType == SeedType::SEED_GOLD_MAGNET)
 	{
-		if (!PlantingRequirementsMet(aUseSeedType))
+		if (!PlantingRequirementsMet(aUseSeedType.PlantSeed()))
 		{
 			mToolTip->SetWarningText("[REQUIRES_MAGNETSHROOM]");
 		}
 	}
 	else if (aUseSeedType == SeedType::SEED_GLOOMSHROOM)
 	{
-		if (!PlantingRequirementsMet(aUseSeedType))
+		if (!PlantingRequirementsMet(aUseSeedType.PlantSeed()))
 		{
 			mToolTip->SetWarningText("[REQUIRES_FUMESHROOM]");
 		}
 	}
 	else if (aUseSeedType == SeedType::SEED_CATTAIL)
 	{
-		if (!PlantingRequirementsMet(aUseSeedType))
+		if (!PlantingRequirementsMet(aUseSeedType.PlantSeed()))
 		{
 			mToolTip->SetWarningText("[REQUIRES_LILY_PAD]");
 		}
@@ -5806,7 +5815,7 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 	//   机枪射手 @ 究极电能星星果       → 究极电能机枪射手
 	// 阳光：种卡照常按原价扣（杨桃 125 / 机枪射手 250），随后返还 ELECTRIC_STARFRUIT_SWITCH_REFUND。
 	// 放行判定由 Plant::IsUpgradableTo 的两条互换规则给出（CanPlantAt 早已返回 PLANTING_OK）。
-	SeedType aPlantSeedType = mCursorObject->mType;
+	SeedType aPlantSeedType = mCursorObject->mType.PlantSeed();
 	SeedType aPlantImitaterType = mCursorObject->mImitaterType;
 	bool aIsUltimateSwitch = false;
 	bool aIsGatlingSynthesis = false;
@@ -11355,18 +11364,18 @@ void Board::OffsetYForPlanting(int& theY, SeedType theSeedType)
 	}
 }
 
-int Board::PlantingPixelToGridX(int theX, int theY, SeedType theSeedType)
+int Board::PlantingPixelToGridX(int theX, int theY, PacketType thePacketType)
 {
-	OffsetYForPlanting(theY, theSeedType);
+	OffsetYForPlanting(theY, thePacketType.mKind == PacketKind::PLANT ? thePacketType.PlantSeed() : SeedType::SEED_NONE);
 	return PixelToGridX(theX, theY);
 }
 
-int Board::PlantingPixelToGridY(int theX, int theY, SeedType theSeedType)
+int Board::PlantingPixelToGridY(int theX, int theY, PacketType thePacketType)
 {
-	OffsetYForPlanting(theY, theSeedType);
+	OffsetYForPlanting(theY, thePacketType.mKind == PacketKind::PLANT ? thePacketType.PlantSeed() : SeedType::SEED_NONE);
 
 	int aGridY = PixelToGridY(theX, theY);
-	if (theSeedType == SeedType::SEED_INSTANT_COFFEE)
+	if (thePacketType == SeedType::SEED_INSTANT_COFFEE)
 	{
 		int aGridX = PixelToGridX(theX, theY);
 		
@@ -12283,12 +12292,12 @@ bool Board::PlantUsesAcceleratedPricing(SeedType theSeedType)
 	return Plant::IsUpgrade(theSeedType) && mApp->IsSurvivalEndless(mApp->mGameMode);
 }
 
-int Board::GetCurrentPlantCost(SeedType theSeedType, SeedType theImitaterType)
+int Board::GetCurrentPlantCost(PacketType thePacketType, SeedType theImitaterType)
 {
-	int aCost = Plant::GetCost(theSeedType, theImitaterType);
-	if (PlantUsesAcceleratedPricing(theSeedType))
+	int aCost = Plant::GetCost(thePacketType, theImitaterType);
+	if (thePacketType.mKind == PacketKind::PLANT && PlantUsesAcceleratedPricing(thePacketType.PlantSeed()))
 	{
-		aCost += CountPlantByType(theSeedType) * 50;
+		aCost += CountPlantByType(thePacketType.PlantSeed()) * 50;
 	}
 	return aCost;
 }

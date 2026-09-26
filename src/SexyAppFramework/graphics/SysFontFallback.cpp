@@ -24,10 +24,14 @@
 #include <cstring>
 #include <vector>
 #include <algorithm>
+#include <cmath>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#elif defined(__APPLE__)
+#include <CoreGraphics/CoreGraphics.h>
+#include <CoreText/CoreText.h>
 #endif
 
 using namespace Sexy;
@@ -79,6 +83,8 @@ SysFontFallback* SysFontFallback::Get()
 SysFontFallback::SysFontFallback()
 {
 #ifdef _WIN32
+	mAvailable = true;
+#elif defined(__APPLE__)
 	mAvailable = true;
 #else
 	mAvailable = false;
@@ -209,6 +215,77 @@ bool SysFontFallback::RenderGlyph(char32_t theChar, int thePixelHeight, Glyph& t
 	DeleteObject(aFont);
 	DeleteDC(aDC);
 
+	return true;
+#elif defined(__APPLE__)
+	UniChar aCharacter = static_cast<UniChar>(theChar);
+	CFStringRef aText = CFStringCreateWithCharacters(kCFAllocatorDefault, &aCharacter, 1);
+	if (aText == nullptr)
+		return false;
+
+	CTFontRef aBaseFont = CTFontCreateWithName(CFSTR("PingFang SC"), thePixelHeight, nullptr);
+	if (aBaseFont == nullptr)
+	{
+		CFRelease(aText);
+		return false;
+	}
+
+	CTFontRef aFont = CTFontCreateForString(aBaseFont, aText, CFRangeMake(0, 1));
+	CFRelease(aBaseFont);
+	CFRelease(aText);
+	if (aFont == nullptr)
+		return false;
+
+	CGGlyph aGlyph = 0;
+	if (!CTFontGetGlyphsForCharacters(aFont, &aCharacter, &aGlyph, 1) || aGlyph == 0)
+	{
+		CFRelease(aFont);
+		return false;
+	}
+
+	int anAdvance = std::max(1, static_cast<int>(std::ceil(CTFontGetAdvancesForGlyphs(aFont, kCTFontOrientationDefault, &aGlyph, nullptr, 1))));
+	int anAscent = static_cast<int>(std::ceil(CTFontGetAscent(aFont)));
+	int aDescent = static_cast<int>(std::ceil(CTFontGetDescent(aFont)));
+	int aWidth = anAdvance + 2;
+	int aHeight = std::max(1, anAscent + aDescent + 2);
+	std::vector<uint8_t> aPixels(static_cast<size_t>(aWidth) * aHeight * 4, 0);
+	CGColorSpaceRef aColorSpace = CGColorSpaceCreateDeviceRGB();
+	CGContextRef aContext = CGBitmapContextCreate(aPixels.data(), aWidth, aHeight, 8, aWidth * 4,
+		aColorSpace, static_cast<CGBitmapInfo>(static_cast<uint32_t>(kCGImageAlphaPremultipliedLast) |
+			static_cast<uint32_t>(kCGBitmapByteOrder32Big)));
+	CGColorSpaceRelease(aColorSpace);
+	if (aContext == nullptr)
+	{
+		CFRelease(aFont);
+		return false;
+	}
+
+	CGContextSetRGBFillColor(aContext, 1, 1, 1, 1);
+	CGContextSetAllowsAntialiasing(aContext, true);
+	CGPoint anOrigin = CGPointMake(1, aDescent + 1);
+	CTFontDrawGlyphs(aFont, &aGlyph, &anOrigin, 1, aContext);
+	CGContextRelease(aContext);
+	CFRelease(aFont);
+
+	theGlyph.mImage = new MemoryImage();
+	theGlyph.mImage->mBits = new uint32_t[static_cast<size_t>(aWidth) * aHeight + 1];
+	theGlyph.mImage->mWidth = aWidth;
+	theGlyph.mImage->mHeight = aHeight;
+	theGlyph.mImage->mHasTrans = true;
+	theGlyph.mImage->mHasAlpha = true;
+	for (int y = 0; y < aHeight; y++)
+	{
+		for (int x = 0; x < aWidth; x++)
+		{
+			// CGBitmapContext 的缓冲区行序已经与 MemoryImage 一致，无需翻转。
+			uint8_t anAlpha = aPixels[(static_cast<size_t>(y) * aWidth + x) * 4 + 3];
+			theGlyph.mImage->mBits[static_cast<size_t>(y) * aWidth + x] =
+				(static_cast<uint32_t>(anAlpha) << 24) | 0x00FFFFFF;
+		}
+	}
+	theGlyph.mImage->mBits[static_cast<size_t>(aWidth) * aHeight] = MEMORYCHECK_ID;
+	theGlyph.mAdvance = anAdvance;
+	theGlyph.mAscent = anAscent + 1;
+	theGlyph.mHeight = aHeight;
 	return true;
 #else
 	(void)theChar;

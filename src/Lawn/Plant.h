@@ -265,10 +265,10 @@ public:
     // 真正出弹是在动画末尾的 UpdateShooting 里，那时目标已经查不到了。
     void                    FireLaserPea();
     static Image*           GetImage(SeedType theSeedType);
-    static int              GetCost(SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
+    static int              GetCost(PacketType thePacketType, SeedType theImitaterType = SeedType::SEED_NONE);
     static std::string       GetNameString(SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
     static std::string       GetToolTip(SeedType theSeedType);
-    static int              GetRefreshTime(SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
+    static int              GetRefreshTime(PacketType thePacketType, SeedType theImitaterType = SeedType::SEED_NONE);
     static /*inline*/ bool  IsNocturnal(SeedType theSeedtype);
     static /*inline*/ bool  IsFungus(SeedType theSeedType);
     static /*inline*/ bool  IsAquatic(SeedType theSeedType);
@@ -376,6 +376,7 @@ public:
 
 float                       PlantDrawHeightOffset(Board* theBoard, Plant* thePlant, SeedType theSeedType, int theCol, int theRow);
 float                       PlantFlowerPotHeightOffset(SeedType theSeedType, float theFlowerPotScale);
+void                        DrawPacketSeedType(Graphics* g, PacketType thePacketType, SeedType theImitaterType, DrawVariation theDrawVariation, float thePosX, float thePosY);
 
 // 究极电能机枪射手专用贴图（打包在 main.pak 的 reanim/ 下：ElectricGatling_head/mouth/mouth_overlay/barrel、
 // EletricGatling_blink1/blink2）。首次调用时把它们替换进 REANIM_ELECTRIC_GATLINGPEA 的定义里。

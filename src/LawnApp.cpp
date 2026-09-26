@@ -21,6 +21,7 @@
 
 //#include <corecrt.h>
 #include <time.h>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include "LawnApp.h"
@@ -499,6 +500,27 @@ bool LawnApp::SaveFileExists()
 	return this->FileExists(aLegacyFileName);
 }
 
+static bool PreserveUnreadableSave(const std::string& theFileName)
+{
+	const std::filesystem::path aSource = Sexy::PathFromU8(theFileName);
+	for (int i = 0; i < 1000; i++)
+	{
+		std::filesystem::path aBackup = aSource;
+		aBackup += i == 0 ? ".incompatible" : StrFormat(".incompatible.%d", i);
+		std::error_code anError;
+		if (std::filesystem::exists(aBackup, anError))
+			continue;
+		if (anError)
+			return false;
+		std::filesystem::rename(aSource, aBackup, anError);
+		if (anError)
+			return false;
+		TodTrace("Preserved unreadable save as '%s'", Sexy::PathToU8(aBackup).c_str());
+		return true;
+	}
+	return false;
+}
+
 // GOTY @Patoke: 0x452A50
 bool LawnApp::TryLoadGame()
 {
@@ -518,7 +540,14 @@ bool LawnApp::TryLoadGame()
 			return true;
 		}
 
+		const bool aPreserved = PreserveUnreadableSave(aSaveName);
+		mBoardResult = BoardResult::BOARDRESULT_NONE;
 		KillBoard();
+		if (!aPreserved)
+		{
+			TodTrace("Could not preserve unreadable save '%s'", aSaveName.c_str());
+			return true; // Keep the original file; do not let PreNewGame erase it.
+		}
 	}
 	if (this->FileExists(aLegacySaveName))
 	{
@@ -2755,10 +2784,11 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 {
 	if (IsCricketFight2Level())
 	{
-		// 斗蛐蛐 2（录制沙盒）：常规植物 + 旅行专属植物 + 孢子菇全部直接开放。
+		// 斗蛐蛐 2：常规植物、旅行植物与两株 PvZ2 植物开放。
 		if (theSeedType >= SeedType::SEED_PEASHOOTER && theSeedType <= SeedType::SEED_IMITATER)
 			return true;
-		return theSeedType == SeedType::SEED_SPORESHROOM || IsTravelOnlySeed(theSeedType);
+		return theSeedType == SeedType::SEED_SPORESHROOM ||
+		       theSeedType == SeedType::SEED_POISON_PEASHOOTER || IsTravelOnlySeed(theSeedType);
 	}
 
 	if (IsTrialStageLocked() && theSeedType >= SeedType::SEED_JALAPENO)
@@ -2804,6 +2834,7 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 	case SeedType::SEED_LASER_PEA:
 		return IsTravelLevel(mGameMode);   // 旅行专属红卡：仅旅行关可选/拥有
 	case SeedType::SEED_SPORESHROOM:
+	case SeedType::SEED_POISON_PEASHOOTER:
 		return false;                       // 首版仅斗蛐蛐 2 可选
 	default:
 		return theSeedType < GetSeedsAvailable();

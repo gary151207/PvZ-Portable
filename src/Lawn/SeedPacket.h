@@ -37,10 +37,10 @@ public:
     int32_t             mRefreshTime;
     int32_t             mIndex;
     int32_t             mOffsetX;
-    SeedType            mPacketType;
+    PacketType          mPacketType;
     SeedType            mImitaterType;
     int32_t             mSlotMachineCountDown;
-    SeedType            mSlotMachiningNextSeed;
+    PacketType          mSlotMachiningNextSeed;
     float               mSlotMachiningPosition;
     bool                mActive;
     bool                mRefreshing;
@@ -61,7 +61,7 @@ public:
     /*inline*/ void     SlotMachineStart();
     void                FlashIfReady();
     bool                CanPickUp();
-    void                SetPacketType(SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
+    void                SetPacketType(PacketType thePacketType, SeedType theImitaterType = SeedType::SEED_NONE);
 };
 
 class SeedBank : public GameObject
@@ -88,8 +88,8 @@ public:
     void			    RefreshAllPackets();
 };
 
-void				    SeedPacketDrawSeed(Graphics* g, float x, float y, SeedType theSeedType, SeedType theImitaterType, float theOffsetX, float theOffsetY, float theScale);
-void				    DrawSeedPacket(Graphics* g, float x, float y, SeedType theSeedType, SeedType theImitaterType, float thePercentDark, int theGrayness, bool theDrawCost, bool theUseCurrentCost);
+void				    SeedPacketDrawSeed(Graphics* g, float x, float y, PacketType thePacketType, SeedType theImitaterType, float theOffsetX, float theOffsetY, float theScale);
+void				    DrawSeedPacket(Graphics* g, float x, float y, PacketType thePacketType, SeedType theImitaterType, float thePercentDark, int theGrayness, bool theDrawCost, bool theUseCurrentCost);
 
 
 #endif

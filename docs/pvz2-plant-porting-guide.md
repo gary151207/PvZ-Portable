@@ -7,6 +7,8 @@
 本文记录将国服《植物大战僵尸2》4.2.4 的 1 级孢子菇移植为 PvZ-Portable
 原生植物的完整方法。目标是为后续 PvZ2 植物移植提供一条可重复、可检查、
 不破坏旧存档的工程路径，而不是要求其它植物照搬孢子菇的数值或战斗逻辑。
+带持续状态、原生弹丸与多轮实机视觉调校的案例见
+[一阶毒液豌豆射手移植复盘](poison-peashooter-port.md)。
 
 ## 1. 已验证的孢子菇口径
 
@@ -321,4 +323,3 @@ python3 tools/reanim-preview.py res/main/reanim/SporeShroomProjectile.reanim hit
 | 卡面缩放/偏移 | `src/Lawn/SeedPacket.cpp` |
 | 动画注册 | `src/Sexy.TodLib/Reanimator.cpp` |
 | 文案 | `res/properties/pvzp-strings.xml`、`res/properties/pvzp-strings.zh-CN.xml` |
-

@@ -53,6 +53,11 @@ constexpr const int TICKS_BETWEEN_EATS = 4;
 constexpr const int DAMAGE_PER_EAT = TICKS_BETWEEN_EATS;
 constexpr const float THOWN_ZOMBIE_GRAVITY = 0.05f;
 constexpr const float CHILLED_SPEED_FACTOR = 0.4f;
+constexpr const float POISON_PEA_SLOW_FACTOR = 0.5f;
+constexpr const int POISON_PEA_DURATION_TICKS = 500;
+constexpr const int POISON_PEA_PULSE_TICKS = 100;
+constexpr const int POISON_PEA_DAMAGE_PER_STACK = 50;
+constexpr const int POISON_PEA_MAX_STACKS = 5;
 constexpr const float CLIP_HEIGHT_LIMIT = -100.0f;
 constexpr const float CLIP_HEIGHT_OFF = -200.0f;
 const Color ZOMBIE_MINDCONTROLLED_COLOR = Color(128, 0, 192, 255);
@@ -196,6 +201,9 @@ public:
     ReanimationID                   mMoweredReanimID;
     int32_t                         mLastPortalX;
     int32_t                         mConheadPatrolState;   // 路障射手僵尸：0=向左(朝第2列) 1=向右(朝第8列)
+    int32_t                         mPoisonPeaStacks;
+    int32_t                         mPoisonPeaTicks;
+    int32_t                         mPoisonPeaPulseTicks;
 
 public:
     Zombie();
@@ -298,6 +306,8 @@ public:
     int                             TakeShieldDamage(int theDamage, unsigned int theDamageFlags);
     int                             TakeHelmDamage(int theDamage, unsigned int theDamageFlags);
     void                            TakeBodyDamage(int theDamage, unsigned int theDamageFlags);
+    void                            ApplyPoisonPea();
+    void                            UpdatePoisonPea();
     void                            AttachShield();
     void                            DetachShield();
     void                            UpdateReanim();
@@ -332,6 +342,7 @@ public:
     void                            UpdateZombieBackupDancer();
     ZombiePhase                     GetDancerPhase();
     bool                            IsMovingAtChilledSpeed();
+    float                           GetMovementSlowFactor();
     void                            StartWalkAnim(int theBlendTime);
     Reanimation*                    AddAttachedReanim(int thePosX, int thePosY, ReanimationType theReanimType);
     void                            DragUnder();

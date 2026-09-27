@@ -59,7 +59,8 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_PURPLE_FIRE_PEA, 0, 65 },   // 紫火豌豆（火豌豆射手）：65 伤害 + 命中后僵尸易伤
 	{ ProjectileType::PROJECTILE_LASER_PEA, 0, LASER_PEA_DAMAGE },   // 激光豌豆的贯穿光束：路径上每只僵尸 20 伤害
 	{ ProjectileType::PROJECTILE_SPORESHROOM,     0, 40 },  // 孢子菇孢子
-	{ ProjectileType::PROJECTILE_POISON_PEA,     0, 10 }   // 一阶毒液豌豆：直击 10 伤害
+	{ ProjectileType::PROJECTILE_POISON_PEA,     0, 10 },  // 一阶毒液豌豆：直击 10 伤害
+	{ ProjectileType::PROJECTILE_COCONUT,        0, 900 }  // 一阶椰子炮弹：直击 900，周围 300
 };
 
 Projectile::Projectile()
@@ -206,6 +207,18 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		// 在两帧之间立刻隐藏旧轨道，使飞行中的豌豆反复只剩拖尾。
 		aPeaReanim->SetTruncateDisappearingFrames(nullptr, false);
 		AttachReanim(mAttachmentID, aPeaReanim, 0.0f, 0.0f);
+		break;
+	}
+	case ProjectileType::PROJECTILE_COCONUT:
+	{
+		Reanimation* aCoconut = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 1, ReanimationType::REANIM_COCONUT_PROJECTILE);
+		aCoconut->mLoopType = ReanimLoopType::REANIM_LOOP;
+		aCoconut->mAnimRate = 24.0f;
+		aCoconut->SetFramesForLayer("anim_fly");
+		aCoconut->SetTruncateDisappearingFrames(nullptr, false);
+		AttachReanim(mAttachmentID, aCoconut, 0.0f, 0.0f);
+		mWidth = 48;
+		mHeight = 48;
 		break;
 	}
 	case ProjectileType::PROJECTILE_COBBIG:
@@ -1180,6 +1193,7 @@ bool Projectile::IsSplashDamage(Zombie* theZombie)
 		mProjectileType == ProjectileType::PROJECTILE_WINTERMELON ||
 		// 紫火豌豆：群伤（命中点周围 + 相邻行都会吃到 1/3 伤害）
 		mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA ||
+		mProjectileType == ProjectileType::PROJECTILE_COCONUT ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREBALL;
 }
 
@@ -1210,6 +1224,18 @@ unsigned int Projectile::GetDamageFlags(Zombie* theZombie)
 
 bool Projectile::IsZombieHitBySplash(Zombie* theZombie)
 {
+	if (mProjectileType == ProjectileType::PROJECTILE_COCONUT)
+	{
+		const int aRowDistance = theZombie->mZombieType == ZombieType::ZOMBIE_BOSS ? 0 : theZombie->mRow - mRow;
+		if (aRowDistance < -1 || aRowDistance > 1 ||
+		    !theZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+			return false;
+		const Rect aZombieRect = theZombie->GetZombieRect();
+		const float aBlastCenterX = mPosX + mWidth * 0.5f;
+		return aZombieRect.mX < aBlastCenterX + 120.0f &&
+		       aZombieRect.mX + aZombieRect.mWidth > aBlastCenterX - 120.0f;
+	}
+
 	Rect aProjectileRect = GetProjectileRect();
 	if (mProjectileType == ProjectileType::PROJECTILE_FIREBALL)
 	{
@@ -1269,7 +1295,7 @@ void Projectile::DoSplashDamage(Zombie* theZombie)
 		aMaxSplashDamageAmount = aOriginalDamage;
 	}
 	int aSplashDamageAmount = aSplashDamage * aZombiesGetSplashed;
-	if (aSplashDamageAmount > aMaxSplashDamageAmount)
+	if (mProjectileType != ProjectileType::PROJECTILE_COCONUT && aSplashDamageAmount > aMaxSplashDamageAmount)
 	{
 		//aSplashDamage *= aMaxSplashDamageAmount / aSplashDamage;
 		aSplashDamage = aOriginalDamage * aMaxSplashDamageAmount / (aSplashDamageAmount * 3);
@@ -1678,6 +1704,12 @@ void Projectile::PlayImpactSound(Zombie* theZombie)
 		mApp->PlayFoley(FoleyType::FOLEY_MELONIMPACT);
 		aPlaySplatSound = false;
 	}
+	else if (mProjectileType == ProjectileType::PROJECTILE_COCONUT)
+	{
+		mApp->PlayFoley(FoleyType::FOLEY_EXPLOSION);
+		aPlayHelmSound = false;
+		aPlaySplatSound = false;
+	}
 	else if (mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA)
 	{
 		// 紫火豌豆：命中是一声"呼"的火焰声，不是豌豆的啪叽声
@@ -1761,6 +1793,14 @@ void Projectile::DoImpact(Zombie* theZombie)
 		aHitReanim->mAnimRate = 30.0f;
 		aHitReanim->SetFramesForLayer("anim_hit");
 		aHitReanim->SetTruncateDisappearingFrames(nullptr, false);
+	}
+	else if (mProjectileType == ProjectileType::PROJECTILE_COCONUT)
+	{
+		Reanimation* aHit = mApp->AddReanimation(mPosX, mPosY + mPosZ, mRenderOrder + 1, ReanimationType::REANIM_COCONUT_PROJECTILE);
+		aHit->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+		aHit->mAnimRate = 24.0f;
+		aHit->SetFramesForLayer("anim_hit");
+		aHit->SetTruncateDisappearingFrames(nullptr, false);
 	}
 	switch (mProjectileType)
 	{
@@ -1889,7 +1929,8 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_ELECTRIC_STAR ||
 		mProjectileType == ProjectileType::PROJECTILE_LASER_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_SPORESHROOM ||
-		mProjectileType == ProjectileType::PROJECTILE_POISON_PEA)
+		mProjectileType == ProjectileType::PROJECTILE_POISON_PEA ||
+		mProjectileType == ProjectileType::PROJECTILE_COCONUT)
 	{
 		aTime = 0;
 	}
@@ -1978,6 +2019,7 @@ void Projectile::Draw(Graphics* g)
 		// 后面渲染的僵尸盖住，所以统一交给 Board::Draw 顶层的 DrawAllLaserBeams 画。
 	case ProjectileType::PROJECTILE_SPORESHROOM:
 	case ProjectileType::PROJECTILE_POISON_PEA:
+	case ProjectileType::PROJECTILE_COCONUT:
 		aImage = nullptr;
 		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
@@ -2170,6 +2212,9 @@ void Projectile::DrawShadow(Graphics* g)
 		break;
 	case ProjectileType::PROJECTILE_POISON_PEA:
 		aScale = 0.65f;
+		break;
+	case ProjectileType::PROJECTILE_COCONUT:
+		aScale = 1.25f;
 		break;
 	default:
 		break;

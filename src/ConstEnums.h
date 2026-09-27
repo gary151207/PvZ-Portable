@@ -832,7 +832,8 @@ enum ProjectileType : int32_t
     PROJECTILE_LASER_PEA = 17,  // 激光豌豆的贯穿光束（激光豌豆：每 0.8 秒一道绿色激光，路径上每只僵尸 20 伤害）
     PROJECTILE_SPORESHROOM = 18,  // 孢子菇孢子（40 伤害；直接击杀后在目标所在格繁殖）
     PROJECTILE_POISON_PEA = 19,  // 毒液豌豆射手的一阶毒液豌豆
-    NUM_PROJECTILES = 20
+    PROJECTILE_COCONUT = 20,     // 椰子加农炮的一阶炮弹
+    NUM_PROJECTILES = 21
 };
 enum ReanimationType : uint32_t {
     REANIM_NONE = static_cast<uint32_t>(-1),
@@ -1005,6 +1006,8 @@ enum ReanimationType : uint32_t {
     REANIM_POISON_PEASHOOTER,
     REANIM_POISON_PEA_PROJECTILE,
     REANIM_GATLING_CACTUS,
+    REANIM_COCONUT_CANNON,
+    REANIM_COCONUT_PROJECTILE,
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1144,6 +1147,7 @@ enum SeedType : int32_t
     SEED_HYPNOSHROOM_FUME,                          // 魅惑大喷菇（旅行专属形态：魅惑菇 × 大喷菇群 切换，小喷菇切回）
     SEED_POISON_PEASHOOTER,                         // 毒液豌豆射手（斗蛐蛐 2 专属，一阶）
     SEED_GATLING_CACTUS,                            // 机枪仙人掌（仙人掌种在机枪射手上合成）
+    SEED_COCONUT_CANNON,                            // 椰子加农炮（斗蛐蛐 2 专属，一阶）
     NUM_SEED_TYPES,
     NUM_SEEDS_IN_CHOOSER = 49,
     SEED_NONE = -1

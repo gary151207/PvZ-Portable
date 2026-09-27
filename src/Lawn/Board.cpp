@@ -1961,6 +1961,7 @@ namespace
 		SeedType::SEED_FIRE_PEASHOOTER,      // 火豌豆射手（旅行红卡：带火的豌豆射手，直接种下）
 		SeedType::SEED_FIRE_GATLING_PEA,     // 火焰机枪射手（合成态：沙盒内需先在机枪射手上种火豌豆射手）
 		SeedType::SEED_THREE_GATLING_PEA,    // 三线机枪射手（合成态：沙盒内需先在机枪射手上种三线射手）
+		SeedType::SEED_GATLING_CACTUS,       // 机枪仙人掌（正常关卡合成，沙盒可直接放置）
 		SeedType::SEED_LASER_PEA,            // 激光豌豆（旅行红卡：只有一根枪管的机枪射手，直接种下）
 		SeedType::SEED_HYPNOSHROOM_FUME,     // 魅惑大喷菇（旅行专属形态：沙盒内可直接成株查看）
 	};
@@ -5199,7 +5200,7 @@ void Board::UpdateToolTip()
 		std::string aHPLabel = StrFormat("HP: %d/%d", aPlant->mPlantHealth, aPlant->mPlantMaxHealth);
 		if (aPlant->mSeedType == SeedType::SEED_GATLINGPEA || aPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
 			aPlant->mSeedType == SeedType::SEED_SNOW_GATLING_PEA || aPlant->mSeedType == SeedType::SEED_FIRE_GATLING_PEA ||
-			aPlant->mSeedType == SeedType::SEED_THREE_GATLING_PEA)
+			aPlant->mSeedType == SeedType::SEED_THREE_GATLING_PEA || aPlant->mSeedType == SeedType::SEED_GATLING_CACTUS)
 		{
 			if (aPlant->mGatlingScatterCountdown > 0)
 			{
@@ -5819,7 +5820,7 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 	SeedType aPlantImitaterType = mCursorObject->mImitaterType;
 	bool aIsUltimateSwitch = false;
 	bool aIsGatlingSynthesis = false;
-	// 合成返还的金额：寒冰 / 火焰机枪射手还 175（= 被消耗的卡价），三线机枪射手还 325。
+	// 合成返还的金额：寒冰 / 火焰机枪射手还 175，三线机枪射手还 325，机枪仙人掌还 125。
 	// 只有 aIsGatlingSynthesis 为真时才看它（见下面的返款块）。
 	int aGatlingSynthesisRefund = 0;
 	if (aNormalPlant)
@@ -5851,6 +5852,13 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 			aPlantImitaterType = SeedType::SEED_NONE;
 			aIsGatlingSynthesis = true;
 			aGatlingSynthesisRefund = THREE_GATLING_SYNTHESIS_REFUND;
+		}
+		else if (aPlantingSeedType == SeedType::SEED_CACTUS && aNormalPlant->mSeedType == SeedType::SEED_GATLINGPEA)
+		{
+			aPlantSeedType = SeedType::SEED_GATLING_CACTUS;
+			aPlantImitaterType = SeedType::SEED_NONE;
+			aIsGatlingSynthesis = true;
+			aGatlingSynthesisRefund = GATLING_CACTUS_SYNTHESIS_REFUND;
 		}
 		else if (aPlantingSeedType == SeedType::SEED_STARFRUIT && aNormalPlant->mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA)
 		{
@@ -5907,9 +5915,9 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 
 	if (aIsGatlingSynthesis && aPaysWithSun)
 	{
-		// 机枪射手合成（寒冰机枪射手 / 火焰机枪射手 / 三线机枪射手）的返还阳光：
+		// 机枪射手合成后的返还阳光：
 		// 与究极形态互换同一套做法 —— 种卡已按原价扣款、原植物已销毁之后，
-		// 把 aGatlingSynthesisRefund（= 被消耗那张卡的价：175 或 325）原样还给玩家（净花费 0）。
+		// 把 aGatlingSynthesisRefund（= 被消耗那张卡的价）原样还给玩家（净花费 0）。
 		AddSunMoney(aGatlingSynthesisRefund);
 		mApp->PlayFoley(FoleyType::FOLEY_SUN);
 		std::string aSynthesisMessage = TodReplaceString("[GATLING_SYNTHESIS_REFUND]", "{SUN}", StrFormat("%d", aGatlingSynthesisRefund));

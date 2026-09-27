@@ -166,6 +166,7 @@ constexpr const int   FIRE_GATLING_SCATTER_PURPLE_PERCENT = 50;   // 大招里�
 //   （Board::mProjectiles，上限 4096）顶满并**卡死闪退** —— Release 版的 TOD_ASSERT 是空宏，
 //   DataArrayAlloc 在池满时会直接越界写内存。所以除了把频率降下来，下面还留了一道池子闸门。
 constexpr const int   THREE_GATLING_SYNTHESIS_REFUND  = 325;   // 合成返还阳光 = 被消耗的三线射手卡价
+constexpr const int   GATLING_CACTUS_SYNTHESIS_REFUND = 125;   // 合成返还仙人掌卡价
 constexpr const int   THREE_GATLING_ULTIMATE_TICKS    = 300;   // 大招持续帧数（100 逻辑帧/秒 → 3 秒）
 constexpr const int   THREE_GATLING_ULTIMATE_INTERVAL = 3;     // 大招里两波之间的间隔（3 帧 = 0.03 秒）
 constexpr const int   THREE_GATLING_BULLETS_PER_ROW   = 1;     // 每一行、每一波发几颗

@@ -355,6 +355,7 @@ void DrawSeedPacket(Graphics* g, float x, float y, PacketType theSeedType, SeedT
 		break;
 
 	case SeedType::SEED_CACTUS:
+	case SeedType::SEED_GATLING_CACTUS:
 		aOffsetX = 9.0f;
 		aOffsetY = 13.0f;
 		break;

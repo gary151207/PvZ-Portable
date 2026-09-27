@@ -222,6 +222,7 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	{ ReanimationType::REANIM_HYPNOSHROOM_FUME,                      "reanim/FumeShroom.reanim",                        1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_POISON_PEASHOOTER,                     "reanim/PoisonPeashooter.reanim",                  1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_POISON_PEA_PROJECTILE,                 "reanim/PoisonPeashooterProjectile.reanim",        1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_GATLING_CACTUS,                        "reanim/GatlingCactus.reanim",                     1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

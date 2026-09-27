@@ -243,6 +243,7 @@ class SeedType(IntEnum):
     SEED_SPORESHROOM = 62
     SEED_HYPNOSHROOM_FUME = 63
     SEED_POISON_PEASHOOTER = 64
+    SEED_GATLING_CACTUS = 65
 
 
 class PacketKind(IntEnum):
@@ -404,6 +405,7 @@ PLANT_NAMES = {
     SeedType.SEED_SPIKEROCK: "Spikerock",
     SeedType.SEED_COBCANNON: "Cob Cannon",
     SeedType.SEED_IMITATER: "Imitater",
+    SeedType.SEED_GATLING_CACTUS: "Gatling Cactus",
 }
 
 

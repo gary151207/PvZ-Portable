@@ -1904,6 +1904,13 @@ static void SyncPlantsPortable(PortableSaveContext& theContext, Board* theBoard)
 		{
 			WriteGameObjectField(aOut, 1U, thePlant);
 			AppendFieldWithSync(aOut, PORTABLE_FIELD_TAIL, [&](PortableSaveContext& c){ SyncPlantTailPortable(c, thePlant); });
+			if (thePlant.mSeedType == SeedType::SEED_GATLING_CACTUS)
+			{
+				AppendFieldWithSync(aOut, 101U, [&](PortableSaveContext& c){
+					c.SyncInt32(thePlant.mGatlingScatterCountdown);
+					c.SyncInt32(thePlant.mGatlingScatterChance);
+				});
+			}
 		},
 		[&](uint32_t aFieldId, const unsigned char* aData, size_t aSize, Plant& thePlant)
 		{
@@ -1914,7 +1921,20 @@ static void SyncPlantsPortable(PortableSaveContext& theContext, Board* theBoard)
 			case 3U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncEnum(thePlant.mSeedType); }); break; // legacy
 			case 4U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncEnum(thePlant.mImitaterType); }); break; // legacy
 			case 5U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(thePlant.mPottedPlantIndex); }); break; // legacy
-			case PORTABLE_FIELD_TAIL: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ SyncPlantTailPortable(c, thePlant); }); break;
+			case PORTABLE_FIELD_TAIL:
+				ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ SyncPlantTailPortable(c, thePlant); });
+				if (thePlant.mSeedType == SeedType::SEED_GATLING_CACTUS)
+				{
+					thePlant.mGatlingScatterCountdown = 0;
+					thePlant.mGatlingScatterChance = 3;
+				}
+				break;
+			case 101U:
+				ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){
+					c.SyncInt32(thePlant.mGatlingScatterCountdown);
+					c.SyncInt32(thePlant.mGatlingScatterChance);
+				});
+				break;
 			default: break;
 			}
 		});

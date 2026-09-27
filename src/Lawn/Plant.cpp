@@ -120,6 +120,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     //   默认写原版大喷菇的 reanim：只有专用贴图确实可用时，HypnoFumeshroomReanimType() 才会把运行时
     //   类型换成 REANIM_HYPNOSHROOM_FUME —— 这样即使漏改某个调用点，也只会退回原版观感，不会出问题。
     { SeedType::SEED_POISON_PEASHOOTER, nullptr, ReanimationType::REANIM_POISON_PEASHOOTER, 0, 175, 500, PlantSubClass::SUBCLASS_SHOOTER, 150, "POISON_PEASHOOTER" },
+    { SeedType::SEED_GATLING_CACTUS, nullptr, ReanimationType::REANIM_GATLING_CACTUS, 15, 125, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "GATLING_CACTUS" },
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -1076,6 +1077,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         aBodyReanim->mAnimRate = RandRangeFloat(15.0f, 20.0f);
         break;
     case SeedType::SEED_CACTUS:
+    case SeedType::SEED_GATLING_CACTUS:
         mState = PlantState::STATE_CACTUS_LOW;
         break;
     case SeedType::SEED_INSTANT_COFFEE:
@@ -1261,6 +1263,9 @@ int Plant::GetDamageRangeFlags(PlantWeapon thePlantWeapon)
     {
     case SeedType::SEED_CACTUS:
         return thePlantWeapon == PlantWeapon::WEAPON_SECONDARY ? 1 : 2;
+    case SeedType::SEED_GATLING_CACTUS:
+        // Primary detects flying targets for growth; Secondary hits ground and air.
+        return thePlantWeapon == PlantWeapon::WEAPON_PRIMARY ? 2 : 3;
     case SeedType::SEED_CHERRYBOMB:
     case SeedType::SEED_JALAPENO:
     case SeedType::SEED_COBCANNON:
@@ -1512,6 +1517,14 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
                 mGatlingScatterCountdown = 300;  // 每轮开始判定开大（3 s）
             }
         }
+    }
+    else if (mSeedType == SeedType::SEED_GATLING_CACTUS)
+    {
+        const char* aShootAnim = mState == PlantState::STATE_CACTUS_HIGH ? "anim_shootinghigh" : "anim_shooting";
+        PlayBodyReanim(aShootAnim, ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 35.0f);
+        mShootingCounter = 100;
+        if (mGatlingScatterCountdown == 0 && Rand(100) < mGatlingScatterChance)
+            mGatlingScatterCountdown = 300;
     }
     else if (mState == PlantState::STATE_CACTUS_HIGH)
     {
@@ -1829,6 +1842,11 @@ void Plant::UpdateShooter()
         {
             FindTargetAndFire(mRow, PlantWeapon::WEAPON_PRIMARY);
             FindTargetAndFire(mRow, PlantWeapon::WEAPON_SECONDARY);
+        }
+        else if (mSeedType == SeedType::SEED_GATLING_CACTUS)
+        {
+            if (mState == PlantState::STATE_CACTUS_LOW || mState == PlantState::STATE_CACTUS_HIGH)
+                FindTargetAndFire(mRow, PlantWeapon::WEAPON_SECONDARY);
         }
         else if (mSeedType == SeedType::SEED_CACTUS)
         {
@@ -2768,7 +2786,7 @@ void Plant::UpdateCobCannon()
 
 void Plant::UpdateCactus()
 {
-    if (mShootingCounter > 0)
+    if (mSeedType == SeedType::SEED_CACTUS && mShootingCounter > 0)
         return;
 
     Reanimation* aBodyReanim = mApp->ReanimationGet(mBodyReanimID);
@@ -2790,6 +2808,8 @@ void Plant::UpdateCactus()
     {
         if (FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY) == nullptr)
         {
+            if (mSeedType == SeedType::SEED_GATLING_CACTUS)
+                mShootingCounter = 0;
             mState = PlantState::STATE_CACTUS_LOWERING;
             PlayBodyReanim("anim_lower", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, aBodyReanim->mDefinition->mFPS);
         }
@@ -2804,6 +2824,8 @@ void Plant::UpdateCactus()
     }
     else if (FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY))
     {
+        if (mSeedType == SeedType::SEED_GATLING_CACTUS)
+            mShootingCounter = 0;
         mState = PlantState::STATE_CACTUS_RISING;
         PlayBodyReanim("anim_rise", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, aBodyReanim->mDefinition->mFPS);
         mApp->PlayFoley(FoleyType::FOLEY_PLANTGROW);
@@ -3693,6 +3715,15 @@ void Plant::UpdateAbilities()
         if (mGatlingScatterCountdown == 0)
         {
             mGatlingScatterChance = 3;  // 散射结束，重置概率
+            if (mSeedType == SeedType::SEED_GATLING_CACTUS)
+            {
+                mShootingCounter = 0;
+                mLaunchCounter = 1;
+                if (mState == PlantState::STATE_CACTUS_HIGH)
+                    PlayBodyReanim("anim_idlehigh", ReanimLoopType::REANIM_LOOP, 20, 0.0f);
+                else if (mState == PlantState::STATE_CACTUS_LOW)
+                    PlayIdleAnim(0.0f);
+            }
         }
     }
 
@@ -3714,7 +3745,7 @@ void Plant::UpdateAbilities()
     else if (mSeedType == SeedType::SEED_UMBRELLA)                                              UpdateUmbrella();
     else if (mSeedType == SeedType::SEED_PUMPKINSHELL)                                          UpdatePumpkin();
     else if (mSeedType == SeedType::SEED_COBCANNON)                                             UpdateCobCannon();
-    else if (mSeedType == SeedType::SEED_CACTUS)                                                UpdateCactus();
+    else if (mSeedType == SeedType::SEED_CACTUS || mSeedType == SeedType::SEED_GATLING_CACTUS)  UpdateCactus();
     else if (mSeedType == SeedType::SEED_MAGNETSHROOM)                                          UpdateMagnetShroom();
     else if (mSeedType == SeedType::SEED_GOLD_MAGNET)                                           UpdateGoldMagnetShroom();
     else if (mSeedType == SeedType::SEED_SUNSHROOM)                                             UpdateSunShroom();
@@ -3775,6 +3806,10 @@ bool Plant::IsUpgradableTo(SeedType theUpgradedType)
     // 隐藏的 SEED_THREE_GATLING_PEA 并返还 325 阳光（= 三线射手卡价）。
     // 放行它只是让"三线射手卡落在机枪射手格子上"得到 PLANTING_OK；三线射手卡在空地上照常种植。
     if (theUpgradedType == SeedType::SEED_THREEPEATER && mSeedType == SeedType::SEED_GATLINGPEA)
+    {
+        return true;
+    }
+    if (theUpgradedType == SeedType::SEED_CACTUS && mSeedType == SeedType::SEED_GATLINGPEA)
     {
         return true;
     }
@@ -4699,6 +4734,31 @@ void Plant::UpdateShooting()
     // 大喷菇群：左右小喷菇各喷各的（独立节奏，不受中间头计时影响）
     UpdateTravelPuffHeads();
 
+    // Four shots take almost a full second, but the cactus shooting motion is
+    // much shorter. Return its body to the stock 12 FPS idle as soon as that
+    // motion finishes; the four-shot and ultimate timers keep running below.
+    if (mSeedType == SeedType::SEED_GATLING_CACTUS &&
+        (mState == PlantState::STATE_CACTUS_LOW || mState == PlantState::STATE_CACTUS_HIGH))
+    {
+        Reanimation* aBodyReanim = mApp->ReanimationGet(mBodyReanimID);
+        if (aBodyReanim->mLoopType == ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD && aBodyReanim->mLoopCount > 0)
+        {
+            if (mState == PlantState::STATE_CACTUS_HIGH)
+                PlayBodyReanim("anim_idlehigh", ReanimLoopType::REANIM_LOOP, 20, aBodyReanim->mDefinition->mFPS);
+            else
+                PlayIdleAnim(aBodyReanim->mDefinition->mFPS);
+        }
+    }
+
+    // Keep the three-second barrage independent of the four-shot counter.
+    if (mSeedType == SeedType::SEED_GATLING_CACTUS && mGatlingScatterCountdown > 0)
+    {
+        if ((mState == PlantState::STATE_CACTUS_LOW || mState == PlantState::STATE_CACTUS_HIGH) &&
+            mGatlingScatterCountdown % 2 == 1)
+            Fire(nullptr, mRow, PlantWeapon::WEAPON_SECONDARY);
+        return;
+    }
+
     // 三线机枪射手的大招：与 4 连发计数**解耦** —— 只要散射计时还在（3 秒 = 300 帧），
     // 就每 THREE_GATLING_ULTIMATE_INTERVAL（3 帧 = 0.03 秒）向每一行各发
     // THREE_GATLING_BULLETS_PER_ROW 颗（= 100 波、每行 100 颗），每颗各自带 ±15px 的高度浮动。
@@ -4773,6 +4833,12 @@ void Plant::UpdateShooting()
         {
             Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
         }
+    }
+    else if (mSeedType == SeedType::SEED_GATLING_CACTUS)
+    {
+        if ((mState == PlantState::STATE_CACTUS_LOW || mState == PlantState::STATE_CACTUS_HIGH) &&
+            (mShootingCounter == 18 || mShootingCounter == 35 || mShootingCounter == 51 || mShootingCounter == 68))
+            Fire(nullptr, mRow, PlantWeapon::WEAPON_SECONDARY);
     }
     else if (mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
              mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_FIRE_GATLING_PEA)
@@ -5212,7 +5278,7 @@ float PlantDrawHeightOffset(Board* theBoard, Plant* thePlant, SeedType theSeedTy
     //{
     //    aHeightOffset -= 30.0f;
     //}
-    else if (theSeedType == SeedType::SEED_CACTUS)
+    else if (theSeedType == SeedType::SEED_CACTUS || theSeedType == SeedType::SEED_GATLING_CACTUS)
     {
         return aHeightOffset;
     }
@@ -5511,7 +5577,7 @@ void Plant::DrawShadow(Sexy::Graphics* g, float theOffsetX, float theOffsetY)
         aShadowOffsetY = 46.0f;
         aScale = 1.4f;
     }
-    else if (mSeedType == SeedType::SEED_CACTUS)
+    else if (mSeedType == SeedType::SEED_CACTUS || mSeedType == SeedType::SEED_GATLING_CACTUS)
     {
         aShadowOffsetX = -8.0f;
         aShadowOffsetY = 50.0f;
@@ -6221,6 +6287,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectileType = ProjectileType::PROJECTILE_POISON_PEA;
         break;
     case SeedType::SEED_CACTUS:
+    case SeedType::SEED_GATLING_CACTUS:
     case SeedType::SEED_CATTAIL:
         aProjectileType = ProjectileType::PROJECTILE_SPIKE;
         break;
@@ -6273,7 +6340,8 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
 
     ProjectileType aMainBulletType = aProjectileType;
     if ((mSeedType != SeedType::SEED_GATLINGPEA && mSeedType != SeedType::SEED_ELECTRIC_GATLING_PEA &&
-         mSeedType != SeedType::SEED_SNOW_GATLING_PEA && mSeedType != SeedType::SEED_FIRE_GATLING_PEA) ||
+         mSeedType != SeedType::SEED_SNOW_GATLING_PEA && mSeedType != SeedType::SEED_FIRE_GATLING_PEA &&
+         mSeedType != SeedType::SEED_GATLING_CACTUS) ||
         mGatlingScatterCountdown == 0)
     {
         aMainBulletType = RollGatlingBulletType(aProjectileType);
@@ -6294,6 +6362,21 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     {
         mApp->PlayFoley(FoleyType::FOLEY_PUFF);
     }
+
+    auto GatlingCactusMuzzle = [this](const char* theBarrelTrack, int& theX, int& theY)
+    {
+        Reanimation* aGun = mApp->ReanimationGet(mBodyReanimID);
+        ReanimatorTransform aBarrel;
+        aGun->GetCurrentTransform(aGun->FindTrackIndex(theBarrelTrack), &aBarrel);
+        SexyMatrix3 aBarrelMatrix;
+        Reanimation::MatrixFromTransform(aBarrel, aBarrelMatrix);
+        SexyVector2 aTip = aGun->mOverlayMatrix *
+            (aBarrelMatrix * SexyVector2(aBarrel.mImage->GetCelWidth() * 0.5f, 0.0f));
+        theX = mX + FloatRoundToInt(aTip.x);
+        theY = mY + FloatRoundToInt(aTip.y - IMAGE_PROJECTILECACTUS->GetCelHeight() * 0.5f);
+        if (mState == PlantState::STATE_CACTUS_HIGH)
+            theY = std::max(theY, mY - 50);  // Keep the high shot inside ground-zombie hitboxes too.
+    };
 
     int aOriginX, aOriginY;
     if (mSeedType == SeedType::SEED_PUFFSHROOM)
@@ -6403,6 +6486,13 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aOriginX = mX + 29;
         aOriginY = mY + 21;
     }
+    else if (mSeedType == SeedType::SEED_GATLING_CACTUS)
+    {
+        const char* aBarrel = mShootingCounter == 68 ? "GatlingCactus_barrel1" :
+                              mShootingCounter == 51 ? "GatlingCactus_barrel2" :
+                              mShootingCounter == 18 ? "GatlingCactus_barrel4" : "GatlingCactus_barrel3";
+        GatlingCactusMuzzle(aBarrel, aOriginX, aOriginY);
+    }
     else if (mSeedType == SeedType::SEED_CACTUS)
     {
         if (thePlantWeapon == PlantWeapon::WEAPON_PRIMARY)
@@ -6426,7 +6516,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aOriginX = mX + 10;
         aOriginY = mY + 5;
     }
-    if (mBoard->GetFlowerPotAt(mPlantCol, mRow))
+    if (mSeedType != SeedType::SEED_GATLING_CACTUS && mBoard->GetFlowerPotAt(mPlantCol, mRow))
     {
         aOriginY -= 5;
     }
@@ -6459,6 +6549,23 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectile->mDamageOverride = 200;
         aProjectile->mSourcePlantID = static_cast<PlantID>(mBoard->mPlants.DataArrayGetID(this));
         aProjectile->mElectricChainSource = PlantFiresElectricChainProjectile(this);
+    }
+    else if (mSeedType == SeedType::SEED_GATLING_CACTUS && mGatlingScatterCountdown > 0)
+    {
+        constexpr float SCATTER_ANGLE = 10.0f;
+        constexpr float SPIKE_SPEED = 3.33f;
+        for (int i = 0; i < 2; i++)
+        {
+            int aSpikeOriginX, aSpikeOriginY;
+            GatlingCactusMuzzle(i == 0 ? "GatlingCactus_barrel2" : "GatlingCactus_barrel4", aSpikeOriginX, aSpikeOriginY);
+            float aAngleRad = DEG_TO_RAD(RandRangeFloat(-SCATTER_ANGLE, SCATTER_ANGLE));
+            Projectile* aSpike = mBoard->AddProjectile(aSpikeOriginX, aSpikeOriginY, mRenderOrder - 1, theRow, ProjectileType::PROJECTILE_SPIKE);
+            aSpike->mMotionType = ProjectileMotion::MOTION_STAR;
+            aSpike->mVelX = SPIKE_SPEED * cos(aAngleRad);
+            aSpike->mVelY = SPIKE_SPEED * sin(aAngleRad);
+            aSpike->mRotation = -aAngleRad;
+            aSpike->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+        }
     }
     else if ((mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
               mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_FIRE_GATLING_PEA) &&
@@ -6538,6 +6645,10 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
             mHasFiredFirstPea = true;
         }
     }
+
+    if (mSeedType == SeedType::SEED_GATLING_CACTUS && mGatlingScatterCountdown == 0 &&
+        Rand(100) < 50 && mGatlingScatterChance < 100)
+        mGatlingScatterChance++;
 
     // Gatling Pea: 正常模式下每发主子弹 50% 概率 +1% 散射概率；每轮开始判定开大
     if ((mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA ||
@@ -6688,7 +6799,8 @@ Zombie* Plant::FindTargetZombie(int theRow, PlantWeapon thePlantWeapon)
         bool needPortalCheck = false;
         if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_PORTAL_COMBAT)
         {
-            if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_CACTUS || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_PEATER_1_5)
+            if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_CACTUS || mSeedType == SeedType::SEED_GATLING_CACTUS ||
+                mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_PEATER_1_5)
             {
                 needPortalCheck = true;
             }

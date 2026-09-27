@@ -1004,6 +1004,7 @@ enum ReanimationType : uint32_t {
                                     // 但装载后把脑袋换成 reanim/HypnoFumeshroom_head.png（见 Plant.cpp）
     REANIM_POISON_PEASHOOTER,
     REANIM_POISON_PEA_PROJECTILE,
+    REANIM_GATLING_CACTUS,
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1142,6 +1143,7 @@ enum SeedType : int32_t
     SEED_SPORESHROOM,                               // 孢子菇（斗蛐蛐 2 专属：抛射孢子，直接击杀后原格繁殖）
     SEED_HYPNOSHROOM_FUME,                          // 魅惑大喷菇（旅行专属形态：魅惑菇 × 大喷菇群 切换，小喷菇切回）
     SEED_POISON_PEASHOOTER,                         // 毒液豌豆射手（斗蛐蛐 2 专属，一阶）
+    SEED_GATLING_CACTUS,                            // 机枪仙人掌（仙人掌种在机枪射手上合成）
     NUM_SEED_TYPES,
     NUM_SEEDS_IN_CHOOSER = 49,
     SEED_NONE = -1

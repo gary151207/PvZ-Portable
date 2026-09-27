@@ -1273,8 +1273,16 @@ int Plant::GetDamageRangeFlags(PlantWeapon thePlantWeapon)
     case SeedType::SEED_CACTUS:
         return thePlantWeapon == PlantWeapon::WEAPON_SECONDARY ? 1 : 2;
     case SeedType::SEED_GATLING_CACTUS:
-        // Primary detects flying targets for growth; Secondary hits ground and air.
-        return thePlantWeapon == PlantWeapon::WEAPON_PRIMARY ? 2 : 3;
+        // 主武器只负责"发现空中目标"：UpdateCactus 用 FindTargetZombie(WEAPON_PRIMARY)
+        // 决定要不要长高，所以它只认飞行单位，本身不参与伤害。
+        if (thePlantWeapon == PlantWeapon::WEAPON_PRIMARY)
+        {
+            return 2;  // DAMAGES_FLYING
+        }
+        // 真正打出去的尖刺（普攻四连发与大招散射都走 WEAPON_SECONDARY）：
+        // 没长高之前只能打地面 —— 空中目标要等它长到 STATE_CACTUS_HIGH 才够得着；
+        // 长高之后地面/空中通吃。
+        return mState == PlantState::STATE_CACTUS_HIGH ? 3 : 1;
     case SeedType::SEED_CHERRYBOMB:
     case SeedType::SEED_JALAPENO:
     case SeedType::SEED_COBCANNON:

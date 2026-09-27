@@ -3,6 +3,15 @@
 
 The extra tracks follow the cactus face and mouth in every frame, including
 rise and lower. Existing Gatling Pea images supply the helmet and barrels.
+
+The stock Cactus_lips track stays exactly as it is in Cactus.reanim (it is the
+cactus mouth's base art, drawn behind the gun). GatlingCactus_lips_overlay adds
+a second, trimmed copy of the same lip on top of the barrels, the way the stock
+Gatling Pea draws GatlingPea_mouth_overlay over its own mouth: the near lip has
+to stay in front of the barrel base, and the barrel recoil must not eat it.
+
+The gun itself is anchored at the lip, offset by (GUN_OFFSET_X, GUN_OFFSET_Y).
+The older GatlingCactus_mouth_overlay cuff is no longer emitted.
 """
 
 import argparse
@@ -15,13 +24,18 @@ SOURCE = ROOT / "res/main/reanim/Cactus.reanim"
 GATLING_SOURCE = ROOT / "res/main/reanim/GatlingPea.reanim"
 TARGET = ROOT / "res/main/reanim/GatlingCactus.reanim"
 FLOWER_TRACKS = {"Cactus_flower", "Cactus_floer_top", "Cactus_floer_top2", "Cactus_floer_top3"}
+# A second copy of the stock lip, drawn after the barrels (see the module
+# docstring). Cactus_lips itself is copied from the source untouched.
+LIPS_OVERLAY_TRACK = "GatlingCactus_lips_overlay"
+LIPS_OVERLAY_IMAGE = "IMAGE_REANIM_GATLINGCACTUS_LIPS_OVERLAY"
 # The four barrels keep the stock Gatling Pea's depth order and its relative
 # centers. ThreeGaling uses roughly half of Gatling Pea's 0.55 barrel scale.
 BARRELS = (("3", -4.0, -5.0), ("4", -5.0, -2.0), ("2", -5.0, -8.0), ("1", -6.5, -5.0))
 BARREL_SCALE = 0.271
 # The cactus lip track sits above and behind its visible mouth. Position the
-# gun on the mouth opening, and keep its cuff at the same translated anchor.
-GUN_OFFSET_X = 10.0
+# gun on the mouth opening: the barrels then poke out past the lip's right edge
+# while the lip's near half covers their base.
+GUN_OFFSET_X = 5.0
 GUN_OFFSET_Y = 10.0
 
 
@@ -118,15 +132,21 @@ def generate():
                               lip["ky"] + motion["ky"] - rest["ky"]))
         result += new_track(f"GatlingCactus_barrel{segment}", "IMAGE_REANIM_GATLINGPEA_BARREL", positions) + "\n"
 
-    # This original painted lip cuff covers the joins of the four metal tubes.
-    # The 40x80 transparent sprite is displayed at about 16x32 pixels.
+    # The same lip again, this time on top of the barrels (the layer slot the
+    # stock Gatling Pea gives its own mouth overlay). It reuses the stock lip's
+    # per-frame position, scale and tilt; the trimmed art covers the barrels'
+    # base only, so the gun reads as coming out from behind the near lip and the
+    # recoil can never eat that edge.
     positions = []
     for lip in lips:
-        positions.append((lip["x"] + GUN_OFFSET_X - 5.5, lip["y"] + GUN_OFFSET_Y - 4.0,
-                          0.4 * lip["sx"] / 0.8, 0.4 * lip["sy"] / 0.8,
+        positions.append((lip["x"], lip["y"], lip["sx"], lip["sy"],
                           lip["kx"], lip["ky"]))
-    result += new_track("GatlingCactus_mouth_overlay", "IMAGE_REANIM_GATLINGCACTUS_MOUTH_OVERLAY", positions) + "\n"
+    result += new_track(LIPS_OVERLAY_TRACK, LIPS_OVERLAY_IMAGE, positions) + "\n"
 
+    # The old painted "lip cuff" (GatlingCactus_mouth_overlay, a 40x80 crescent
+    # at 0.4 scale) is deliberately not emitted any more: it read as a stray
+    # green hook hanging below the gun. res/main/reanim keeps the PNG in case the
+    # art is wanted again.
     positions = []
     for head in face:
         positions.append((head["x"] - 7.0, head["y"] - 12.0,

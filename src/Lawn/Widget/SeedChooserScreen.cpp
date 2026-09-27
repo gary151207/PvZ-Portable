@@ -305,10 +305,12 @@ bool SeedChooserScreen::Has7Rows()
 void SeedChooserScreen::GetSeedPositionInChooser(int theIndex, int& x, int& y)
 {
 	if ((SeedType)theIndex == SeedType::SEED_SPORESHROOM ||
-	    (SeedType)theIndex == SeedType::SEED_POISON_PEASHOOTER)
+	    (SeedType)theIndex == SeedType::SEED_POISON_PEASHOOTER ||
+	    (SeedType)theIndex == SeedType::SEED_COCONUT_CANNON)
 	{
-		// 第二页先放孢子菇，再放毒液豌豆射手。
-		int aPageIndex = NUM_TRAVEL_PLANTS + ((SeedType)theIndex == SeedType::SEED_POISON_PEASHOOTER ? 1 : 0);
+		// 第二页依次放孢子菇、毒液豌豆射手、椰子加农炮。
+		int aPageIndex = NUM_TRAVEL_PLANTS + ((SeedType)theIndex == SeedType::SEED_SPORESHROOM ? 0 :
+		    (SeedType)theIndex == SeedType::SEED_POISON_PEASHOOTER ? 1 : 2);
 		int aRow = aPageIndex / 8;
 		int aCol = aPageIndex % 8;
 		x = aCol * 53 + 22;
@@ -1163,11 +1165,12 @@ bool SeedChooserScreen::PickedPlantType(SeedType theSeedType)
 bool SeedChooserScreen::SeedShownOnChooserPage(SeedType theSeedType)
 {
 	bool aCricket2Extra = mApp->IsCricketFight2Level() &&
-		(theSeedType == SeedType::SEED_SPORESHROOM || theSeedType == SeedType::SEED_POISON_PEASHOOTER);
+		(theSeedType == SeedType::SEED_SPORESHROOM || theSeedType == SeedType::SEED_POISON_PEASHOOTER ||
+		 theSeedType == SeedType::SEED_COCONUT_CANNON);
 	if (mChooserPage == 1)
 		return (IsTravelOnlySeed(theSeedType) && mApp->HasTravelChooserPage()) || aCricket2Extra;
 	return !IsTravelOnlySeed(theSeedType) && theSeedType != SeedType::SEED_SPORESHROOM &&
-	       theSeedType != SeedType::SEED_POISON_PEASHOOTER;
+	       theSeedType != SeedType::SEED_POISON_PEASHOOTER && theSeedType != SeedType::SEED_COCONUT_CANNON;
 }
 
 void SeedChooserScreen::CloseSeedChooser()

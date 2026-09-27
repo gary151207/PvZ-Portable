@@ -121,6 +121,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     //   类型换成 REANIM_HYPNOSHROOM_FUME —— 这样即使漏改某个调用点，也只会退回原版观感，不会出问题。
     { SeedType::SEED_POISON_PEASHOOTER, nullptr, ReanimationType::REANIM_POISON_PEASHOOTER, 0, 175, 500, PlantSubClass::SUBCLASS_SHOOTER, 150, "POISON_PEASHOOTER" },
     { SeedType::SEED_GATLING_CACTUS, nullptr, ReanimationType::REANIM_GATLING_CACTUS, 15, 125, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "GATLING_CACTUS" },
+    { SeedType::SEED_COCONUT_CANNON, nullptr, ReanimationType::REANIM_COCONUT_CANNON, 0, 400, 500, PlantSubClass::SUBCLASS_NORMAL, 0, "COCONUT_CANNON" },
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -761,6 +762,14 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         }
         mState = PlantState::STATE_READY;
         break;
+    case SeedType::SEED_COCONUT_CANNON:
+        if (aBodyReanim)
+        {
+            aBodyReanim->mAnimRate = 30.0f;
+            aBodyReanim->SetFramesForLayer("anim_idle");
+        }
+        mState = PlantState::STATE_READY;
+        break;
     case SeedType::SEED_BLOVER:
     {
         mDoSpecialCountdown = 50;
@@ -1269,6 +1278,7 @@ int Plant::GetDamageRangeFlags(PlantWeapon thePlantWeapon)
     case SeedType::SEED_CHERRYBOMB:
     case SeedType::SEED_JALAPENO:
     case SeedType::SEED_COBCANNON:
+    case SeedType::SEED_COCONUT_CANNON:
     case SeedType::SEED_DOOMSHROOM:
         return 127;
     case SeedType::SEED_MELONPULT:
@@ -3709,6 +3719,12 @@ void Plant::UpdateAbilities()
 
     if (mStateCountdown > 0)
         mStateCountdown--;
+    if (mSeedType == SeedType::SEED_COCONUT_CANNON && mState == PlantState::STATE_NOTREADY &&
+        mShootingCounter == 0 && mStateCountdown == 0)
+    {
+        mState = PlantState::STATE_READY;
+        PlayIdleAnim(30.0f);
+    }
     if (mGatlingScatterCountdown > 0)
     {
         mGatlingScatterCountdown--;
@@ -4795,6 +4811,18 @@ void Plant::UpdateShooting()
         // 该植物只在 use_action 出弹；不能继续落入计数为 1 的普通射手分支。
         return;
     }
+    if (mSeedType == SeedType::SEED_COCONUT_CANNON)
+    {
+        // 普攻 use_action 位于 40 帧攻击段的第 12 帧；30 FPS 下约 40 tick。
+        if (mShootingCounter == 93)
+        {
+            Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
+            mStateCountdown = 1500;
+        }
+        if (mShootingCounter == 1)
+            PlayBodyReanim("anim_recover", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+        return;
+    }
 
     // 激光豌豆：节奏由 mLaunchRate = LASER_PEA_LAUNCH_RATE（20 帧 = 0.2 秒）决定。
     //
@@ -5879,6 +5907,19 @@ void Plant::MouseDown(int x, int y, int theClickCount)
     if (theClickCount < 0)
         return;
 
+    if (mSeedType == SeedType::SEED_COCONUT_CANNON)
+    {
+        if (IsOnBoard() && !mDead && !mSquished && mPlantHealth > 0 &&
+            mOnBungeeState == PlantOnBungeeState::NOT_ON_BUNGEE &&
+            mState == PlantState::STATE_READY && mShootingCounter == 0)
+        {
+            mState = PlantState::STATE_NOTREADY;
+            PlayBodyReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+            mShootingCounter = 133;
+        }
+        return;
+    }
+
     // 1.5 发射手（旅行红卡）：种下 PEATER_1_5_UPGRADE_DELAY 帧后，点击即可免费升级为双发射手
     // （不消耗阳光、不需要升级卡；替换流程与引擎的升级种植一致：先销毁原植物，再原地种新植物）
     if (mSeedType == SeedType::SEED_PEATER_1_5)
@@ -6286,6 +6327,9 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     case SeedType::SEED_POISON_PEASHOOTER:
         aProjectileType = ProjectileType::PROJECTILE_POISON_PEA;
         break;
+    case SeedType::SEED_COCONUT_CANNON:
+        aProjectileType = ProjectileType::PROJECTILE_COCONUT;
+        break;
     case SeedType::SEED_CACTUS:
     case SeedType::SEED_GATLING_CACTUS:
     case SeedType::SEED_CATTAIL:
@@ -6350,7 +6394,8 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         // （大招里每 0.2 秒一声，正是"稳定连发"的听感）。
         if (mSeedType != SeedType::SEED_THREE_GATLING_PEA || theRow == mRow)
         {
-            mApp->PlayFoley(FoleyType::FOLEY_THROW);
+            mApp->PlayFoley(mSeedType == SeedType::SEED_COCONUT_CANNON
+                ? FoleyType::FOLEY_COB_LAUNCH : FoleyType::FOLEY_THROW);
         }
     }
     if (mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_WINTERMELON)
@@ -6399,6 +6444,11 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         // 攻击帧枪口约在本体原点 (+89, +32)；出弹点使一级弹体主体贴近枪口。
         aOriginX = mX + 101;
         aOriginY = mY + 35;
+    }
+    else if (mSeedType == SeedType::SEED_COCONUT_CANNON)
+    {
+        aOriginX = mX + 65;
+        aOriginY = mY + 6;
     }
     else if (mSeedType == SeedType::SEED_CABBAGEPULT)
     {
@@ -7300,6 +7350,10 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
     else if (theSeedType == SeedType::SEED_POISON_PEASHOOTER)
     {
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_POISON_PEA_PROJECTILE, true);
+    }
+    else if (theSeedType == SeedType::SEED_COCONUT_CANNON)
+    {
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_COCONUT_PROJECTILE, true);
     }
     else if (Plant::IsNocturnal(theSeedType))
     {

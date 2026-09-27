@@ -2788,7 +2788,8 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 		if (theSeedType >= SeedType::SEED_PEASHOOTER && theSeedType <= SeedType::SEED_IMITATER)
 			return true;
 		return theSeedType == SeedType::SEED_SPORESHROOM ||
-		       theSeedType == SeedType::SEED_POISON_PEASHOOTER || IsTravelOnlySeed(theSeedType);
+		       theSeedType == SeedType::SEED_POISON_PEASHOOTER ||
+		       theSeedType == SeedType::SEED_COCONUT_CANNON || IsTravelOnlySeed(theSeedType);
 	}
 
 	if (IsTrialStageLocked() && theSeedType >= SeedType::SEED_JALAPENO)
@@ -2835,6 +2836,7 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 		return IsTravelLevel(mGameMode);   // 旅行专属红卡：仅旅行关可选/拥有
 	case SeedType::SEED_SPORESHROOM:
 	case SeedType::SEED_POISON_PEASHOOTER:
+	case SeedType::SEED_COCONUT_CANNON:
 		return false;                       // 首版仅斗蛐蛐 2 可选
 	default:
 		return theSeedType < GetSeedsAvailable();

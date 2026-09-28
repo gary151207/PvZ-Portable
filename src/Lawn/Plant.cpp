@@ -122,6 +122,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_POISON_PEASHOOTER, nullptr, ReanimationType::REANIM_POISON_PEASHOOTER, 0, 175, 500, PlantSubClass::SUBCLASS_SHOOTER, 150, "POISON_PEASHOOTER" },
     { SeedType::SEED_GATLING_CACTUS, nullptr, ReanimationType::REANIM_GATLING_CACTUS, 15, 125, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "GATLING_CACTUS" },
     { SeedType::SEED_COCONUT_CANNON, nullptr, ReanimationType::REANIM_COCONUT_CANNON, 0, 400, 500, PlantSubClass::SUBCLASS_NORMAL, 0, "COCONUT_CANNON" },
+    { SeedType::SEED_WIND_PEASHOOTER, nullptr, ReanimationType::REANIM_WIND_PEASHOOTER, 0, 200, 750, PlantSubClass::SUBCLASS_SHOOTER, 75, "WIND_PEASHOOTER" },  // 风神豌豆射手（旅行红卡）：200 阳光 / 7.5 秒冷却，每发 40 伤害风神豌豆 + 击退僵尸，其余节奏同豌豆射手
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -701,6 +702,9 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mScaredyShroomLaunchRate = 150;
     mSubclass = aPlantDef.mSubClass;
     mRenderOrder = CalcRenderOrder();
+    // 精英豌豆射手：只有豌豆射手与双发射手各有 20% 概率是"精英"（淡蓝 + 日光 + 波浪散射）。
+    // 风神豌豆射手**明确不参与**：它不做首发大豌豆、也不做精英掷骰，
+    // 每一发都是同样的 40 伤害风神豌豆 + 击退（防回归断言见 scripts/check-wind-peashooter.ps1）。
     mIsElite = ((theSeedType == SeedType::SEED_PEASHOOTER || theSeedType == SeedType::SEED_REPEATER) && Sexy::Rand(100) < 20);
     mHasFiredFirstPea = false;
     mPeater15DoubleShot = false;
@@ -799,6 +803,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     case SeedType::SEED_FIRE_PEASHOOTER:
     case SeedType::SEED_FIRE_GATLING_PEA:
     case SeedType::SEED_LASER_PEA:
+    case SeedType::SEED_WIND_PEASHOOTER:
         if (aBodyReanim)
         {
             aBodyReanim->mAnimRate = RandRangeFloat(15.0f, 20.0f);
@@ -4332,7 +4337,7 @@ Reanimation* Plant::AttachBlinkAnim(Reanimation* theReanimBody)
             aTrackToAttach = "anim_face2";
         }
     }
-    else if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_LEFTPEATER || mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_PEATER_1_5 || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_FIRE_PEASHOOTER || mSeedType == SeedType::SEED_FIRE_GATLING_PEA || mSeedType == SeedType::SEED_LASER_PEA)
+    else if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_LEFTPEATER || mSeedType == SeedType::SEED_GATLINGPEA || mSeedType == SeedType::SEED_PEATER_1_5 || mSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || mSeedType == SeedType::SEED_SNOW_GATLING_PEA || mSeedType == SeedType::SEED_FIRE_PEASHOOTER || mSeedType == SeedType::SEED_FIRE_GATLING_PEA || mSeedType == SeedType::SEED_LASER_PEA || mSeedType == SeedType::SEED_WIND_PEASHOOTER)
     {
         if (theReanimBody->TrackExists("anim_stem"))
         {
@@ -6335,6 +6340,11 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     case SeedType::SEED_POISON_PEASHOOTER:
         aProjectileType = ProjectileType::PROJECTILE_POISON_PEA;
         break;
+    case SeedType::SEED_WIND_PEASHOOTER:
+        // 风神豌豆射手：风神豌豆（单体 40 伤害，命中时把僵尸往回推 —— 见 Projectile::DoImpact）。
+        // 它**不**参与豌豆射手那发"首发大豌豆"（下面是 mHasFiredFirstPea 的专属分支）。
+        aProjectileType = ProjectileType::PROJECTILE_WIND_PEA;
+        break;
     case SeedType::SEED_COCONUT_CANNON:
         aProjectileType = ProjectileType::PROJECTILE_COCONUT;
         break;
@@ -6483,7 +6493,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aOriginX = mX + 12;
         aOriginY = mY - 56;
     }
-    else if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_PEATER_1_5 || mSeedType == SeedType::SEED_FIRE_PEASHOOTER)
+    else if (mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_SNOWPEA || mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_PEATER_1_5 || mSeedType == SeedType::SEED_FIRE_PEASHOOTER || mSeedType == SeedType::SEED_WIND_PEASHOOTER)
     {
         int aOffsetX, aOffsetY;
         GetPeaHeadOffset(aOffsetX, aOffsetY);
@@ -7235,13 +7245,15 @@ bool Plant::IsRedCard(SeedType theSeedtype)
     // 究极电能机枪射手（旅行专属，贴图 = 主体/枪管变白的机枪射手）、
     // 究极电能星星果（旅行专属，贴图 = 主体/眼睛变电光蓝的杨桃）、
     // 火豌豆射手（旅行专属，贴图 = 带火的豌豆射手，叶子位置被火焰取代）、
-    // 激光豌豆（旅行专属，外观 = 只有一根枪管的机枪射手，每 0.8 秒一道贯穿激光）。
+    // 激光豌豆（旅行专属，外观 = 只有一根枪管的机枪射手，每 0.8 秒一道贯穿激光）、
+    // 风神豌豆射手（旅行专属，贴图 = 加上三叶草叶子的豌豆射手，每发 40 点并击退僵尸）。
     return theSeedtype == SeedType::SEED_GIANT_WALLNUT ||
            theSeedtype == SeedType::SEED_PEATER_1_5 ||
            theSeedtype == SeedType::SEED_ELECTRIC_GATLING_PEA ||
            theSeedtype == SeedType::SEED_ELECTRIC_STARFRUIT ||
            theSeedtype == SeedType::SEED_FIRE_PEASHOOTER ||
-           theSeedtype == SeedType::SEED_LASER_PEA;
+           theSeedtype == SeedType::SEED_LASER_PEA ||
+           theSeedtype == SeedType::SEED_WIND_PEASHOOTER;
 }
 
 Rect Plant::GetPlantRect()

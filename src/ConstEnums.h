@@ -833,7 +833,8 @@ enum ProjectileType : int32_t
     PROJECTILE_SPORESHROOM = 18,  // 孢子菇孢子（40 伤害；直接击杀后在目标所在格繁殖）
     PROJECTILE_POISON_PEA = 19,  // 毒液豌豆射手的一阶毒液豌豆
     PROJECTILE_COCONUT = 20,     // 椰子加农炮的一阶炮弹
-    NUM_PROJECTILES = 21
+    PROJECTILE_WIND_PEA = 21,    // 风神豌豆（风神豌豆射手：40 伤害单体命中 + 击退僵尸）
+    NUM_PROJECTILES = 22
 };
 enum ReanimationType : uint32_t {
     REANIM_NONE = static_cast<uint32_t>(-1),
@@ -1008,6 +1009,9 @@ enum ReanimationType : uint32_t {
     REANIM_GATLING_CACTUS,
     REANIM_COCONUT_CANNON,
     REANIM_COCONUT_PROJECTILE,
+    REANIM_WIND_PEASHOOTER,         // 风神豌豆射手：**独立的** reanim/WindPeashooter.reanim
+                                    //（豌豆射手副本 + 三条三叶草叶片轨道，见
+                                    //  scripts/gen-wind-peashooter-reanim.py）
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1148,6 +1152,7 @@ enum SeedType : int32_t
     SEED_POISON_PEASHOOTER,                         // 毒液豌豆射手（斗蛐蛐 2 专属，一阶）
     SEED_GATLING_CACTUS,                            // 机枪仙人掌（仙人掌种在机枪射手上合成）
     SEED_COCONUT_CANNON,                            // 椰子加农炮（斗蛐蛐 2 专属，一阶）
+    SEED_WIND_PEASHOOTER,                           // 风神豌豆射手（旅行红卡：200 阳光，40 伤害风神豌豆 + 击退僵尸）
     NUM_SEED_TYPES,
     NUM_SEEDS_IN_CHOOSER = 49,
     SEED_NONE = -1

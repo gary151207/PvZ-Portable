@@ -38,6 +38,12 @@ constexpr const int LAWN_XMIN = 40;
 constexpr const int LAWN_YMIN = 80;
 constexpr const float GLOOM_KNOCKBACK = 35.0f;   // per-hit knockback distance for Gloom-shroom (pixels, +X)
 constexpr const float UMBRELLA_KNOCKBACK        = 40.0f;  // per-hit knockback distance for Umbrella Leaf (pixels, +X)
+// 风神豌豆射手：每颗风神豌豆命中时把僵尸往回推的距离（像素，+X = 远离植物）。
+// 参照系：普通僵尸的行走速度是 0.23~0.37 像素/帧（23~37 像素/秒），
+// 而风神豌豆的发射节奏与豌豆射手一致（mLaunchRate = 75，实际 60~75 帧一发）——
+// 20 像素/发 ≈ 27~33 像素/秒，正好把一只普通僵尸大致"顶"在原地（跑得快的那种仍会缓慢逼近）。
+// 这是这只植物的定义特征，想调手感就只动这一个数。
+constexpr const float WIND_PEA_KNOCKBACK        = 20.0f;  // per-hit knockback distance for Wind Peashooter (pixels, +X)
 constexpr const int   UMBRELLA_KNOCKBACK_DAMAGE = 50;     // HP the leaf loses per shove (self-exhaustion cost)
 constexpr const int   UMBRELLA_KNOCKBACK_COOLDOWN = 90;   // frames of attack+cooldown per cycle (~0.9s @ 100fps)
 constexpr const int   UMBRELLA_REGEN_AMOUNT      = 25;     // HP recovered per regen tick

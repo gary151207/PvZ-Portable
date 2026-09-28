@@ -42,8 +42,10 @@ Assert-Source (P 'src/ConstEnums.h') 'SEED_PEATER_1_5,[\s\S]{0,600}SEED_ELECTRIC
 Assert-Source $plantPath 'SeedType::SEED_ELECTRIC_GATLING_PEA,\s*nullptr,\s*ReanimationType::REANIM_GATLINGPEA,\s*5,\s*200,\s*3000,\s*PlantSubClass::SUBCLASS_SHOOTER,\s*100,\s*"ELECTRIC_GATLING_PEA"' 'gPlantDefs row must default to REANIM_GATLINGPEA / 200 sun / 3000 refresh / SHOOTER / 100 launch rate / "ELECTRIC_GATLING_PEA".'
 
 # --- dedicated reanim type: same file as the Gatling Pea, own definition slot ---
-# Window widened to 900 chars for the same reason as the seed enum above.
-Assert-Source (P 'src/ConstEnums.h') 'REANIM_FLAG,[\s\S]{0,600}REANIM_ELECTRIC_GATLINGPEA,[\s\S]{0,2000}NUM_REANIMS' 'REANIM_ELECTRIC_GATLINGPEA must be declared after REANIM_FLAG and before NUM_REANIMS (later mod reanims appended after it are fine).'
+# Window widened to 900 chars for the same reason as the seed enum above;
+# 再到 2600：REANIM_ELECTRIC_GATLINGPEA 与 NUM_REANIMS 之间又追加了多个模组 reanim
+# （激光豌豆、孢子菇、椰子加农炮、风神豌豆射手），旧窗口会因"注释变长"而误报。
+Assert-Source (P 'src/ConstEnums.h') 'REANIM_FLAG,[\s\S]{0,600}REANIM_ELECTRIC_GATLINGPEA,[\s\S]{0,2600}NUM_REANIMS' 'REANIM_ELECTRIC_GATLINGPEA must be declared after REANIM_FLAG and before NUM_REANIMS (later mod reanims appended after it are fine).'
 Assert-Source (P 'src/Sexy.TodLib/Reanimator.cpp') 'REANIM_ELECTRIC_GATLINGPEA,\s*"reanim/GatlingPea\.reanim"' 'The electric type must load the same reanim file as the Gatling Pea (its images are patched afterwards).'
 
 # --- custom art: swapped per FRAME by original image pointer (blink tracks use two images) ---

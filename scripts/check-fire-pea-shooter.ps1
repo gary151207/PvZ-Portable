@@ -118,7 +118,9 @@ Assert-Source (P 'src/Lawn/System/ReanimationLawn.cpp') 'SEED_SNOW_GATLING_PEA \
 $fireBody = [regex]::Match($plantCpp, 'void Plant::Fire\([\s\S]*?\n\}')
 if (-not $fireBody.Success) { throw 'Could not find Plant::Fire body.' }
 if ($fireBody.Value -notmatch 'case SeedType::SEED_FIRE_PEASHOOTER:[\s\S]{0,800}PROJECTILE_PURPLE_FIRE_PEA') { throw 'Plant::Fire switch must map SEED_FIRE_PEASHOOTER to PROJECTILE_PURPLE_FIRE_PEA.' }
-if ($fireBody.Value -notmatch 'SEED_PEATER_1_5 \|\| mSeedType == SeedType::SEED_FIRE_PEASHOOTER\)[\s\S]{0,160}GetPeaHeadOffset') { throw 'Plant::Fire must use the pea-head muzzle offset for SEED_FIRE_PEASHOOTER.' }
+# 风神豌豆射手（同为豌豆射手系）在这条条件的末尾又追加了一个 || 分支，所以这里不再要求
+# SEED_FIRE_PEASHOOTER 后面紧跟 ')'：只要求从它到 GetPeaHeadOffset 之间不超过 260 字符。
+if ($fireBody.Value -notmatch 'SEED_PEATER_1_5 \|\| mSeedType == SeedType::SEED_FIRE_PEASHOOTER[\s\S]{0,260}GetPeaHeadOffset') { throw 'Plant::Fire must use the pea-head muzzle offset for SEED_FIRE_PEASHOOTER.' }
 
 $projCpp = Get-Content -Raw -Encoding UTF8 -LiteralPath (P 'src/Lawn/Projectile.cpp')
 # --- 弹丸：65 伤害 + 紫火 reanim + 群伤 + 易伤挂在伤害之后 + 命中不炸火 ---

@@ -225,6 +225,11 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	{ ReanimationType::REANIM_GATLING_CACTUS,                        "reanim/GatlingCactus.reanim",                     1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_COCONUT_CANNON,                        "reanim/CoconutCannon.reanim",                     1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_COCONUT_PROJECTILE,                    "reanim/CoconutCannonProjectile.reanim",           1 << ReanimFlags::REANIM_NO_ATLAS },
+	// 风神豌豆射手：**自己一个 reanim 文件**（豌豆射手 PeaShooterSingle.reanim 的副本 + 三条三叶草叶片轨道，
+	// 引用原版 IMAGE_REANIM_BLOVER_PETAL）。因为骨架与贴图名都直接写在文件里，不需要任何运行期换图；
+	// 仍标 REANIM_NO_ATLAS：不建 Atlas，也不会与 REANIM_PEASHOOTER 共用同一批源贴图
+	//（原版豌豆射手因此完全不受影响）。生成器见 scripts/gen-wind-peashooter-reanim.py。
+	{ ReanimationType::REANIM_WIND_PEASHOOTER,                       "reanim/WindPeashooter.reanim",                    1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

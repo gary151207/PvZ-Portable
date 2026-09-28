@@ -196,9 +196,10 @@ _避免_：内讧、僵尸互殴
 
 **红卡 (Red Card)**：
 卡包底色渲染为红色系的旅行高阶卡级（对标紫卡升级卡）。由 `Plant::IsRedCard` 判定；
-当前六张 = **巨大坚果**（`SEED_GIANT_WALLNUT`）、**1.5 发射手**（`SEED_PEATER_1_5`）、
+当前七张 = **巨大坚果**（`SEED_GIANT_WALLNUT`）、**1.5 发射手**（`SEED_PEATER_1_5`）、
 **究极电能机枪射手**（`SEED_ELECTRIC_GATLING_PEA`）、**究极电能星星果**（`SEED_ELECTRIC_STARFRUIT`）、
-**火豌豆射手**（`SEED_FIRE_PEASHOOTER`）与 **激光豌豆**（`SEED_LASER_PEA`）。
+**火豌豆射手**（`SEED_FIRE_PEASHOOTER`）、**激光豌豆**（`SEED_LASER_PEA`）与
+**风神豌豆射手**（`SEED_WIND_PEASHOOTER`）。
 _避免_：红卡植物、稀有卡
 
 **巨大坚果 (Giant Wall-nut)**：
@@ -489,10 +490,39 @@ _避免_：三连机枪射手、机枪三线射手、加特林三线
 一起打进 `main.pak`）。观感（枪管落在哪、朝哪、大小）仍以进游戏为准。
 _避免_：激光射手、激光机枪射手、镭射豌豆
 
+**风神豌豆射手 (Wind Peashooter)**：
+旅行专属**红卡**（`SEED_WIND_PEASHOOTER`，**可直接种下**，无升级/合成路径）：**200 阳光**、
+普通短冷却（`mRefreshTime = 750`，7.5 秒）、300 生命、`PlantSubClass::SUBCLASS_SHOOTER`。
+**其余机制同豌豆射手**：同样的出弹节奏（`mLaunchRate = 75`，实际 `75 - Rand(15)` 帧）、
+同样的索敌/护盾结算/`anim_shooting` 收招/卡面缩放。**不做的有两件**：豌豆射手那发"首发大豌豆"
+（`mHasFiredFirstPea`：300 伤害 + 2 倍体型，仍然只挂在 `SEED_PEASHOOTER` 上）与
+**精英形态**（`mIsElite` 仍然只认豌豆射手/双发射手）——每一发都是同样的 40 伤害风神豌豆 + 击退，
+不会出现淡蓝 + 波浪弹道的精英个体（两条都有防回归断言）。
+**攻击**：发射风神豌豆（`PROJECTILE_WIND_PEA`），**单体 40 点**，
+命中时调用 `Zombie::KnockBack(WIND_PEA_KNOCKBACK = 20)` 把僵尸**往回推 20 像素**
+（+X = 远离植物）。20 像素/发 ≈ 27~33 像素/秒，正好把一只普通僵尸（0.23~0.37 像素/帧）
+大致顶在原地；免疫规则全部沿用 `Zombie::KnockBack` 那一份（冰车/投石车、空中阶段、
+愤怒的读报僵尸推不动），且**只在伤害结算之后、目标仍存活时**推。
+**不是**火属性弹丸：穿过火炬树桩**不会**被点燃，也不参与群伤。
+**贴图**：`reanim/WindPeashooter.reanim` = **普通豌豆射手那张 reanim 的副本 + 三片三叶草叶子**。
+新增 `ReanimationType::REANIM_WIND_PEASHOOTER`（**独立 reanim 文件**、`REANIM_NO_ATLAS`，
+原版豌豆射手零影响）；三条轨道 `WindPeashooter_clover1/2/3` 引用原版
+`IMAGE_REANIM_BLOVER_PETAL`（三叶草风扇的叶片），几何照抄 Blover 三片叶子的第 0 帧布局，
+再整体缩放 `0.68` 后挂到豌豆射手自己那支小叶子（`anim_sprout`）上（中心偏移 `(+7, -8)`，
+实机反馈"叶子离脑袋太远"后从 `+1` 调过来）、逐帧跟随其位置与倾角；
+轨道插在 `anim_sprout` / `anim_face` **之前**（绘制顺序 = 轨道顺序），所以三叶草长在脑袋**后面**；
+内容帧区间固定 `29..103`（只在头部层出现）。全部由
+`scripts/gen-wind-peashooter-reanim.py` 生成（顶部常量调参，`--check` 逐字节自检并核对源结构）。
+**入口**：`gTravelPlantDefs`（选卡器页 1 第 8 格）、`HasSeedType` 旅行特判、冰面沙盒旅行页、
+图鉴植物页第 2 页；斗蛐蛐 1 的植物池自动收录。**不新增任何 `.v4` 字段**。
+数值常量：`src/GameConstants.h` 的 `WIND_PEA_KNOCKBACK`。
+_避免_：风神射手、风豌豆、三叶草豌豆射手
+
 ### 关系
 
 - **旅行关卡** 的选卡器可**翻页**；**翻页**第 1 页放**旅行专属植物**（当前：**大喷菇群**、**巨大坚果**、
-  **1.5 发射手**、**究极电能机枪射手**、**究极电能星星果**、**火豌豆射手**、**激光豌豆**）
+  **1.5 发射手**、**究极电能机枪射手**、**究极电能星星果**、**火豌豆射手**、**激光豌豆**、
+  **风神豌豆射手**）
 - **大喷菇群** = 紫卡升级卡：拖到已种**大喷菇**格执行升级；选卡时必须同选**大喷菇**（否则开始被拦）
 - **大喷菇群**三个头各喷各的：中间**大喷菇**烟雾（本行 3×3 穿透），两侧**小喷菇**孢子（单体、微斜、340px 内命中邻行边缘）
 - **魅惑大喷菇** = **大喷菇群**身上的**形态切换**（旅行专属、**没有卡**）：**魅惑菇**卡 → 魅惑大喷菇、
@@ -535,7 +565,12 @@ _避免_：激光射手、激光机枪射手、镭射豌豆
   外观 = 机枪射手，但**只有一根枪管、一张嘴**；每 **0.8 秒**一道**绿色**激光，**可锁定射程内任意一行**的
   僵尸（**优先索敌空中僵尸**），贯穿这条斜线路径上的所有僵尸、每只 **20 点**伤害；
   普通模式不可选/不可拥有（`HasSeedType` 旅行特判）
-- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]`/`[FIRE_PEASHOOTER]`/`[FIRE_GATLING_PEA]`/`[THREE_GATLING_PEA]`/`[LASER_PEA]`/`[HYPNOSHROOM_FUME]` 标准键）
+- **风神豌豆射手** = **红卡**：只出现在旅行关（页 1/沙盒旅行页）；**可直接种下**、200 阳光；
+  外观 = **加上三叶草叶子的豌豆射手**（三片叶子长在脑袋后方，跟着植株摇）；
+  每发风神豌豆 **40 点**伤害并把命中的僵尸**往回推 20 像素**（冰车/投石车与空中的僵尸推不动）；
+  出弹节奏与**豌豆射手**完全一致（含 20% 精英掷骰），但**不发射**豌豆射手那发首发**大豌豆**；
+  普通模式不可选/不可拥有（`HasSeedType` 旅行特判）
+- 翻译文案统一走 `properties/pvzp-strings.xml`（键带 `TRAVEL_` 前缀；植物名/图鉴走 `[FUMESHROOM_GROUP]`/`[GIANT_WALLNUT]`/`[PEATER_1_5]`/`[ELECTRIC_GATLING_PEA]`/`[ELECTRIC_STARFRUIT]`/`[FIRE_PEASHOOTER]`/`[FIRE_GATLING_PEA]`/`[THREE_GATLING_PEA]`/`[LASER_PEA]`/`[WIND_PEASHOOTER]`/`[HYPNOSHROOM_FUME]` 标准键）
   - **必须把该文件复制到当前 `-resdir` 的 `properties/` 里**，否则所有 mod 字符串都显示成
     `<Missing [XXX]>`。`run-pvz.bat` 的 `RESDIR` 就是"当前资源目录"——它换一次，这里就要跟着装一次。
   - 加载顺序（`LawnApp::LoadingThreadProc`）：`TodStringListLoad(LawnStrings.txt)` → `LoadProperties(pvzp-strings.xml)`，

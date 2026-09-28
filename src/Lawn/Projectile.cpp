@@ -60,7 +60,8 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_LASER_PEA, 0, LASER_PEA_DAMAGE },   // 激光豌豆的贯穿光束：路径上每只僵尸 20 伤害
 	{ ProjectileType::PROJECTILE_SPORESHROOM,     0, 40 },  // 孢子菇孢子
 	{ ProjectileType::PROJECTILE_POISON_PEA,     0, 10 },  // 一阶毒液豌豆：直击 10 伤害
-	{ ProjectileType::PROJECTILE_COCONUT,        0, 900 }  // 一阶椰子炮弹：直击 900，周围 300
+	{ ProjectileType::PROJECTILE_COCONUT,        0, 900 },  // 一阶椰子炮弹：直击 900，周围 300
+	{ ProjectileType::PROJECTILE_WIND_PEA,       0, 40 }    // 风神豌豆（风神豌豆射手）：直击 40 + 命中击退僵尸
 };
 
 Projectile::Projectile()
@@ -1129,6 +1130,7 @@ bool Projectile::CantHitHighGround()
 	return (
 		mProjectileType == ProjectileType::PROJECTILE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_POISON_PEA ||
+		mProjectileType == ProjectileType::PROJECTILE_WIND_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
 		mProjectileType == ProjectileType::PROJECTILE_STAR ||
 		mProjectileType == ProjectileType::PROJECTILE_PUFF ||
@@ -1147,6 +1149,7 @@ void Projectile::CheckForHighGround()
 
 	if (mProjectileType == ProjectileType::PROJECTILE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_POISON_PEA ||
+		mProjectileType == ProjectileType::PROJECTILE_WIND_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREBALL ||
 		mProjectileType == ProjectileType::PROJECTILE_SPIKE ||
@@ -1774,6 +1777,15 @@ void Projectile::DoImpact(Zombie* theZombie)
 		theZombie->ApplyFireVulnerability();
 	}
 
+	// 风神豌豆：命中即"一阵风"把僵尸往回推（远离植物，+X）。同样必须在伤害结算**之后**，
+	// 且只推还活着的僵尸（这一发已经把它打死时位置交给死亡动画；KnockBack 会顺手打断啃食，
+	// 对已死目标没有意义）。免疫规则（冰车/投石车、空中阶段、愤怒的读报僵尸）沿用
+	// Zombie::KnockBack 那一份，所以这里的调用点保持最薄。
+	if (mProjectileType == ProjectileType::PROJECTILE_WIND_PEA && theZombie && !theZombie->IsDeadOrDying())
+	{
+		theZombie->KnockBack(WIND_PEA_KNOCKBACK);
+	}
+
 	float aLastPosX = mPosX - mVelX;
 	float aLastPosY = mPosY + mPosZ - mVelY - mVelZ;
 	ParticleEffect aEffect = ParticleEffect::PARTICLE_NONE;
@@ -1820,6 +1832,11 @@ void Projectile::DoImpact(Zombie* theZombie)
 		break;
 	}
 	case ProjectileType::PROJECTILE_PEA:
+		aSplatPosX -= 15.0f;
+		aEffect = ParticleEffect::PARTICLE_PEA_SPLAT;
+		break;
+	case ProjectileType::PROJECTILE_WIND_PEA:
+		// 与普通豌豆同一套命中飞溅（"风"只体现在击退上，见上面的 KnockBack）
 		aSplatPosX -= 15.0f;
 		aEffect = ParticleEffect::PARTICLE_PEA_SPLAT;
 		break;
@@ -1930,6 +1947,7 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_LASER_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_SPORESHROOM ||
 		mProjectileType == ProjectileType::PROJECTILE_POISON_PEA ||
+		mProjectileType == ProjectileType::PROJECTILE_WIND_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_COCONUT)
 	{
 		aTime = 0;
@@ -2005,6 +2023,10 @@ void Projectile::Draw(Graphics* g)
 		break;
 	case ProjectileType::PROJECTILE_PEA:
 	case ProjectileType::PROJECTILE_ZOMBIE_PEA:
+		aImage = IMAGE_PROJECTILEPEA;
+		break;
+	case ProjectileType::PROJECTILE_WIND_PEA:
+		// 风神豌豆：本体就是普通豌豆那张图（"风"体现在命中时的击退上，见 DoImpact）
 		aImage = IMAGE_PROJECTILEPEA;
 		break;
 	case ProjectileType::PROJECTILE_FIREPEA_RED:
@@ -2161,6 +2183,7 @@ void Projectile::DrawShadow(Graphics* g)
 	case ProjectileType::PROJECTILE_PEA:
 	case ProjectileType::PROJECTILE_ZOMBIE_PEA:
 	case ProjectileType::PROJECTILE_FIREPEA_RED:
+	case ProjectileType::PROJECTILE_WIND_PEA:
 		aOffsetX += 3.0f;
 		break;
 
@@ -2250,6 +2273,7 @@ Rect Projectile::GetProjectileRect()
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
 		mProjectileType == ProjectileType::PROJECTILE_ZOMBIE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_POISON_PEA ||
+		mProjectileType == ProjectileType::PROJECTILE_WIND_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_PURPLE_FIRE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREPEA_RED)
 	{

@@ -347,7 +347,8 @@ MemoryImage* ReanimatorCache::MakeCachedPlantFrame(SeedType theSeedType, DrawVar
 			theSeedType == SeedType::SEED_ELECTRIC_GATLING_PEA || theSeedType == SeedType::SEED_SNOW_GATLING_PEA ||
 			theSeedType == SeedType::SEED_FIRE_GATLING_PEA ||
 			theSeedType == SeedType::SEED_FIRE_PEASHOOTER ||
-			theSeedType == SeedType::SEED_LASER_PEA)
+			theSeedType == SeedType::SEED_LASER_PEA ||
+			theSeedType == SeedType::SEED_WIND_PEASHOOTER)
 		{
 			DrawReanimatorFrame(&aMemoryGraphics, -aOffsetX, -aOffsetY, aReanimType, "anim_head_idle", theDrawVariation, theSeedType);
 		}

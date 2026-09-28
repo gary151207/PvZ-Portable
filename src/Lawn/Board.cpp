@@ -1963,6 +1963,7 @@ namespace
 		SeedType::SEED_THREE_GATLING_PEA,    // 三线机枪射手（合成态：沙盒内需先在机枪射手上种三线射手）
 		SeedType::SEED_GATLING_CACTUS,       // 机枪仙人掌（正常关卡合成，沙盒可直接放置）
 		SeedType::SEED_LASER_PEA,            // 激光豌豆（旅行红卡：只有一根枪管的机枪射手，直接种下）
+		SeedType::SEED_WIND_PEASHOOTER,      // 风神豌豆射手（旅行红卡：加上三叶草叶子的豌豆射手，直接种下）
 		SeedType::SEED_HYPNOSHROOM_FUME,     // 魅惑大喷菇（旅行专属形态：沙盒内可直接成株查看）
 	};
 	constexpr int ICE_PLANT_COUNT = sizeof(gIceSandboxPlantSeeds) / sizeof(gIceSandboxPlantSeeds[0]);

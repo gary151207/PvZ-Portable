@@ -238,6 +238,9 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	{ ReanimationType::REANIM_CARROTILLERY,                           "reanim/Carrotillery.reanim",                    1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_CARROT_BULLET,                          "reanim/CarrotilleryBullet.reanim",              1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_CARROT_HIT,                             "reanim/CarrotilleryHit.reanim",                 1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_OAK_ARCHER,                              "reanim/OakArcher.reanim",                      1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_OAK_ARROW,                               "reanim/OakArcherArrow.reanim",                 1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_OAK_FROST_ARROW,                         "reanim/OakArcherFrostArrow.reanim",            1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

@@ -128,6 +128,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_WIND_PEASHOOTER, nullptr, ReanimationType::REANIM_WIND_PEASHOOTER, 0, 200, 750, PlantSubClass::SUBCLASS_SHOOTER, 75, "WIND_PEASHOOTER" },  // 风神豌豆射手（旅行红卡）：200 阳光 / 7.5 秒冷却，每发 40 伤害风神豌豆 + 击退僵尸，其余节奏同豌豆射手
     { SeedType::SEED_LOTUS_POD, nullptr, ReanimationType::REANIM_LOTUS_POD, 0, 200, 500, PlantSubClass::SUBCLASS_SHOOTER, 290, "LOTUS_POD" },
     { SeedType::SEED_CARROTILLERY, nullptr, ReanimationType::REANIM_CARROTILLERY, 0, 450, 1000, PlantSubClass::SUBCLASS_NORMAL, 0, "CARROTILLERY" },
+    { SeedType::SEED_OAK_ARCHER, nullptr, ReanimationType::REANIM_OAK_ARCHER, 0, 275, 750, PlantSubClass::SUBCLASS_SHOOTER, 430, "OAK_ARCHER" },
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -793,6 +794,15 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     case SeedType::SEED_CARROTILLERY:
         mPlantHealth = 750;
         mTargetZombieID = ZombieID::ZOMBIEID_NULL;
+        if (aBodyReanim)
+        {
+            aBodyReanim->mAnimRate = 30.0f;
+            aBodyReanim->SetFramesForLayer("anim_idle");
+        }
+        mState = PlantState::STATE_READY;
+        break;
+    case SeedType::SEED_OAK_ARCHER:
+        mPlantHealth = 900;
         if (aBodyReanim)
         {
             aBodyReanim->mAnimRate = 30.0f;
@@ -1527,6 +1537,13 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
         // 48 帧攻击段在 35 FPS 下约 137 tick；第 155 帧的 use_action
         // 位于段内第 11 帧，31 tick 后出弹（见 UpdateShooting 的 106）。
         mShootingCounter = 137;
+    }
+    else if (mSeedType == SeedType::SEED_OAK_ARCHER)
+    {
+        PlayBodyReanim(Rand(2) == 0 ? "anim_shooting" : "anim_shooting2",
+            ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 10, 30.0f);
+        // Both 104-frame attacks release at frame 72 (240 ticks at 30 FPS).
+        mShootingCounter = 347;
     }
     else if (mSeedType == SeedType::SEED_LOTUS_POD)
     {
@@ -4931,6 +4948,35 @@ void Plant::UpdateShooting()
         // 该植物只在 use_action 出弹；不能继续落入计数为 1 的普通射手分支。
         return;
     }
+    if (mSeedType == SeedType::SEED_OAK_ARCHER)
+    {
+        if (mShootingCounter == 107)
+        {
+            const ProjectileType aArrowType = Rand(100) < 20
+                ? ProjectileType::PROJECTILE_OAK_FROST_ARROW
+                : ProjectileType::PROJECTILE_OAK_ARROW;
+            // The reanim arrowhead is 20 px ahead of its projectile origin.
+            const int aMuzzleX = mX + 40;
+            const int aMuzzleY = mY + 12;
+            for (int aRow = mRow - 1; aRow <= mRow + 1; ++aRow)
+            {
+                if (!mBoard->RowCanHaveZombies(aRow))
+                    continue;
+                const int aLaneY = aMuzzleY + static_cast<int>(
+                    mBoard->GetPosYBasedOnRow(aMuzzleX, aRow) -
+                    mBoard->GetPosYBasedOnRow(aMuzzleX, mRow));
+                const int aRenderOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PROJECTILE, aRow, 0);
+                Projectile* anArrow = mBoard->AddProjectile(aMuzzleX, aLaneY, aRenderOrder, aRow, aArrowType);
+                anArrow->mMotionType = ProjectileMotion::MOTION_STRAIGHT;
+                anArrow->mVelX = 3.33f;
+                anArrow->mDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
+            }
+            mApp->PlayFoley(FoleyType::FOLEY_THROW);
+        }
+        if (mShootingCounter == 0)
+            PlayBodyReanim("anim_idle", ReanimLoopType::REANIM_LOOP, 10, 30.0f);
+        return;
+    }
     if (mSeedType == SeedType::SEED_COCONUT_CANNON)
     {
         // 普攻 use_action 位于 40 帧攻击段的第 12 帧；30 FPS 下约 40 tick。
@@ -7503,6 +7549,11 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
     else if (theSeedType == SeedType::SEED_SPORESHROOM)
     {
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_SPORESHROOM_PROJECTILE, true);
+    }
+    else if (theSeedType == SeedType::SEED_OAK_ARCHER)
+    {
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_OAK_ARROW, true);
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_OAK_FROST_ARROW, true);
     }
     else if (theSeedType == SeedType::SEED_POISON_PEASHOOTER)
     {

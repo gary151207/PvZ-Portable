@@ -54,6 +54,8 @@
 	<String id="LOTUS_POD_TOOLTIP">固定四阶。200 阳光，5 秒冷却；每 2.9–3.1 秒造成 300 点伤害，30% 几率眩晕 2 秒。水中鱼雷可伤及同排两格。</String>
 	<String id="CARROTILLERY">胡萝卜导弹车</String>
 	<String id="CARROTILLERY_TOOLTIP">固定四阶。450 阳光，10 秒卡片冷却，750 点生命。锁定同行一只僵尸，在约 3 秒内连射四枚飞弹；每枚直击 1000 点、落点单格内其他僵尸受 100 点伤害。四发后装填 11 秒。</String>
+	<String id="OAK_ARCHER">橡木弓手</String>
+	<String id="OAK_ARCHER_TOOLTIP">固定五阶。275 阳光，7.5 秒冷却，900 点生命。每约 4.3 秒向本行及相邻行各射一支 390 点贯穿箭；每轮有 20% 几率射出寒冰减速箭。</String>
 	<String id="GATLING_CACTUS">机枪仙人掌</String>
 	<String id="GATLING_CACTUS_TOOLTIP">把仙人掌种在机枪射手上合成，返还 125 阳光。每轮四连发尖刺；有概率进入持续 3 秒的扇形尖刺弹幕。没长高之前只能打地面，长高之后才能对空。</String>
 	<String id="WIND_PEASHOOTER">风神豌豆射手</String>
@@ -85,6 +87,7 @@
 	<String id="COCONUT_CANNON_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}用法：{STAT}点击开火，沿本行直线飞行&cr;{KEYWORD}伤害：{STAT}首个目标 900 点，周围 3×3 范围各 300 点&cr;{KEYWORD}装填：{STAT}15 秒&cr;{SHORTLINE}&cr;{FLAVOR}椰子加农炮总在等待最合适的一炮。僵尸们希望它再多等一会儿。</String>
 	<String id="LOTUS_POD_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}状态：{STAT}固定四阶，750 点生命&cr;{KEYWORD}攻击：{STAT}陆地抛射单体莲子；水中直射可溅射同排两格的鱼雷。每发 300 点伤害&cr;{KEYWORD}控制：{STAT}每发 30% 几率眩晕 2 秒&cr;{SHORTLINE}&cr;{FLAVOR}莲小蓬把陆地和水面都当作自己的靶场。</String>
 	<String id="CARROTILLERY_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}状态：{STAT}固定四阶，750 点生命&cr;{KEYWORD}攻击：{STAT}锁定同行目标后快速连射四枚抛射飞弹；每枚直击 1000 点、落点单格内其他僵尸受 100 点伤害&cr;{KEYWORD}装填：{STAT}第四发后 11 秒&cr;{SHORTLINE}&cr;{FLAVOR}胡萝卜导弹车把所有导弹都交给同一位“幸运”僵尸。</String>
+	<String id="OAK_ARCHER_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}状态：{STAT}固定五阶，900 点生命&cr;{KEYWORD}攻击：{STAT}本行有目标时向本行及相邻行发射贯穿箭，每支箭对沿途每个目标造成 390 点伤害&cr;{KEYWORD}寒冰：{STAT}每轮攻击有 20% 几率使三支箭命中后减速僵尸&cr;{SHORTLINE}&cr;{FLAVOR}橡木弓手把每次拉弓都当成一次认真练习。</String>
 	<String id="GATLING_CACTUS_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}每颗尖刺 30 点，可穿透两次&cr;{KEYWORD}发射速度：{STAT}每轮四发&cr;{KEYWORD}大招：{STAT}持续 3 秒的扇形尖刺弹幕&cr;{KEYWORD}对空：{STAT}长高之后才能攻击飞行僵尸&cr;{KEYWORD}由仙人掌种在机枪射手上合成，返还 125 阳光&cr;{SHORTLINE}&cr;{FLAVOR}机枪仙人掌戴好头盔后，决定把每一根刺都认真发射出去。</String>
 	<String id="WIND_PEASHOOTER_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}每颗风神豌豆 40 点&cr;{KEYWORD}特效：{STAT}命中时把僵尸往回吹约 20 像素（冰车、投石车与空中的僵尸吹不动）&cr;{KEYWORD}发射速度：{STAT}与豌豆射手完全一致&cr;{SHORTLINE}&cr;{FLAVOR}风神豌豆射手在脑袋后面种了一株三叶草，从此每一颗豌豆都带着风。僵尸们最怕的其实不是疼——而是那阵风把"已经快到嘴边的脑子"又吹远了一点点。</String>
 </Properties>

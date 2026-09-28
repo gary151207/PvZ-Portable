@@ -4593,7 +4593,8 @@ PlantingReason Board::CanPlantAt(int theGridX, int theGridY, PacketType thePacke
 	}
 	// 非水生植物不能种在水面上（南瓜头可以种在香蒲上）
 	Plant* aPumpkinPlant = aPlantOnLawn.mPumpkinPlant;
-	if (aGridSquare == GridSquareType::GRIDSQUARE_POOL && !aHasLilypad && theSeedType != SeedType::SEED_CATTAIL)
+	if (aGridSquare == GridSquareType::GRIDSQUARE_POOL && !aHasLilypad &&
+		theSeedType != SeedType::SEED_CATTAIL && theSeedType != SeedType::SEED_LOTUS_POD)
 	{
 		if (!aNormalPlant || aNormalPlant->mSeedType != SeedType::SEED_CATTAIL || theSeedType != SeedType::SEED_PUMPKINSHELL)
 		{

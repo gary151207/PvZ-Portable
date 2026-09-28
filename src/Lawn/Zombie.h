@@ -204,6 +204,7 @@ public:
     int32_t                         mPoisonPeaStacks;
     int32_t                         mPoisonPeaTicks;
     int32_t                         mPoisonPeaPulseTicks;
+    int32_t                         mLotusStunTicks;
 
 public:
     Zombie();
@@ -352,6 +353,7 @@ public:
     void                            DrawButter(Graphics* g, const ZombieDrawPosition& theDrawPos);
     bool                            IsImmobilizied();
     void                            ApplyButter();
+    void                            ApplyLotusStun();
     float                           ZombieTargetLeadX(float theTime);
     void                            UpdateZombieImp();
     void                            SquishAllInSquare(int theX, int theY, ZombieAttackType theAttackType);

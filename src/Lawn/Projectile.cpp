@@ -61,7 +61,9 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_SPORESHROOM,     0, 40 },  // 孢子菇孢子
 	{ ProjectileType::PROJECTILE_POISON_PEA,     0, 10 },  // 一阶毒液豌豆：直击 10 伤害
 	{ ProjectileType::PROJECTILE_COCONUT,        0, 900 },  // 一阶椰子炮弹：直击 900，周围 300
-	{ ProjectileType::PROJECTILE_WIND_PEA,       0, 40 }    // 风神豌豆（风神豌豆射手）：直击 40 + 命中击退僵尸
+	{ ProjectileType::PROJECTILE_WIND_PEA,       0, 40 },    // 风神豌豆（风神豌豆射手）：直击 40 + 命中击退僵尸
+	{ ProjectileType::PROJECTILE_LOTUS_SEED,     0, 300 },
+	{ ProjectileType::PROJECTILE_LOTUS_TORPEDO,  0, 300 }
 };
 
 Projectile::Projectile()
@@ -220,6 +222,21 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		AttachReanim(mAttachmentID, aCoconut, 0.0f, 0.0f);
 		mWidth = 48;
 		mHeight = 48;
+		break;
+	}
+	case ProjectileType::PROJECTILE_LOTUS_SEED:
+	case ProjectileType::PROJECTILE_LOTUS_TORPEDO:
+	{
+		ReanimationType aType = mProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED
+			? ReanimationType::REANIM_LOTUS_SEED : ReanimationType::REANIM_LOTUS_TORPEDO;
+		Reanimation* aReanim = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 1, aType);
+		aReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
+		aReanim->mAnimRate = 24.0f;
+		aReanim->SetFramesForLayer("anim_fly");
+		aReanim->SetTruncateDisappearingFrames(nullptr, false);
+		AttachReanim(mAttachmentID, aReanim, 0.0f, 0.0f);
+		mWidth = 40;
+		mHeight = 40;
 		break;
 	}
 	case ProjectileType::PROJECTILE_COBBIG:
@@ -1742,6 +1759,58 @@ void Projectile::PlayImpactSound(Zombie* theZombie)
 void Projectile::DoImpact(Zombie* theZombie)
 {
 	PlayImpactSound(theZombie);
+	if (mProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED ||
+		mProjectileType == ProjectileType::PROJECTILE_LOTUS_TORPEDO)
+	{
+		const bool aStuns = theZombie && Rand(100) < 30;
+		bool aStunnedAny = false;
+		if (mProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED)
+		{
+			if (theZombie)
+			{
+				theZombie->TakeDamage(300, GetDamageFlags(theZombie));
+				if (aStuns && !theZombie->IsDeadOrDying())
+				{
+					theZombie->ApplyLotusStun();
+					aStunnedAny = theZombie->mLotusStunTicks > 0;
+				}
+			}
+		}
+		else if (theZombie)
+		{
+			// A 160 px horizontal span is two pool cells, centred on impact.
+			Zombie* aZombie = nullptr;
+			while (mBoard->IterateZombies(aZombie))
+			{
+				if (aZombie->mRow != mRow || !aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+					continue;
+				Rect aRect = aZombie->GetZombieRect();
+				if (aRect.mX >= mPosX + 80.0f || aRect.mX + aRect.mWidth <= mPosX - 80.0f)
+					continue;
+				aZombie->TakeDamage(300, GetDamageFlags(aZombie));
+				if (aStuns && !aZombie->IsDeadOrDying())
+				{
+					aZombie->ApplyLotusStun();
+					aStunnedAny |= aZombie->mLotusStunTicks > 0;
+				}
+			}
+		}
+		Reanimation* aHit = mApp->AddReanimation(mPosX, mPosY + mPosZ, mRenderOrder + 1,
+			ReanimationType::REANIM_LOTUS_HIT);
+		aHit->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+		aHit->mAnimRate = 30.0f;
+		aHit->SetFramesForLayer("anim_hit");
+		if (aStunnedAny)
+		{
+			Reanimation* aVortex = mApp->AddReanimation(mPosX, mPosY + mPosZ, mRenderOrder + 2,
+				ReanimationType::REANIM_LOTUS_VORTEX);
+			aVortex->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+			aVortex->mAnimRate = 30.0f;
+			aVortex->SetFramesForLayer("anim_stun");
+		}
+		Die();
+		return;
+	}
 	bool aSporeTargetWasAlive = mProjectileType == ProjectileType::PROJECTILE_SPORESHROOM &&
 		theZombie != nullptr && !theZombie->IsDeadOrDying();
 
@@ -1948,7 +2017,10 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_SPORESHROOM ||
 		mProjectileType == ProjectileType::PROJECTILE_POISON_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_WIND_PEA ||
-		mProjectileType == ProjectileType::PROJECTILE_COCONUT)
+		mProjectileType == ProjectileType::PROJECTILE_COCONUT ||
+		mProjectileType == ProjectileType::PROJECTILE_COCONUT ||
+		mProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED ||
+		mProjectileType == ProjectileType::PROJECTILE_LOTUS_TORPEDO)
 	{
 		aTime = 0;
 	}
@@ -2042,6 +2114,8 @@ void Projectile::Draw(Graphics* g)
 	case ProjectileType::PROJECTILE_SPORESHROOM:
 	case ProjectileType::PROJECTILE_POISON_PEA:
 	case ProjectileType::PROJECTILE_COCONUT:
+	case ProjectileType::PROJECTILE_LOTUS_SEED:
+	case ProjectileType::PROJECTILE_LOTUS_TORPEDO:
 		aImage = nullptr;
 		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
@@ -2238,6 +2312,10 @@ void Projectile::DrawShadow(Graphics* g)
 		break;
 	case ProjectileType::PROJECTILE_COCONUT:
 		aScale = 1.25f;
+		break;
+	case ProjectileType::PROJECTILE_LOTUS_SEED:
+	case ProjectileType::PROJECTILE_LOTUS_TORPEDO:
+		aScale = 0.75f;
 		break;
 	default:
 		break;

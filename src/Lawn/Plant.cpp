@@ -123,6 +123,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_GATLING_CACTUS, nullptr, ReanimationType::REANIM_GATLING_CACTUS, 15, 125, 750, PlantSubClass::SUBCLASS_SHOOTER, 100, "GATLING_CACTUS" },
     { SeedType::SEED_COCONUT_CANNON, nullptr, ReanimationType::REANIM_COCONUT_CANNON, 0, 400, 500, PlantSubClass::SUBCLASS_NORMAL, 0, "COCONUT_CANNON" },
     { SeedType::SEED_WIND_PEASHOOTER, nullptr, ReanimationType::REANIM_WIND_PEASHOOTER, 0, 200, 750, PlantSubClass::SUBCLASS_SHOOTER, 75, "WIND_PEASHOOTER" },  // 风神豌豆射手（旅行红卡）：200 阳光 / 7.5 秒冷却，每发 40 伤害风神豌豆 + 击退僵尸，其余节奏同豌豆射手
+    { SeedType::SEED_LOTUS_POD, nullptr, ReanimationType::REANIM_LOTUS_POD, 0, 200, 500, PlantSubClass::SUBCLASS_SHOOTER, 290, "LOTUS_POD" },
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -771,6 +772,16 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         {
             aBodyReanim->mAnimRate = 30.0f;
             aBodyReanim->SetFramesForLayer("anim_idle");
+        }
+        mState = PlantState::STATE_READY;
+        break;
+    case SeedType::SEED_LOTUS_POD:
+        mPlantHealth = 750;
+        if (aBodyReanim)
+        {
+            aBodyReanim->mAnimRate = 25.0f;
+            aBodyReanim->SetFramesForLayer(mBoard && mBoard->IsPoolSquare(mPlantCol, mRow)
+                ? "anim_water" : "anim_idle");
         }
         mState = PlantState::STATE_READY;
         break;
@@ -1501,6 +1512,12 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
         // 位于段内第 11 帧，31 tick 后出弹（见 UpdateShooting 的 106）。
         mShootingCounter = 137;
     }
+    else if (mSeedType == SeedType::SEED_LOTUS_POD)
+    {
+        // PAM frame 159 is the action point, 11 frames into the 83-frame attack.
+        PlayBodyReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 10, 35.0f);
+        mShootingCounter = 237;
+    }
     else if (mSeedType == SeedType::SEED_SPORESHROOM)
     {
         PlayBodyReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 10, 30.0f);
@@ -1829,9 +1846,9 @@ void Plant::UpdateShooter()
         else
         {
             // 激光豌豆：节奏是这只植物的定义特征（"每 0.2 秒一道激光"），所以**不掺** Rand(15) 抖动。
-            mLaunchCounter = (mSeedType == SeedType::SEED_LASER_PEA)
-                ? mLaunchRate
-                : mLaunchRate - Sexy::Rand(15);
+            mLaunchCounter = mSeedType == SeedType::SEED_LASER_PEA ? mLaunchRate :
+                mSeedType == SeedType::SEED_LOTUS_POD ? 290 + Sexy::Rand(21) :
+                mLaunchRate - Sexy::Rand(15);
         }
 
         // 1.5 发射手：每轮攻击开始时掷骰，50% 本轮一发 / 50% 本轮两发。
@@ -4760,6 +4777,20 @@ void Plant::UpdateShooting()
     if (NotOnGround())
         return;
 
+    if (mSeedType == SeedType::SEED_LOTUS_POD)
+    {
+        if (mShootingCounter > 0)
+        {
+            --mShootingCounter;
+            if (mShootingCounter == 206)
+                Fire(FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY), mRow, PlantWeapon::WEAPON_PRIMARY);
+            if (mShootingCounter == 0)
+                PlayBodyReanim(mBoard->IsPoolSquare(mPlantCol, mRow) ? "anim_water" : "anim_idle",
+                    ReanimLoopType::REANIM_LOOP, 10, 25.0f);
+        }
+        return;
+    }
+
     // 大喷菇群：左右小喷菇各喷各的（独立节奏，不受中间头计时影响）
     UpdateTravelPuffHeads();
 
@@ -6348,6 +6379,10 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     case SeedType::SEED_COCONUT_CANNON:
         aProjectileType = ProjectileType::PROJECTILE_COCONUT;
         break;
+    case SeedType::SEED_LOTUS_POD:
+        aProjectileType = mBoard->IsPoolSquare(mPlantCol, mRow)
+            ? ProjectileType::PROJECTILE_LOTUS_TORPEDO : ProjectileType::PROJECTILE_LOTUS_SEED;
+        break;
     case SeedType::SEED_CACTUS:
     case SeedType::SEED_GATLING_CACTUS:
     case SeedType::SEED_CATTAIL:
@@ -6467,6 +6502,11 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     {
         aOriginX = mX + 65;
         aOriginY = mY + 6;
+    }
+    else if (mSeedType == SeedType::SEED_LOTUS_POD)
+    {
+        aOriginX = mX + 70;
+        aOriginY = mY + (mBoard->IsPoolSquare(mPlantCol, mRow) ? 45 : 15);
     }
     else if (mSeedType == SeedType::SEED_CABBAGEPULT)
     {
@@ -6729,7 +6769,8 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         }
     }
 
-    if (IsPultPlant(mSeedType) || mSeedType == SeedType::SEED_SPORESHROOM)
+    if (IsPultPlant(mSeedType) || mSeedType == SeedType::SEED_SPORESHROOM ||
+        aProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED)
     {
         float aRangeX, aRangeY;
         if (theTargetZombie)
@@ -7374,6 +7415,13 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
     else if (theSeedType == SeedType::SEED_COCONUT_CANNON)
     {
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_COCONUT_PROJECTILE, true);
+    }
+    else if (theSeedType == SeedType::SEED_LOTUS_POD)
+    {
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_LOTUS_SEED, true);
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_LOTUS_TORPEDO, true);
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_LOTUS_HIT, true);
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_LOTUS_VORTEX, true);
     }
     else if (Plant::IsNocturnal(theSeedType))
     {

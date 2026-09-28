@@ -50,6 +50,8 @@
 	<String id="POISON_PEASHOOTER_TOOLTIP">175 阳光，5 秒冷却。每 1.5 秒发射毒液豌豆：直击 10 点，命中增加一层每秒 50 点的毒伤（最多 5 层），持续 5 秒并减速 50%。</String>
 	<String id="COCONUT_CANNON">椰子加农炮</String>
 	<String id="COCONUT_CANNON_TOOLTIP">400 阳光，5 秒卡片冷却。点击发射椰子炮弹，命中首个僵尸造成 900 点伤害，周围 3×3 范围各受 300 点伤害；发射后装填 15 秒。</String>
+	<String id="LOTUS_POD">莲小蓬</String>
+	<String id="LOTUS_POD_TOOLTIP">固定四阶。200 阳光，5 秒冷却；每 2.9–3.1 秒造成 300 点伤害，30% 几率眩晕 2 秒。水中鱼雷可伤及同排两格。</String>
 	<String id="GATLING_CACTUS">机枪仙人掌</String>
 	<String id="GATLING_CACTUS_TOOLTIP">把仙人掌种在机枪射手上合成，返还 125 阳光。每轮四连发尖刺；有概率进入持续 3 秒的扇形尖刺弹幕。没长高之前只能打地面，长高之后才能对空。</String>
 	<String id="WIND_PEASHOOTER">风神豌豆射手</String>
@@ -79,6 +81,7 @@
 	<String id="HYPNOSHROOM_FUME_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}普通，可以穿透铁丝网门&cr;{KEYWORD}范围：{STAT}被气泡喷中的僵尸&cr;{KEYWORD}特性：{STAT}每次攻击有 15% 的概率魅惑这团烟雾里血量低于一半的僵尸（路障射手僵尸与僵王博士免疫）&cr;{KEYWORD}切换：{STAT}在大喷菇群上种魅惑菇变成它，在它上面种小喷菇切回大喷菇群&cr;{NOCTURNAL}白天要睡觉&cr;{SHORTLINE}&cr;{FLAVOR}魅惑大喷菇没有找搭伙的，它只是往烟雾里加了一点"要不要考虑换个阵营"的暗示。被喷到的巨人僵尸会沉默三秒，然后开始思考人生。</String>
 	<String id="POISON_PEASHOOTER_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}直击伤害：{STAT}10 点&cr;{KEYWORD}毒伤：{STAT}每层每秒 50 点，最多 5 层；持续 5 秒，重复命中续时&cr;{KEYWORD}特性：{STAT}毒伤绕过护甲，并使僵尸减速 50%&cr;{SHORTLINE}&cr;{FLAVOR}它把每颗豌豆都裹上一层黏液。僵尸以为擦掉就没事了，结果越擦越慢。</String>
 	<String id="COCONUT_CANNON_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}用法：{STAT}点击开火，沿本行直线飞行&cr;{KEYWORD}伤害：{STAT}首个目标 900 点，周围 3×3 范围各 300 点&cr;{KEYWORD}装填：{STAT}15 秒&cr;{SHORTLINE}&cr;{FLAVOR}椰子加农炮总在等待最合适的一炮。僵尸们希望它再多等一会儿。</String>
+	<String id="LOTUS_POD_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}状态：{STAT}固定四阶，750 点生命&cr;{KEYWORD}攻击：{STAT}陆地抛射单体莲子；水中直射可溅射同排两格的鱼雷。每发 300 点伤害&cr;{KEYWORD}控制：{STAT}每发 30% 几率眩晕 2 秒&cr;{SHORTLINE}&cr;{FLAVOR}莲小蓬把陆地和水面都当作自己的靶场。</String>
 	<String id="GATLING_CACTUS_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}每颗尖刺 30 点，可穿透两次&cr;{KEYWORD}发射速度：{STAT}每轮四发&cr;{KEYWORD}大招：{STAT}持续 3 秒的扇形尖刺弹幕&cr;{KEYWORD}对空：{STAT}长高之后才能攻击飞行僵尸&cr;{KEYWORD}由仙人掌种在机枪射手上合成，返还 125 阳光&cr;{SHORTLINE}&cr;{FLAVOR}机枪仙人掌戴好头盔后，决定把每一根刺都认真发射出去。</String>
 	<String id="WIND_PEASHOOTER_DESCRIPTION">{SHORTLINE}&cr;{KEYWORD}伤害：{STAT}每颗风神豌豆 40 点&cr;{KEYWORD}特效：{STAT}命中时把僵尸往回吹约 20 像素（冰车、投石车与空中的僵尸吹不动）&cr;{KEYWORD}发射速度：{STAT}与豌豆射手完全一致&cr;{SHORTLINE}&cr;{FLAVOR}风神豌豆射手在脑袋后面种了一株三叶草，从此每一颗豌豆都带着风。僵尸们最怕的其实不是疼——而是那阵风把"已经快到嘴边的脑子"又吹远了一点点。</String>
 </Properties>

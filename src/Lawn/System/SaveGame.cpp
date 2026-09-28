@@ -1878,6 +1878,7 @@ static void SyncZombiesPortable(PortableSaveContext& theContext, Board* theBoard
 				c.SyncInt32(theZombie.mPoisonPeaTicks);
 				c.SyncInt32(theZombie.mPoisonPeaPulseTicks);
 			});
+			AppendFieldWithSync(aOut, 4U, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mLotusStunTicks); });
 			AppendFieldWithSync(aOut, PORTABLE_FIELD_TAIL, [&](PortableSaveContext& c){ SyncZombieTailPortable(c, theZombie); });
 		},
 		[&](uint32_t aFieldId, const unsigned char* aData, size_t aSize, Zombie& theZombie)
@@ -1891,6 +1892,7 @@ static void SyncZombiesPortable(PortableSaveContext& theContext, Board* theBoard
 				c.SyncInt32(theZombie.mPoisonPeaTicks);
 				c.SyncInt32(theZombie.mPoisonPeaPulseTicks);
 			}); break;
+			case 4U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mLotusStunTicks); }); break;
 			case PORTABLE_FIELD_TAIL: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ SyncZombieTailPortable(c, theZombie); }); break;
 			default: break;
 			}

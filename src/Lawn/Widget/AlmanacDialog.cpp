@@ -60,6 +60,7 @@ namespace
 		SeedType::SEED_COCONUT_CANNON,       // 椰子加农炮（斗蛐蛐 2 第二选卡页）
 		SeedType::SEED_WIND_PEASHOOTER,       // 风神豌豆射手（旅行红卡：加上三叶草叶子的豌豆射手，40 伤害 + 击退）
 		SeedType::SEED_LOTUS_POD,            // 莲小蓬（斗蛐蛐 2 第二选卡页）
+		SeedType::SEED_CARROTILLERY,        // 胡萝卜导弹车（斗蛐蛐 2 第二选卡页）
 	};
 
 	// 图鉴「僵尸」页末尾追加的僵尸：排在第 5 行（原版僵尸博士那一行）的空位上。

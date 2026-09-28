@@ -235,6 +235,9 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	{ ReanimationType::REANIM_LOTUS_TORPEDO,                         "reanim/LotusPodTorpedo.reanim",                  1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_LOTUS_HIT,                             "reanim/LotusPodHit.reanim",                      1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_LOTUS_VORTEX,                          "reanim/LotusPodVortex.reanim",                   1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_CARROTILLERY,                           "reanim/Carrotillery.reanim",                    1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_CARROT_BULLET,                          "reanim/CarrotilleryBullet.reanim",              1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_CARROT_HIT,                             "reanim/CarrotilleryHit.reanim",                 1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

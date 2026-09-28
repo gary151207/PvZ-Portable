@@ -194,6 +194,7 @@ public:
     int32_t                 mStartRow;
     ParticleSystemID        mParticleID;
     int32_t                 mShootingCounter;
+    int32_t                 mCarrotVolleyShotsFired = 0;
     int32_t                 mGatlingScatterCountdown;
     int32_t                 mGatlingScatterChance;
     int32_t                 mScaredyShroomLaunchRate;
@@ -319,6 +320,7 @@ public:
     void                    AnimateNuts();
     void                    SetSleeping(bool theIsAsleep);
     void                    UpdateShooting();
+    void                    UpdateCarrotillery();
     void                    UpdateTravelPuffHeads();
     void                    UpdateTravelPuffHead(int& theCounter, ReanimationID theReanimID, int theYDirection, bool aHasTarget);
     /*inline*/ Reanimation* GetFumeGroupPuff(bool theLeft);

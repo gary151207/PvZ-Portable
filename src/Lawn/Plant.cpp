@@ -50,6 +50,9 @@
 // 这两个偏移同时被 PlantInitialize（创建）与 SyncFumeGroupPuffs（重定位）使用，集中在这里方便调参。
 static constexpr float FUME_GROUP_PUFF_OFFSET_X = 20.0f;
 static constexpr float FUME_GROUP_PUFF_OFFSET_Y = 22.0f;
+// PAM frames 140-503, played at 120 FPS: four action points in about 3 seconds.
+static constexpr int CARROT_VOLLEY_TICKS = 304;
+static constexpr int CARROT_ACTION_TICKS[] = { 40, 113, 188, 266 };
 
 PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_PEASHOOTER,        nullptr, ReanimationType::REANIM_PEASHOOTER,    0,  100,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "PEASHOOTER" },
@@ -124,6 +127,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_COCONUT_CANNON, nullptr, ReanimationType::REANIM_COCONUT_CANNON, 0, 400, 500, PlantSubClass::SUBCLASS_NORMAL, 0, "COCONUT_CANNON" },
     { SeedType::SEED_WIND_PEASHOOTER, nullptr, ReanimationType::REANIM_WIND_PEASHOOTER, 0, 200, 750, PlantSubClass::SUBCLASS_SHOOTER, 75, "WIND_PEASHOOTER" },  // 风神豌豆射手（旅行红卡）：200 阳光 / 7.5 秒冷却，每发 40 伤害风神豌豆 + 击退僵尸，其余节奏同豌豆射手
     { SeedType::SEED_LOTUS_POD, nullptr, ReanimationType::REANIM_LOTUS_POD, 0, 200, 500, PlantSubClass::SUBCLASS_SHOOTER, 290, "LOTUS_POD" },
+    { SeedType::SEED_CARROTILLERY, nullptr, ReanimationType::REANIM_CARROTILLERY, 0, 450, 1000, PlantSubClass::SUBCLASS_NORMAL, 0, "CARROTILLERY" },
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -653,6 +657,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mAnimPing = true;
     mFrame = 0;
     mShootingCounter = 0;
+    mCarrotVolleyShotsFired = 0;
     mTorchwoodPeaCount = 0;
     mShakeOffsetX = 0.0f;
     mShakeOffsetY = 0.0f;
@@ -782,6 +787,16 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
             aBodyReanim->mAnimRate = 25.0f;
             aBodyReanim->SetFramesForLayer(mBoard && mBoard->IsPoolSquare(mPlantCol, mRow)
                 ? "anim_water" : "anim_idle");
+        }
+        mState = PlantState::STATE_READY;
+        break;
+    case SeedType::SEED_CARROTILLERY:
+        mPlantHealth = 750;
+        mTargetZombieID = ZombieID::ZOMBIEID_NULL;
+        if (aBodyReanim)
+        {
+            aBodyReanim->mAnimRate = 30.0f;
+            aBodyReanim->SetFramesForLayer("anim_idle");
         }
         mState = PlantState::STATE_READY;
         break;
@@ -1309,6 +1324,7 @@ int Plant::GetDamageRangeFlags(PlantWeapon thePlantWeapon)
     case SeedType::SEED_CABBAGEPULT:
     case SeedType::SEED_KERNELPULT:
     case SeedType::SEED_WINTERMELON:
+    case SeedType::SEED_CARROTILLERY:
         return 13;
     case SeedType::SEED_POTATOMINE:
         return 77;
@@ -1934,6 +1950,62 @@ void Plant::UpdateShooter()
     {
         FindTargetAndFire(mRow, PlantWeapon::WEAPON_PRIMARY);
     }
+}
+
+void Plant::UpdateCarrotillery()
+{
+    if (NotOnGround())
+        return;
+
+    if (mShootingCounter > 0)
+    {
+        --mShootingCounter;
+        const int aVolleyAge = CARROT_VOLLEY_TICKS - mShootingCounter;
+        if (mCarrotVolleyShotsFired < 4 && aVolleyAge == CARROT_ACTION_TICKS[mCarrotVolleyShotsFired])
+        {
+            Zombie* aLockedTarget = mBoard->ZombieTryToGet(mTargetZombieID);
+            if (aLockedTarget && aLockedTarget->mRow == mRow &&
+                aLockedTarget->EffectedByDamage(static_cast<unsigned int>(GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY))))
+            {
+                mTargetX = static_cast<int>(aLockedTarget->ZombieTargetLeadX(50.0f)) - 30;
+                mTargetY = aLockedTarget->GetZombieRect().mY;
+            }
+            Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
+            ++mCarrotVolleyShotsFired;
+            if (mCarrotVolleyShotsFired == 4)
+            {
+                mState = PlantState::STATE_NOTREADY;
+                mStateCountdown = 1100;
+            }
+        }
+        if (mShootingCounter == 0)
+            PlayBodyReanim("anim_recover", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+        return;
+    }
+
+    if (mState == PlantState::STATE_NOTREADY)
+    {
+        if (mStateCountdown == 100)
+            PlayBodyReanim("anim_recover2", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+        if (mStateCountdown == 0)
+        {
+            mState = PlantState::STATE_READY;
+            mCarrotVolleyShotsFired = 0;
+            mTargetZombieID = ZombieID::ZOMBIEID_NULL;
+            PlayIdleAnim(30.0f);
+        }
+        return;
+    }
+
+    Zombie* aTarget = FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY);
+    if (!aTarget)
+        return;
+    mTargetZombieID = mBoard->ZombieGetID(aTarget);
+    mTargetX = static_cast<int>(aTarget->ZombieTargetLeadX(50.0f)) - 30;
+    mTargetY = aTarget->GetZombieRect().mY;
+    mCarrotVolleyShotsFired = 0;
+    mShootingCounter = CARROT_VOLLEY_TICKS;
+    PlayBodyReanim("anim_volley", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 120.0f);
 }
 
 bool Plant::MakesSun()
@@ -3803,6 +3875,7 @@ void Plant::UpdateAbilities()
     else if (mSeedType == SeedType::SEED_TANGLEKELP)                                            UpdateTanglekelp();
     else if (mSeedType == SeedType::SEED_TALLNUT)                                               UpdateTallnut();
     else if (mSeedType == SeedType::SEED_SCAREDYSHROOM)                                         UpdateScaredyShroom();
+    else if (mSeedType == SeedType::SEED_CARROTILLERY)                                          UpdateCarrotillery();
 
     if (mSubclass == PlantSubClass::SUBCLASS_SHOOTER)
     {
@@ -4776,6 +4849,9 @@ void Plant::UpdateShooting()
 {
     if (NotOnGround())
         return;
+
+    if (mSeedType == SeedType::SEED_CARROTILLERY)
+        return; // Its four action points are handled by UpdateCarrotillery.
 
     if (mSeedType == SeedType::SEED_LOTUS_POD)
     {
@@ -6383,6 +6459,9 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectileType = mBoard->IsPoolSquare(mPlantCol, mRow)
             ? ProjectileType::PROJECTILE_LOTUS_TORPEDO : ProjectileType::PROJECTILE_LOTUS_SEED;
         break;
+    case SeedType::SEED_CARROTILLERY:
+        aProjectileType = ProjectileType::PROJECTILE_CARROT;
+        break;
     case SeedType::SEED_CACTUS:
     case SeedType::SEED_GATLING_CACTUS:
     case SeedType::SEED_CATTAIL:
@@ -6507,6 +6586,11 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     {
         aOriginX = mX + 70;
         aOriginY = mY + (mBoard->IsPoolSquare(mPlantCol, mRow) ? 45 : 15);
+    }
+    else if (mSeedType == SeedType::SEED_CARROTILLERY)
+    {
+        aOriginX = mX + 70;
+        aOriginY = mY + 5;
     }
     else if (mSeedType == SeedType::SEED_CABBAGEPULT)
     {
@@ -6806,6 +6890,18 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
             aRangeX = 40.0f;
         }
 
+        aProjectile->mMotionType = ProjectileMotion::MOTION_LOBBED;
+        aProjectile->mVelX = aRangeX / 120.0f;
+        aProjectile->mVelY = 0.0f;
+        aProjectile->mVelZ = aRangeY / 120.0f - 7.0f;
+        aProjectile->mAccZ = 0.115f;
+    }
+    else if (mSeedType == SeedType::SEED_CARROTILLERY)
+    {
+        // All four shots keep the selected target's last valid aim point.
+        const float aRangeX = std::max(40.0f, static_cast<float>(mTargetX - aOriginX));
+        const float aRangeY = static_cast<float>(mTargetY - aOriginY);
+        aProjectile->mTargetZombieID = mTargetZombieID;
         aProjectile->mMotionType = ProjectileMotion::MOTION_LOBBED;
         aProjectile->mVelX = aRangeX / 120.0f;
         aProjectile->mVelY = 0.0f;
@@ -7422,6 +7518,11 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_LOTUS_TORPEDO, true);
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_LOTUS_HIT, true);
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_LOTUS_VORTEX, true);
+    }
+    else if (theSeedType == SeedType::SEED_CARROTILLERY)
+    {
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_CARROT_BULLET, true);
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_CARROT_HIT, true);
     }
     else if (Plant::IsNocturnal(theSeedType))
     {

@@ -836,7 +836,8 @@ enum ProjectileType : int32_t
     PROJECTILE_WIND_PEA = 21,    // 风神豌豆（风神豌豆射手：40 伤害单体命中 + 击退僵尸）
     PROJECTILE_LOTUS_SEED = 22,  // 四阶莲小蓬陆地莲子
     PROJECTILE_LOTUS_TORPEDO = 23, // 四阶莲小蓬水中鱼雷
-    NUM_PROJECTILES = 24
+    PROJECTILE_CARROT = 24, // 四阶胡萝卜导弹车普通飞弹
+    NUM_PROJECTILES = 25
 };
 enum ReanimationType : uint32_t {
     REANIM_NONE = static_cast<uint32_t>(-1),
@@ -1019,6 +1020,9 @@ enum ReanimationType : uint32_t {
     REANIM_LOTUS_TORPEDO,
     REANIM_LOTUS_HIT,
     REANIM_LOTUS_VORTEX,
+    REANIM_CARROTILLERY,
+    REANIM_CARROT_BULLET,
+    REANIM_CARROT_HIT,
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1161,6 +1165,7 @@ enum SeedType : int32_t
     SEED_COCONUT_CANNON,                            // 椰子加农炮（斗蛐蛐 2 专属，一阶）
     SEED_WIND_PEASHOOTER,                           // 风神豌豆射手（旅行红卡：200 阳光，40 伤害风神豌豆 + 击退僵尸）
     SEED_LOTUS_POD,                                 // 莲小蓬（斗蛐蛐 2 专属，固定四阶）
+    SEED_CARROTILLERY,                              // 胡萝卜导弹车（斗蛐蛐 2 专属，固定四阶）
     NUM_SEED_TYPES,
     NUM_SEEDS_IN_CHOOSER = 49,
     SEED_NONE = -1

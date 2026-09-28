@@ -63,7 +63,8 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_COCONUT,        0, 900 },  // 一阶椰子炮弹：直击 900，周围 300
 	{ ProjectileType::PROJECTILE_WIND_PEA,       0, 40 },    // 风神豌豆（风神豌豆射手）：直击 40 + 命中击退僵尸
 	{ ProjectileType::PROJECTILE_LOTUS_SEED,     0, 300 },
-	{ ProjectileType::PROJECTILE_LOTUS_TORPEDO,  0, 300 }
+	{ ProjectileType::PROJECTILE_LOTUS_TORPEDO,  0, 300 },
+	{ ProjectileType::PROJECTILE_CARROT,        0, 1000 }
 };
 
 Projectile::Projectile()
@@ -224,6 +225,18 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		mHeight = 48;
 		break;
 	}
+	case ProjectileType::PROJECTILE_CARROT:
+	{
+		Reanimation* aBullet = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 1, ReanimationType::REANIM_CARROT_BULLET);
+		aBullet->mLoopType = ReanimLoopType::REANIM_LOOP;
+		aBullet->mAnimRate = 24.0f;
+		aBullet->SetFramesForLayer("anim_fly");
+		aBullet->SetTruncateDisappearingFrames(nullptr, false);
+		AttachReanim(mAttachmentID, aBullet, 0.0f, 0.0f);
+		mWidth = 40;
+		mHeight = 40;
+		break;
+	}
 	case ProjectileType::PROJECTILE_LOTUS_SEED:
 	case ProjectileType::PROJECTILE_LOTUS_TORPEDO:
 	{
@@ -340,6 +353,17 @@ Zombie* Projectile::FindCollisionTarget()
 {
 	if (PeaAboutToHitTorchwood())  // “卡火炬”的原理，这段代码在两版内测版中均不存在
 		return nullptr;
+
+	if (mProjectileType == ProjectileType::PROJECTILE_CARROT)
+	{
+		Zombie* aTarget = mBoard->ZombieTryToGet(mTargetZombieID);
+		if (!aTarget || aTarget->mRow != mRow ||
+			!aTarget->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+			return nullptr;
+		if (aTarget->mZombiePhase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL && mPosZ >= 45.0f)
+			return nullptr;
+		return GetRectOverlap(GetProjectileRect(), aTarget->GetZombieRect()) > 0 ? aTarget : nullptr;
+	}
 
 	if (mLastHitZombieID != ZombieID::ZOMBIEID_NULL)
 	{
@@ -1724,7 +1748,8 @@ void Projectile::PlayImpactSound(Zombie* theZombie)
 		mApp->PlayFoley(FoleyType::FOLEY_MELONIMPACT);
 		aPlaySplatSound = false;
 	}
-	else if (mProjectileType == ProjectileType::PROJECTILE_COCONUT)
+	else if (mProjectileType == ProjectileType::PROJECTILE_COCONUT ||
+		mProjectileType == ProjectileType::PROJECTILE_CARROT)
 	{
 		mApp->PlayFoley(FoleyType::FOLEY_EXPLOSION);
 		aPlayHelmSound = false;
@@ -1814,7 +1839,24 @@ void Projectile::DoImpact(Zombie* theZombie)
 	bool aSporeTargetWasAlive = mProjectileType == ProjectileType::PROJECTILE_SPORESHROOM &&
 		theZombie != nullptr && !theZombie->IsDeadOrDying();
 
-	if (IsSplashDamage(theZombie))
+	if (mProjectileType == ProjectileType::PROJECTILE_CARROT)
+	{
+		if (theZombie)
+			theZombie->TakeDamage(1000, GetDamageFlags(theZombie));
+		const int aImpactCol = mBoard->PixelToGridXKeepOnBoard(mPosX + mWidth * 0.5f, mPosY);
+		const int aTileLeft = mBoard->GridToPixelX(aImpactCol, mRow);
+		Zombie* aZombie = nullptr;
+		while (mBoard->IterateZombies(aZombie))
+		{
+			if (aZombie == theZombie || aZombie->mRow != mRow ||
+				!aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+				continue;
+			const Rect aRect = aZombie->GetZombieRect();
+			if (aRect.mX < aTileLeft + 80 && aRect.mX + aRect.mWidth > aTileLeft)
+				aZombie->TakeDamage(100, GetDamageFlags(aZombie));
+		}
+	}
+	else if (IsSplashDamage(theZombie))
 	{
 		if (mProjectileType == ProjectileType::PROJECTILE_FIREBALL && theZombie)
 		{
@@ -1878,6 +1920,14 @@ void Projectile::DoImpact(Zombie* theZombie)
 	else if (mProjectileType == ProjectileType::PROJECTILE_COCONUT)
 	{
 		Reanimation* aHit = mApp->AddReanimation(mPosX, mPosY + mPosZ, mRenderOrder + 1, ReanimationType::REANIM_COCONUT_PROJECTILE);
+		aHit->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+		aHit->mAnimRate = 24.0f;
+		aHit->SetFramesForLayer("anim_hit");
+		aHit->SetTruncateDisappearingFrames(nullptr, false);
+	}
+	else if (mProjectileType == ProjectileType::PROJECTILE_CARROT)
+	{
+		Reanimation* aHit = mApp->AddReanimation(mPosX, mPosY + mPosZ, mRenderOrder + 1, ReanimationType::REANIM_CARROT_HIT);
 		aHit->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
 		aHit->mAnimRate = 24.0f;
 		aHit->SetFramesForLayer("anim_hit");
@@ -2019,6 +2069,7 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_WIND_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_COCONUT ||
 		mProjectileType == ProjectileType::PROJECTILE_COCONUT ||
+		mProjectileType == ProjectileType::PROJECTILE_CARROT ||
 		mProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED ||
 		mProjectileType == ProjectileType::PROJECTILE_LOTUS_TORPEDO)
 	{
@@ -2114,6 +2165,7 @@ void Projectile::Draw(Graphics* g)
 	case ProjectileType::PROJECTILE_SPORESHROOM:
 	case ProjectileType::PROJECTILE_POISON_PEA:
 	case ProjectileType::PROJECTILE_COCONUT:
+	case ProjectileType::PROJECTILE_CARROT:
 	case ProjectileType::PROJECTILE_LOTUS_SEED:
 	case ProjectileType::PROJECTILE_LOTUS_TORPEDO:
 		aImage = nullptr;
@@ -2312,6 +2364,9 @@ void Projectile::DrawShadow(Graphics* g)
 		break;
 	case ProjectileType::PROJECTILE_COCONUT:
 		aScale = 1.25f;
+		break;
+	case ProjectileType::PROJECTILE_CARROT:
+		aScale = 0.85f;
 		break;
 	case ProjectileType::PROJECTILE_LOTUS_SEED:
 	case ProjectileType::PROJECTILE_LOTUS_TORPEDO:

@@ -1913,6 +1913,8 @@ static void SyncPlantsPortable(PortableSaveContext& theContext, Board* theBoard)
 					c.SyncInt32(thePlant.mGatlingScatterChance);
 				});
 			}
+			if (thePlant.mSeedType == SeedType::SEED_CARROTILLERY)
+				AppendFieldWithSync(aOut, 102U, [&](PortableSaveContext& c){ c.SyncInt32(thePlant.mCarrotVolleyShotsFired); });
 		},
 		[&](uint32_t aFieldId, const unsigned char* aData, size_t aSize, Plant& thePlant)
 		{
@@ -1936,6 +1938,9 @@ static void SyncPlantsPortable(PortableSaveContext& theContext, Board* theBoard)
 					c.SyncInt32(thePlant.mGatlingScatterCountdown);
 					c.SyncInt32(thePlant.mGatlingScatterChance);
 				});
+				break;
+			case 102U:
+				ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(thePlant.mCarrotVolleyShotsFired); });
 				break;
 			default: break;
 			}

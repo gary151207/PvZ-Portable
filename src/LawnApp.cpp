@@ -2789,7 +2789,10 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 			return true;
 		return theSeedType == SeedType::SEED_SPORESHROOM ||
 		       theSeedType == SeedType::SEED_POISON_PEASHOOTER ||
-		       theSeedType == SeedType::SEED_COCONUT_CANNON || IsTravelOnlySeed(theSeedType);
+		       theSeedType == SeedType::SEED_COCONUT_CANNON ||
+		       theSeedType == SeedType::SEED_LOTUS_POD ||
+		       theSeedType == SeedType::SEED_CARROTILLERY ||
+		       theSeedType == SeedType::SEED_OAK_ARCHER || IsTravelOnlySeed(theSeedType);
 	}
 
 	if (IsTrialStageLocked() && theSeedType >= SeedType::SEED_JALAPENO)
@@ -2839,6 +2842,9 @@ bool LawnApp::HasSeedType(SeedType theSeedType)
 	case SeedType::SEED_SPORESHROOM:
 	case SeedType::SEED_POISON_PEASHOOTER:
 	case SeedType::SEED_COCONUT_CANNON:
+	case SeedType::SEED_LOTUS_POD:
+	case SeedType::SEED_CARROTILLERY:
+	case SeedType::SEED_OAK_ARCHER:
 		return false;                       // 首版仅斗蛐蛐 2 可选
 	default:
 		return theSeedType < GetSeedsAvailable();

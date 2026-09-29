@@ -135,6 +135,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mPoisonPeaStacks = 0;
     mPoisonPeaTicks = 0;
     mPoisonPeaPulseTicks = 0;
+    mLotusStunTicks = 0;
     mMindControlled = false;
     mTorchwoodSummoned = false;
     mBlowingAway = false;
@@ -4925,7 +4926,12 @@ void Zombie::UpdatePlaying()
     }
     UpdatePoisonPea();
     if (IsDeadOrDying())
+    {
+        mLotusStunTicks = 0;
         return;
+    }
+    if (mLotusStunTicks > 0 && --mLotusStunTicks == 0)
+        UpdateAnimSpeed();
     if (mButteredCounter > 0)
     {
         mButteredCounter--;
@@ -6076,6 +6082,12 @@ void Zombie::DrawReanim(Graphics* g, const ZombieDrawPosition& theDrawPos, int t
         aExtraAdditiveColor = aColorOverride;
         aEnableExtraAdditiveDraw = true;
     }
+    else if (mLotusStunTicks > 0)
+    {
+        aColorOverride = Color(80, 190, 225, aFadeAlpha);
+        aExtraAdditiveColor = aColorOverride;
+        aEnableExtraAdditiveDraw = true;
+    }
     else if (mZombieHeight == ZombieHeight::HEIGHT_ZOMBIQUARIUM && mBodyHealth < 100)
     {
         aColorOverride = Color(100, 150, 25, aFadeAlpha);
@@ -6992,7 +7004,18 @@ void Zombie::CheckSquish(ZombieAttackType theAttackType)
 
 bool Zombie::IsImmobilizied()
 {
-    return mIceTrapCounter > 0 || mButteredCounter > 0;
+    return mIceTrapCounter > 0 || mButteredCounter > 0 || mLotusStunTicks > 0;
+}
+
+void Zombie::ApplyLotusStun()
+{
+    if (IsDeadOrDying() || !mHasHead || !CanBeFrozen() || IsFlying() ||
+        mZombieType == ZombieType::ZOMBIE_ZAMBONI || mZombieType == ZombieType::ZOMBIE_BOSS ||
+        IsTangleKelpTarget() || IsBobsledTeamWithSled())
+        return;
+
+    mLotusStunTicks = 200;
+    UpdateAnimSpeed();
 }
 
 bool Zombie::IsMovingAtChilledSpeed()

@@ -230,6 +230,17 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	// 仍标 REANIM_NO_ATLAS：不建 Atlas，也不会与 REANIM_PEASHOOTER 共用同一批源贴图
 	//（原版豌豆射手因此完全不受影响）。生成器见 scripts/gen-wind-peashooter-reanim.py。
 	{ ReanimationType::REANIM_WIND_PEASHOOTER,                       "reanim/WindPeashooter.reanim",                    1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_LOTUS_POD,                             "reanim/LotusPod.reanim",                         1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_LOTUS_SEED,                            "reanim/LotusPodSeed.reanim",                     1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_LOTUS_TORPEDO,                         "reanim/LotusPodTorpedo.reanim",                  1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_LOTUS_HIT,                             "reanim/LotusPodHit.reanim",                      1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_LOTUS_VORTEX,                          "reanim/LotusPodVortex.reanim",                   1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_CARROTILLERY,                           "reanim/Carrotillery.reanim",                    1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_CARROT_BULLET,                          "reanim/CarrotilleryBullet.reanim",              1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_CARROT_HIT,                             "reanim/CarrotilleryHit.reanim",                 1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_OAK_ARCHER,                              "reanim/OakArcher.reanim",                      1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_OAK_ARROW,                               "reanim/OakArcherArrow.reanim",                 1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_OAK_FROST_ARROW,                         "reanim/OakArcherFrostArrow.reanim",            1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

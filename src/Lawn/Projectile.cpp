@@ -61,7 +61,12 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_SPORESHROOM,     0, 40 },  // 孢子菇孢子
 	{ ProjectileType::PROJECTILE_POISON_PEA,     0, 10 },  // 一阶毒液豌豆：直击 10 伤害
 	{ ProjectileType::PROJECTILE_COCONUT,        0, 900 },  // 一阶椰子炮弹：直击 900，周围 300
-	{ ProjectileType::PROJECTILE_WIND_PEA,       0, 40 }    // 风神豌豆（风神豌豆射手）：直击 40 + 命中击退僵尸
+	{ ProjectileType::PROJECTILE_WIND_PEA,       0, 40 },    // 风神豌豆（风神豌豆射手）：直击 40 + 命中击退僵尸
+	{ ProjectileType::PROJECTILE_LOTUS_SEED,     0, 300 },
+	{ ProjectileType::PROJECTILE_LOTUS_TORPEDO,  0, 300 },
+	{ ProjectileType::PROJECTILE_CARROT,        0, 1000 },
+	{ ProjectileType::PROJECTILE_OAK_ARROW,    0, 390 },
+	{ ProjectileType::PROJECTILE_OAK_FROST_ARROW, 0, 390 }
 };
 
 Projectile::Projectile()
@@ -210,6 +215,19 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		AttachReanim(mAttachmentID, aPeaReanim, 0.0f, 0.0f);
 		break;
 	}
+	case ProjectileType::PROJECTILE_OAK_ARROW:
+	case ProjectileType::PROJECTILE_OAK_FROST_ARROW:
+	{
+		const ReanimationType aType = mProjectileType == ProjectileType::PROJECTILE_OAK_ARROW
+			? ReanimationType::REANIM_OAK_ARROW : ReanimationType::REANIM_OAK_FROST_ARROW;
+		Reanimation* anArrow = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 1, aType);
+		anArrow->mLoopType = ReanimLoopType::REANIM_LOOP;
+		anArrow->SetFramesForLayer("anim_fly");
+		AttachReanim(mAttachmentID, anArrow, 0.0f, 0.0f);
+		mWidth = 1;
+		mHeight = 1;
+		break;
+	}
 	case ProjectileType::PROJECTILE_COCONUT:
 	{
 		Reanimation* aCoconut = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 1, ReanimationType::REANIM_COCONUT_PROJECTILE);
@@ -220,6 +238,33 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		AttachReanim(mAttachmentID, aCoconut, 0.0f, 0.0f);
 		mWidth = 48;
 		mHeight = 48;
+		break;
+	}
+	case ProjectileType::PROJECTILE_CARROT:
+	{
+		Reanimation* aBullet = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 1, ReanimationType::REANIM_CARROT_BULLET);
+		aBullet->mLoopType = ReanimLoopType::REANIM_LOOP;
+		aBullet->mAnimRate = 24.0f;
+		aBullet->SetFramesForLayer("anim_fly");
+		aBullet->SetTruncateDisappearingFrames(nullptr, false);
+		AttachReanim(mAttachmentID, aBullet, 0.0f, 0.0f);
+		mWidth = 40;
+		mHeight = 40;
+		break;
+	}
+	case ProjectileType::PROJECTILE_LOTUS_SEED:
+	case ProjectileType::PROJECTILE_LOTUS_TORPEDO:
+	{
+		ReanimationType aType = mProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED
+			? ReanimationType::REANIM_LOTUS_SEED : ReanimationType::REANIM_LOTUS_TORPEDO;
+		Reanimation* aReanim = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 1, aType);
+		aReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
+		aReanim->mAnimRate = 24.0f;
+		aReanim->SetFramesForLayer("anim_fly");
+		aReanim->SetTruncateDisappearingFrames(nullptr, false);
+		AttachReanim(mAttachmentID, aReanim, 0.0f, 0.0f);
+		mWidth = 40;
+		mHeight = 40;
 		break;
 	}
 	case ProjectileType::PROJECTILE_COBBIG:
@@ -323,6 +368,17 @@ Zombie* Projectile::FindCollisionTarget()
 {
 	if (PeaAboutToHitTorchwood())  // “卡火炬”的原理，这段代码在两版内测版中均不存在
 		return nullptr;
+
+	if (mProjectileType == ProjectileType::PROJECTILE_CARROT)
+	{
+		Zombie* aTarget = mBoard->ZombieTryToGet(mTargetZombieID);
+		if (!aTarget || aTarget->mRow != mRow ||
+			!aTarget->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+			return nullptr;
+		if (aTarget->mZombiePhase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL && mPosZ >= 45.0f)
+			return nullptr;
+		return GetRectOverlap(GetProjectileRect(), aTarget->GetZombieRect()) > 0 ? aTarget : nullptr;
+	}
 
 	if (mLastHitZombieID != ZombieID::ZOMBIEID_NULL)
 	{
@@ -944,6 +1000,34 @@ void Projectile::CheckForCollision()
 		Die();
 		return;
 	}
+	if (mProjectileType == ProjectileType::PROJECTILE_OAK_ARROW ||
+		mProjectileType == ProjectileType::PROJECTILE_OAK_FROST_ARROW)
+	{
+		// The arrowhead sweeps right through each zombie's leading edge once.
+		// Process every crossing this tick so overlapping zombies each take one hit.
+		const float aPreviousTip = mPosX - mVelX + 20.0f;
+		const float aCurrentTip = mPosX + 20.0f;
+		Zombie* aZombie = nullptr;
+		while (mBoard->IterateZombies(aZombie))
+		{
+			if ((aZombie->mZombieType != ZombieType::ZOMBIE_BOSS && aZombie->mRow != mRow) ||
+				!aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+				continue;
+			const Rect aRect = aZombie->GetZombieRect();
+			const bool aCrossed = aPreviousTip < aRect.mX && aCurrentTip >= aRect.mX;
+			const bool aStartedInside = mProjectileAge == 1 &&
+				aRect.mX <= aCurrentTip && aRect.mX + aRect.mWidth > aPreviousTip;
+			if ((aCrossed || aStartedInside) &&
+				mPosY + 5.0f >= aRect.mY && mPosY + 5.0f < aRect.mY + aRect.mHeight)
+			{
+				aZombie->TakeDamage(GetProjectileDef().mDamage, GetDamageFlags(aZombie));
+				mApp->AddTodParticle(aCurrentTip, mPosY + 5.0f, mRenderOrder + 1,
+					mProjectileType == ProjectileType::PROJECTILE_OAK_FROST_ARROW
+						? ParticleEffect::PARTICLE_SNOWPEA_SPLAT : ParticleEffect::PARTICLE_PEA_SPLAT);
+			}
+		}
+		return;
+	}
 
 	if (mMotionType == ProjectileMotion::MOTION_HOMING)
 	{
@@ -1217,7 +1301,8 @@ unsigned int Projectile::GetDamageFlags(Zombie* theZombie)
 		SetBit(aDamageFlags, static_cast<int>(DamageFlags::DAMAGE_BYPASSES_SHIELD), true);
 	}
 
-	if (mProjectileType == ProjectileType::PROJECTILE_SNOWPEA || mProjectileType == ProjectileType::PROJECTILE_WINTERMELON)
+	if (mProjectileType == ProjectileType::PROJECTILE_SNOWPEA || mProjectileType == ProjectileType::PROJECTILE_WINTERMELON ||
+		mProjectileType == ProjectileType::PROJECTILE_OAK_FROST_ARROW)
 	{
 		SetBit(aDamageFlags, static_cast<int>(DamageFlags::DAMAGE_FREEZE), true);
 	}
@@ -1667,7 +1752,9 @@ void Projectile::UpdateMotion()
 	{
 		aSlopeHeightChange = 0.0f;  // Fix The Roof Offset Bug of Corn Cob
 	}
-	if (mMotionType == ProjectileMotion::MOTION_FLOAT_OVER)
+	if (mMotionType == ProjectileMotion::MOTION_FLOAT_OVER ||
+		mProjectileType == ProjectileType::PROJECTILE_OAK_ARROW ||
+		mProjectileType == ProjectileType::PROJECTILE_OAK_FROST_ARROW)
 	{
 		mPosY += aSlopeHeightChange;
 	}
@@ -1707,7 +1794,8 @@ void Projectile::PlayImpactSound(Zombie* theZombie)
 		mApp->PlayFoley(FoleyType::FOLEY_MELONIMPACT);
 		aPlaySplatSound = false;
 	}
-	else if (mProjectileType == ProjectileType::PROJECTILE_COCONUT)
+	else if (mProjectileType == ProjectileType::PROJECTILE_COCONUT ||
+		mProjectileType == ProjectileType::PROJECTILE_CARROT)
 	{
 		mApp->PlayFoley(FoleyType::FOLEY_EXPLOSION);
 		aPlayHelmSound = false;
@@ -1742,10 +1830,79 @@ void Projectile::PlayImpactSound(Zombie* theZombie)
 void Projectile::DoImpact(Zombie* theZombie)
 {
 	PlayImpactSound(theZombie);
+	if (mProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED ||
+		mProjectileType == ProjectileType::PROJECTILE_LOTUS_TORPEDO)
+	{
+		const bool aStuns = theZombie && Rand(100) < 30;
+		bool aStunnedAny = false;
+		if (mProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED)
+		{
+			if (theZombie)
+			{
+				theZombie->TakeDamage(300, GetDamageFlags(theZombie));
+				if (aStuns && !theZombie->IsDeadOrDying())
+				{
+					theZombie->ApplyLotusStun();
+					aStunnedAny = theZombie->mLotusStunTicks > 0;
+				}
+			}
+		}
+		else if (theZombie)
+		{
+			// A 160 px horizontal span is two pool cells, centred on impact.
+			Zombie* aZombie = nullptr;
+			while (mBoard->IterateZombies(aZombie))
+			{
+				if (aZombie->mRow != mRow || !aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+					continue;
+				Rect aRect = aZombie->GetZombieRect();
+				if (aRect.mX >= mPosX + 80.0f || aRect.mX + aRect.mWidth <= mPosX - 80.0f)
+					continue;
+				aZombie->TakeDamage(300, GetDamageFlags(aZombie));
+				if (aStuns && !aZombie->IsDeadOrDying())
+				{
+					aZombie->ApplyLotusStun();
+					aStunnedAny |= aZombie->mLotusStunTicks > 0;
+				}
+			}
+		}
+		Reanimation* aHit = mApp->AddReanimation(mPosX, mPosY + mPosZ, mRenderOrder + 1,
+			ReanimationType::REANIM_LOTUS_HIT);
+		aHit->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+		aHit->mAnimRate = 30.0f;
+		aHit->SetFramesForLayer("anim_hit");
+		if (aStunnedAny)
+		{
+			Reanimation* aVortex = mApp->AddReanimation(mPosX, mPosY + mPosZ, mRenderOrder + 2,
+				ReanimationType::REANIM_LOTUS_VORTEX);
+			aVortex->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+			aVortex->mAnimRate = 30.0f;
+			aVortex->SetFramesForLayer("anim_stun");
+		}
+		Die();
+		return;
+	}
 	bool aSporeTargetWasAlive = mProjectileType == ProjectileType::PROJECTILE_SPORESHROOM &&
 		theZombie != nullptr && !theZombie->IsDeadOrDying();
 
-	if (IsSplashDamage(theZombie))
+	if (mProjectileType == ProjectileType::PROJECTILE_CARROT)
+	{
+		if (theZombie)
+			theZombie->TakeDamage(1000, GetDamageFlags(theZombie));
+		const int aImpactCol = mBoard->PixelToGridXKeepOnBoard(mPosX + mWidth * 0.5f, mPosY);
+		const int aTileLeft = mBoard->GridToPixelX(aImpactCol, mRow);
+		Zombie* aZombie = nullptr;
+		while (mBoard->IterateZombies(aZombie))
+		{
+			if (aZombie == theZombie || aZombie->mRow != mRow ||
+				!aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+				continue;
+			const Rect aRect = aZombie->GetZombieRect();
+			if (aRect.mX < aTileLeft + 80 && aRect.mX + aRect.mWidth > aTileLeft)
+				aZombie->TakeDamage(100, GetDamageFlags(aZombie));
+		}
+	}
+	else if (IsSplashDamage(theZombie))
 	{
 		if (mProjectileType == ProjectileType::PROJECTILE_FIREBALL && theZombie)
 		{
@@ -1809,6 +1966,14 @@ void Projectile::DoImpact(Zombie* theZombie)
 	else if (mProjectileType == ProjectileType::PROJECTILE_COCONUT)
 	{
 		Reanimation* aHit = mApp->AddReanimation(mPosX, mPosY + mPosZ, mRenderOrder + 1, ReanimationType::REANIM_COCONUT_PROJECTILE);
+		aHit->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+		aHit->mAnimRate = 24.0f;
+		aHit->SetFramesForLayer("anim_hit");
+		aHit->SetTruncateDisappearingFrames(nullptr, false);
+	}
+	else if (mProjectileType == ProjectileType::PROJECTILE_CARROT)
+	{
+		Reanimation* aHit = mApp->AddReanimation(mPosX, mPosY + mPosZ, mRenderOrder + 1, ReanimationType::REANIM_CARROT_HIT);
 		aHit->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
 		aHit->mAnimRate = 24.0f;
 		aHit->SetFramesForLayer("anim_hit");
@@ -1948,7 +2113,13 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_SPORESHROOM ||
 		mProjectileType == ProjectileType::PROJECTILE_POISON_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_WIND_PEA ||
-		mProjectileType == ProjectileType::PROJECTILE_COCONUT)
+		mProjectileType == ProjectileType::PROJECTILE_COCONUT ||
+		mProjectileType == ProjectileType::PROJECTILE_COCONUT ||
+		mProjectileType == ProjectileType::PROJECTILE_CARROT ||
+		mProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED ||
+		mProjectileType == ProjectileType::PROJECTILE_LOTUS_TORPEDO ||
+		mProjectileType == ProjectileType::PROJECTILE_OAK_ARROW ||
+		mProjectileType == ProjectileType::PROJECTILE_OAK_FROST_ARROW)
 	{
 		aTime = 0;
 	}
@@ -2042,6 +2213,11 @@ void Projectile::Draw(Graphics* g)
 	case ProjectileType::PROJECTILE_SPORESHROOM:
 	case ProjectileType::PROJECTILE_POISON_PEA:
 	case ProjectileType::PROJECTILE_COCONUT:
+	case ProjectileType::PROJECTILE_CARROT:
+	case ProjectileType::PROJECTILE_LOTUS_SEED:
+	case ProjectileType::PROJECTILE_LOTUS_TORPEDO:
+	case ProjectileType::PROJECTILE_OAK_ARROW:
+	case ProjectileType::PROJECTILE_OAK_FROST_ARROW:
 		aImage = nullptr;
 		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
@@ -2238,6 +2414,13 @@ void Projectile::DrawShadow(Graphics* g)
 		break;
 	case ProjectileType::PROJECTILE_COCONUT:
 		aScale = 1.25f;
+		break;
+	case ProjectileType::PROJECTILE_CARROT:
+		aScale = 0.85f;
+		break;
+	case ProjectileType::PROJECTILE_LOTUS_SEED:
+	case ProjectileType::PROJECTILE_LOTUS_TORPEDO:
+		aScale = 0.75f;
 		break;
 	default:
 		break;

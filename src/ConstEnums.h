@@ -834,7 +834,12 @@ enum ProjectileType : int32_t
     PROJECTILE_POISON_PEA = 19,  // 毒液豌豆射手的一阶毒液豌豆
     PROJECTILE_COCONUT = 20,     // 椰子加农炮的一阶炮弹
     PROJECTILE_WIND_PEA = 21,    // 风神豌豆（风神豌豆射手：40 伤害单体命中 + 击退僵尸）
-    NUM_PROJECTILES = 22
+    PROJECTILE_LOTUS_SEED = 22,  // 四阶莲小蓬陆地莲子
+    PROJECTILE_LOTUS_TORPEDO = 23, // 四阶莲小蓬水中鱼雷
+    PROJECTILE_CARROT = 24, // 四阶胡萝卜导弹车普通飞弹
+    PROJECTILE_OAK_ARROW = 25,
+    PROJECTILE_OAK_FROST_ARROW = 26,
+    NUM_PROJECTILES,
 };
 enum ReanimationType : uint32_t {
     REANIM_NONE = static_cast<uint32_t>(-1),
@@ -1012,6 +1017,17 @@ enum ReanimationType : uint32_t {
     REANIM_WIND_PEASHOOTER,         // 风神豌豆射手：**独立的** reanim/WindPeashooter.reanim
                                     //（豌豆射手副本 + 三条三叶草叶片轨道，见
                                     //  scripts/gen-wind-peashooter-reanim.py）
+    REANIM_LOTUS_POD,
+    REANIM_LOTUS_SEED,
+    REANIM_LOTUS_TORPEDO,
+    REANIM_LOTUS_HIT,
+    REANIM_LOTUS_VORTEX,
+    REANIM_CARROTILLERY,
+    REANIM_CARROT_BULLET,
+    REANIM_CARROT_HIT,
+    REANIM_OAK_ARCHER,
+    REANIM_OAK_ARROW,
+    REANIM_OAK_FROST_ARROW,
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1153,6 +1169,9 @@ enum SeedType : int32_t
     SEED_GATLING_CACTUS,                            // 机枪仙人掌（仙人掌种在机枪射手上合成）
     SEED_COCONUT_CANNON,                            // 椰子加农炮（斗蛐蛐 2 专属，一阶）
     SEED_WIND_PEASHOOTER,                           // 风神豌豆射手（旅行红卡：200 阳光，40 伤害风神豌豆 + 击退僵尸）
+    SEED_LOTUS_POD,                                 // 莲小蓬（斗蛐蛐 2 专属，固定四阶）
+    SEED_CARROTILLERY,                              // 胡萝卜导弹车（斗蛐蛐 2 专属，固定四阶）
+    SEED_OAK_ARCHER,                                 // 橡木弓手（斗蛐蛐 2 专属，固定五阶）
     NUM_SEED_TYPES,
     NUM_SEEDS_IN_CHOOSER = 49,
     SEED_NONE = -1

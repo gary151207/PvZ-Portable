@@ -139,6 +139,9 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mLotusStunTicks = 0;
     mBonkFloatTicks = 0;
     mBloomerangSpinTicks = 0;
+    mPepperBurnTicks = 0;
+    mPepperBurnPulseTicks = 0;
+    mPepperBurnAttachmentID = AttachmentID::ATTACHMENTID_NULL;
     mMindControlled = false;
     mTorchwoodSummoned = false;
     mBlowingAway = false;
@@ -4928,6 +4931,7 @@ void Zombie::UpdatePlaying()
         }
     }
     UpdatePoisonPea();
+    UpdatePepperBurn();
     if (IsDeadOrDying())
     {
         mLotusStunTicks = 0;
@@ -6092,6 +6096,12 @@ void Zombie::DrawReanim(Graphics* g, const ZombieDrawPosition& theDrawPos, int t
         aExtraAdditiveColor = aColorOverride;
         aEnableExtraAdditiveDraw = true;
     }
+    else if (mPepperBurnTicks > 0)
+    {
+        aColorOverride = Color(90, 150, 255, aFadeAlpha);
+        aExtraAdditiveColor = aColorOverride;
+        aEnableExtraAdditiveDraw = true;
+    }
     else if (mLotusStunTicks > 0)
     {
         aColorOverride = Color(80, 190, 225, aFadeAlpha);
@@ -7174,6 +7184,51 @@ void Zombie::ApplyPoisonPea()
     }
 }
 
+void Zombie::ApplyPepperBurn()
+{
+    if (IsDeadOrDying())
+        return;
+    if (mPepperBurnTicks == 0)
+        mPepperBurnPulseTicks = 10;
+    mPepperBurnTicks = 400;
+    if (mPepperBurnAttachmentID == AttachmentID::ATTACHMENTID_NULL)
+    {
+        Reanimation* aBurn = mApp->AddReanimation(mPosX + 20.0f, mPosY + 30.0f,
+            mRenderOrder + 1, ReanimationType::REANIM_PEPPER_PULT_BLUE_BURN);
+        aBurn->mLoopType = ReanimLoopType::REANIM_LOOP;
+        aBurn->mAnimRate = 30.0f;
+        aBurn->SetFramesForLayer("anim_burn");
+        AttachReanim(mPepperBurnAttachmentID, aBurn, 0.0f, 0.0f);
+    }
+}
+
+void Zombie::UpdatePepperBurn()
+{
+    if (mPepperBurnTicks <= 0 || IsDeadOrDying())
+    {
+        mPepperBurnTicks = 0;
+        mPepperBurnPulseTicks = 0;
+        AttachmentDie(mPepperBurnAttachmentID);
+        return;
+    }
+
+    AttachmentUpdateAndMove(mPepperBurnAttachmentID, mPosX + 20.0f, mPosY + 30.0f);
+    --mPepperBurnTicks;
+    if (--mPepperBurnPulseTicks <= 0)
+    {
+        mPepperBurnPulseTicks = 10;
+        // The blue flame deals 100 body damage per second. Repeated hits refresh
+        // duration without restarting or stacking this ten-tick pulse.
+        TakeBodyDamage(10, 1U << static_cast<int>(DamageFlags::DAMAGE_DOESNT_CAUSE_FLASH));
+    }
+    if (mPepperBurnTicks == 0 || IsDeadOrDying())
+    {
+        mPepperBurnTicks = 0;
+        mPepperBurnPulseTicks = 0;
+        AttachmentDie(mPepperBurnAttachmentID);
+    }
+}
+
 void Zombie::UpdatePoisonPea()
 {
     if (mPoisonPeaTicks <= 0 || IsDeadOrDying())
@@ -8185,6 +8240,9 @@ void Zombie::DieNoLoot()
     mPoisonPeaPulseTicks = 0;
     mBonkFloatTicks = 0;
     mBloomerangSpinTicks = 0;
+    mPepperBurnTicks = 0;
+    mPepperBurnPulseTicks = 0;
+    AttachmentDie(mPepperBurnAttachmentID);
     StopZombieSound();
     AttachmentDie(mAttachmentID);
     mApp->RemoveReanimation(mBodyReanimID);
@@ -9744,6 +9802,9 @@ void Zombie::PlayDeathAnim(unsigned int theDamageFlags)
     mPoisonPeaPulseTicks = 0;
     mBonkFloatTicks = 0;
     mBloomerangSpinTicks = 0;
+    mPepperBurnTicks = 0;
+    mPepperBurnPulseTicks = 0;
+    AttachmentDie(mPepperBurnAttachmentID);
 
     Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
     if (aBodyReanim == nullptr || !aBodyReanim->TrackExists("anim_death"))

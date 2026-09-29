@@ -68,7 +68,8 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_OAK_ARROW,    0, 390 },
 	{ ProjectileType::PROJECTILE_OAK_FROST_ARROW, 0, 390 },
 	{ ProjectileType::PROJECTILE_BLOOMERANG, 0, 60 },
-	{ ProjectileType::PROJECTILE_BLOOMERANG_TORNADO, 0, 60 }
+	{ ProjectileType::PROJECTILE_BLOOMERANG_TORNADO, 0, 60 },
+	{ ProjectileType::PROJECTILE_PEPPER_PULT, 0, 125 }
 };
 
 Projectile::Projectile()
@@ -208,6 +209,17 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		aSporeReanim->mAnimRate = 30.0f;
 		aSporeReanim->SetFramesForLayer("anim_fly");
 		AttachReanim(mAttachmentID, aSporeReanim, 0.0f, 0.0f);
+		break;
+	}
+	case ProjectileType::PROJECTILE_PEPPER_PULT:
+	{
+		Reanimation* aPepper = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 1,
+			ReanimationType::REANIM_PEPPER_PULT_PROJECTILE);
+		aPepper->mLoopType = ReanimLoopType::REANIM_LOOP;
+		aPepper->mAnimRate = 30.0f;
+		aPepper->SetFramesForLayer("anim_fly");
+		aPepper->SetTruncateDisappearingFrames(nullptr, false);
+		AttachReanim(mAttachmentID, aPepper, 0.0f, 0.0f);
 		break;
 	}
 	case ProjectileType::PROJECTILE_POISON_PEA:
@@ -1499,7 +1511,8 @@ void Projectile::UpdateLobMotion()
 		{
 			aMinCollisionZ = 60.0f;
 		}
-		else if (mProjectileType == ProjectileType::PROJECTILE_MELON || mProjectileType == ProjectileType::PROJECTILE_WINTERMELON)
+		else if (mProjectileType == ProjectileType::PROJECTILE_MELON || mProjectileType == ProjectileType::PROJECTILE_WINTERMELON ||
+			mProjectileType == ProjectileType::PROJECTILE_PEPPER_PULT)
 		{
 			aMinCollisionZ = -35.0f;
 		}
@@ -1862,6 +1875,42 @@ void Projectile::PlayImpactSound(Zombie* theZombie)
 
 void Projectile::DoImpact(Zombie* theZombie)
 {
+	if (mProjectileType == ProjectileType::PROJECTILE_PEPPER_PULT)
+	{
+		mApp->PlayFoley(FoleyType::FOLEY_IGNITE);
+		const float aCenterX = mPosX + mWidth * 0.5f;
+		Zombie* aZombie = nullptr;
+		while (mBoard->IterateZombies(aZombie))
+		{
+			const int aRowDistance = aZombie->mZombieType == ZombieType::ZOMBIE_BOSS
+				? 0 : aZombie->mRow - mRow;
+			if (aRowDistance < -1 || aRowDistance > 1 ||
+				!aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+				continue;
+			const Rect aRect = aZombie->GetZombieRect();
+			if (aRect.mX >= aCenterX + 120.0f || aRect.mX + aRect.mWidth <= aCenterX - 120.0f)
+				continue;
+			aZombie->TakeDamage(aZombie == theZombie ? 125 : 25, GetDamageFlags(aZombie));
+			if (!aZombie->IsDeadOrDying())
+			{
+				aZombie->RemoveColdEffects();
+				aZombie->ApplyPepperBurn();
+				Reanimation* aBurnStart = mApp->AddReanimation(aZombie->mX + 20, aZombie->mY + 30,
+					aZombie->mRenderOrder + 1, ReanimationType::REANIM_PEPPER_PULT_BLUE_BURN);
+				aBurnStart->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+				aBurnStart->mAnimRate = 30.0f;
+				aBurnStart->SetFramesForLayer("anim_start");
+			}
+		}
+		Reanimation* aHit = mApp->AddReanimation(mPosX, mPosY + mPosZ, mRenderOrder + 1,
+			ReanimationType::REANIM_PEPPER_PULT_HIT);
+		aHit->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+		aHit->mAnimRate = 30.0f;
+		aHit->SetFramesForLayer("anim_hit");
+		aHit->SetTruncateDisappearingFrames(nullptr, false);
+		Die();
+		return;
+	}
 	PlayImpactSound(theZombie);
 	if (mProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED ||
 		mProjectileType == ProjectileType::PROJECTILE_LOTUS_TORPEDO)
@@ -2223,7 +2272,8 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_OAK_ARROW ||
 		mProjectileType == ProjectileType::PROJECTILE_OAK_FROST_ARROW ||
 		mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG ||
-		mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG_TORNADO)
+		mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG_TORNADO ||
+		mProjectileType == ProjectileType::PROJECTILE_PEPPER_PULT)
 	{
 		aTime = 0;
 	}
@@ -2332,6 +2382,7 @@ void Projectile::Draw(Graphics* g)
 	case ProjectileType::PROJECTILE_OAK_FROST_ARROW:
 	case ProjectileType::PROJECTILE_BLOOMERANG:
 	case ProjectileType::PROJECTILE_BLOOMERANG_TORNADO:
+	case ProjectileType::PROJECTILE_PEPPER_PULT:
 		aImage = nullptr;
 		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
@@ -2522,6 +2573,9 @@ void Projectile::DrawShadow(Graphics* g)
 		break;
 	case ProjectileType::PROJECTILE_SPORESHROOM:
 		aScale = 0.9f;
+		break;
+	case ProjectileType::PROJECTILE_PEPPER_PULT:
+		aScale = 0.8f;
 		break;
 	case ProjectileType::PROJECTILE_POISON_PEA:
 		aScale = 0.65f;

@@ -135,6 +135,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_OAK_ARCHER, nullptr, ReanimationType::REANIM_OAK_ARCHER, 0, 275, 750, PlantSubClass::SUBCLASS_SHOOTER, 430, "OAK_ARCHER" },
     { SeedType::SEED_BONK_CHOY, nullptr, ReanimationType::REANIM_BONK_CHOY, 0, 150, 500, PlantSubClass::SUBCLASS_NORMAL, 0, "BONK_CHOY" },
     { SeedType::SEED_BLOOMERANG, nullptr, ReanimationType::REANIM_BLOOMERANG, 0, 175, 500, PlantSubClass::SUBCLASS_SHOOTER, 290, "BLOOMERANG" },
+    { SeedType::SEED_PEPPER_PULT, nullptr, ReanimationType::REANIM_PEPPER_PULT, 0, 200, 500, PlantSubClass::SUBCLASS_SHOOTER, 290, "PEPPER_PULT" },
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -838,6 +839,16 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         }
         mState = PlantState::STATE_READY;
         break;
+    case SeedType::SEED_PEPPER_PULT:
+        mPlantHealth = 750;
+        if (aBodyReanim)
+        {
+            aBodyReanim->mAnimRate = 30.0f;
+            aBodyReanim->SetFramesForLayer(mBoard && mBoard->IsPoolSquare(mPlantCol, mRow)
+                ? "anim_water" : "anim_idle");
+        }
+        mState = PlantState::STATE_READY;
+        break;
     case SeedType::SEED_BLOVER:
     {
         mDoSpecialCountdown = 50;
@@ -1365,6 +1376,7 @@ int Plant::GetDamageRangeFlags(PlantWeapon thePlantWeapon)
     case SeedType::SEED_KERNELPULT:
     case SeedType::SEED_WINTERMELON:
     case SeedType::SEED_CARROTILLERY:
+    case SeedType::SEED_PEPPER_PULT:
         return 13;
     case SeedType::SEED_POTATOMINE:
         return 77;
@@ -1580,6 +1592,12 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
         PlayBodyReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 10, 30.0f);
         // The 40-frame attack begins at PAM frame 52; use_action is frame 72.
         mShootingCounter = 133;
+    }
+    else if (mSeedType == SeedType::SEED_PEPPER_PULT)
+    {
+        PlayBodyReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 10, 30.0f);
+        // The 60-frame attack starts at PAM frame 268; the sole normal use_action is frame 281.
+        mShootingCounter = 200;
     }
     else if (mSeedType == SeedType::SEED_LOTUS_POD)
     {
@@ -5059,6 +5077,19 @@ void Plant::UpdateShooting()
         }
         return;
     }
+    if (mSeedType == SeedType::SEED_PEPPER_PULT)
+    {
+        if (mShootingCounter > 0)
+        {
+            --mShootingCounter;
+            if (mShootingCounter == 157)
+                Fire(FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY), mRow, PlantWeapon::WEAPON_PRIMARY);
+            if (mShootingCounter == 0)
+                PlayBodyReanim(mBoard->IsPoolSquare(mPlantCol, mRow) ? "anim_water" : "anim_idle",
+                    ReanimLoopType::REANIM_LOOP, 10, 30.0f);
+        }
+        return;
+    }
 
     // 大喷菇群：左右小喷菇各喷各的（独立节奏，不受中间头计时影响）
     UpdateTravelPuffHeads();
@@ -6706,6 +6737,9 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     case SeedType::SEED_CARROTILLERY:
         aProjectileType = ProjectileType::PROJECTILE_CARROT;
         break;
+    case SeedType::SEED_PEPPER_PULT:
+        aProjectileType = ProjectileType::PROJECTILE_PEPPER_PULT;
+        break;
     case SeedType::SEED_CACTUS:
     case SeedType::SEED_GATLING_CACTUS:
     case SeedType::SEED_CATTAIL:
@@ -6835,6 +6869,11 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     {
         aOriginX = mX + 70;
         aOriginY = mY + 5;
+    }
+    else if (mSeedType == SeedType::SEED_PEPPER_PULT)
+    {
+        aOriginX = mX + 65;
+        aOriginY = mY - 20;
     }
     else if (mSeedType == SeedType::SEED_CABBAGEPULT)
     {
@@ -7098,6 +7137,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
     }
 
     if (IsPultPlant(mSeedType) || mSeedType == SeedType::SEED_SPORESHROOM ||
+        mSeedType == SeedType::SEED_PEPPER_PULT ||
         aProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED)
     {
         float aRangeX, aRangeY;
@@ -7758,6 +7798,12 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_BLOOMERANG_PROJECTILE, true);
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_BLOOMERANG_TORNADO, true);
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_BLOOMERANG_HIT, true);
+    }
+    else if (theSeedType == SeedType::SEED_PEPPER_PULT)
+    {
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_PEPPER_PULT_PROJECTILE, true);
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_PEPPER_PULT_HIT, true);
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_PEPPER_PULT_BLUE_BURN, true);
     }
     else if (theSeedType == SeedType::SEED_POISON_PEASHOOTER)
     {

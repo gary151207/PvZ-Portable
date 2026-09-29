@@ -1883,6 +1883,12 @@ static void SyncZombiesPortable(PortableSaveContext& theContext, Board* theBoard
 				AppendFieldWithSync(aOut, 5U, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mBonkFloatTicks); });
 			if (theZombie.mBloomerangSpinTicks > 0)
 				AppendFieldWithSync(aOut, 6U, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mBloomerangSpinTicks); });
+			if (theZombie.mPepperBurnTicks > 0)
+				AppendFieldWithSync(aOut, 7U, [&](PortableSaveContext& c){
+					c.SyncInt32(theZombie.mPepperBurnTicks);
+					c.SyncInt32(theZombie.mPepperBurnPulseTicks);
+					SyncEnum32(c, theZombie.mPepperBurnAttachmentID);
+				});
 			AppendFieldWithSync(aOut, PORTABLE_FIELD_TAIL, [&](PortableSaveContext& c){ SyncZombieTailPortable(c, theZombie); });
 		},
 		[&](uint32_t aFieldId, const unsigned char* aData, size_t aSize, Zombie& theZombie)
@@ -1899,6 +1905,11 @@ static void SyncZombiesPortable(PortableSaveContext& theContext, Board* theBoard
 			case 4U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mLotusStunTicks); }); break;
 			case 5U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mBonkFloatTicks); }); break;
 			case 6U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mBloomerangSpinTicks); }); break;
+			case 7U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){
+				c.SyncInt32(theZombie.mPepperBurnTicks);
+				c.SyncInt32(theZombie.mPepperBurnPulseTicks);
+				SyncEnum32(c, theZombie.mPepperBurnAttachmentID);
+			}); break;
 			case PORTABLE_FIELD_TAIL: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ SyncZombieTailPortable(c, theZombie); }); break;
 			default: break;
 			}

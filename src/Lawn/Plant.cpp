@@ -53,6 +53,10 @@ static constexpr float FUME_GROUP_PUFF_OFFSET_Y = 22.0f;
 // PAM frames 140-503, played at 120 FPS: four action points in about 3 seconds.
 static constexpr int CARROT_VOLLEY_TICKS = 304;
 static constexpr int CARROT_ACTION_TICKS[] = { 40, 113, 188, 266 };
+static constexpr int BONK_PUNCH_TICKS = 33;
+static constexpr int BONK_UPPERCUT_TICKS = 33;
+static constexpr int BONK_QUAKE_TICKS = 42;
+static constexpr int BONK_ATTACK_INTERVAL = 40;
 
 PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_PEASHOOTER,        nullptr, ReanimationType::REANIM_PEASHOOTER,    0,  100,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "PEASHOOTER" },
@@ -129,6 +133,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_LOTUS_POD, nullptr, ReanimationType::REANIM_LOTUS_POD, 0, 200, 500, PlantSubClass::SUBCLASS_SHOOTER, 290, "LOTUS_POD" },
     { SeedType::SEED_CARROTILLERY, nullptr, ReanimationType::REANIM_CARROTILLERY, 0, 450, 1000, PlantSubClass::SUBCLASS_NORMAL, 0, "CARROTILLERY" },
     { SeedType::SEED_OAK_ARCHER, nullptr, ReanimationType::REANIM_OAK_ARCHER, 0, 275, 750, PlantSubClass::SUBCLASS_SHOOTER, 430, "OAK_ARCHER" },
+    { SeedType::SEED_BONK_CHOY, nullptr, ReanimationType::REANIM_BONK_CHOY, 0, 150, 500, PlantSubClass::SUBCLASS_NORMAL, 0, "BONK_CHOY" },
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -716,6 +721,8 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mHasFiredFirstPea = false;
     mPeater15DoubleShot = false;
     mPeater15UpgradeCountdown = 0;   // 非 1.5 发射手保持 0；1.5 发射手在下面按种子置为升级等待帧数
+    mBonkPunchCount = 0;
+    mBonkUppercutCount = 0;
 
     Reanimation* aBodyReanim = nullptr;
     if (aReanimType != ReanimationType::REANIM_NONE)
@@ -803,6 +810,16 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
         break;
     case SeedType::SEED_OAK_ARCHER:
         mPlantHealth = 900;
+        if (aBodyReanim)
+        {
+            aBodyReanim->mAnimRate = 30.0f;
+            aBodyReanim->SetFramesForLayer("anim_idle");
+        }
+        mState = PlantState::STATE_READY;
+        break;
+    case SeedType::SEED_BONK_CHOY:
+        mPlantHealth = 900;
+        mLaunchCounter = 0;
         if (aBodyReanim)
         {
             aBodyReanim->mAnimRate = 30.0f;
@@ -2023,6 +2040,132 @@ void Plant::UpdateCarrotillery()
     mCarrotVolleyShotsFired = 0;
     mShootingCounter = CARROT_VOLLEY_TICKS;
     PlayBodyReanim("anim_volley", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 120.0f);
+}
+
+Zombie* Plant::FindBonkChoyTarget(bool theRightOnly)
+{
+    const Rect aRange = theRightOnly
+        ? Rect(mX + 80, mY, 80, mHeight)
+        : Rect(mX - 80, mY, 240, mHeight);
+    Zombie* aBest = nullptr;
+    int aBestDistance = 100000;
+    Zombie* aZombie = nullptr;
+    while (mBoard->IterateZombies(aZombie))
+    {
+        if (aZombie->mRow != mRow || aZombie->mMindControlled || aZombie->IsDeadOrDying() ||
+            aZombie->mOnHighGround != IsOnHighGround() || !aZombie->EffectedByDamage(1U))
+            continue;
+        const Rect aRect = aZombie->GetZombieRect();
+        if (GetRectOverlap(aRange, aRect) <= 0)
+            continue;
+        const int aDistance = std::abs(aRect.mX + aRect.mWidth / 2 - (mX + 40));
+        if (aDistance < aBestDistance)
+        {
+            aBestDistance = aDistance;
+            aBest = aZombie;
+        }
+    }
+    return aBest;
+}
+
+void Plant::BonkChoyHit()
+{
+    Zombie* aTarget = mState == PlantState::STATE_BONK_QUAKE
+        ? FindBonkChoyTarget(true) : mBoard->ZombieTryToGet(mTargetZombieID);
+    if (!aTarget)
+        return;
+
+    if (mState != PlantState::STATE_BONK_QUAKE)
+    {
+        const bool aLeftAttack = mTargetX < mX + 40;
+        const Rect aRange = aLeftAttack ? Rect(mX - 80, mY, 120, mHeight)
+                                       : Rect(mX + 40, mY, 120, mHeight);
+        if (aTarget->mRow != mRow || aTarget->mMindControlled || aTarget->IsDeadOrDying() ||
+            aTarget->mOnHighGround != IsOnHighGround() || !aTarget->EffectedByDamage(1U) ||
+            GetRectOverlap(aRange, aTarget->GetZombieRect()) <= 0)
+            return;
+    }
+
+    mApp->PlayFoley(FoleyType::FOLEY_BONK);
+    if (mState == PlantState::STATE_BONK_QUAKE)
+    {
+        // Only the right-hand tile receives the earth-shaking fist. The
+        // selected zombie takes the direct hit; each other zombie there takes
+        // one splash hit, even if the direct hit kills its target.
+        const Rect aTile(mX + 80, mY, 80, mHeight);
+        aTarget->TakeDamage(145, 1U);
+        Zombie* aZombie = nullptr;
+        while (mBoard->IterateZombies(aZombie))
+        {
+            if (aZombie == aTarget || aZombie->mRow != mRow || aZombie->mMindControlled ||
+                aZombie->IsDeadOrDying() || aZombie->mOnHighGround != IsOnHighGround() ||
+                !aZombie->EffectedByDamage(1U) ||
+                GetRectOverlap(aTile, aZombie->GetZombieRect()) <= 0)
+                continue;
+            aZombie->TakeDamage(45, 1U);
+        }
+        return;
+    }
+
+    const bool anUppercut = mState == PlantState::STATE_BONK_UPPERCUT;
+    aTarget->TakeDamage(anUppercut ? 120 : 45, 1U);
+    if (anUppercut && !aTarget->IsDeadOrDying())
+        aTarget->ApplyBonkFloat();
+}
+
+void Plant::UpdateBonkChoy()
+{
+    if (NotOnGround())
+        return;
+    if (mLaunchCounter > 0)
+        --mLaunchCounter;
+    if (mShootingCounter > 0)
+        return;
+
+    if (mState == PlantState::STATE_BONK_UPPERCUT && mBonkUppercutCount == 2)
+    {
+        mState = PlantState::STATE_BONK_QUAKE;
+        mShootingCounter = BONK_QUAKE_TICKS;
+        mLaunchCounter = BONK_ATTACK_INTERVAL;
+        PlayBodyReanim("anim_quake", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 120.0f);
+        return;
+    }
+    if (mState == PlantState::STATE_BONK_PUNCH || mState == PlantState::STATE_BONK_UPPERCUT ||
+        mState == PlantState::STATE_BONK_QUAKE)
+    {
+        if (mState == PlantState::STATE_BONK_QUAKE)
+            mBonkUppercutCount = 0;
+        mState = PlantState::STATE_READY;
+        PlayIdleAnim(30.0f);
+    }
+    if (mLaunchCounter > 0)
+        return;
+
+    Zombie* aTarget = FindBonkChoyTarget(false);
+    if (!aTarget)
+        return;
+    mTargetZombieID = mBoard->ZombieGetID(aTarget);
+    const Rect aTargetRect = aTarget->GetZombieRect();
+    mTargetX = aTargetRect.mX + aTargetRect.mWidth / 2;
+    const bool aLeftAttack = mTargetX < mX + 40;
+
+    mLaunchCounter = BONK_ATTACK_INTERVAL;
+    if (++mBonkPunchCount == 7)
+    {
+        mBonkPunchCount = 0;
+        ++mBonkUppercutCount;
+        mState = PlantState::STATE_BONK_UPPERCUT;
+        mShootingCounter = BONK_UPPERCUT_TICKS;
+        PlayBodyReanim(aLeftAttack ? "anim_uppercut_left" : "anim_uppercut",
+            ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 45.0f);
+    }
+    else
+    {
+        mState = PlantState::STATE_BONK_PUNCH;
+        mShootingCounter = BONK_PUNCH_TICKS;
+        PlayBodyReanim(aLeftAttack ? "anim_punch_left" : "anim_punch",
+            ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+    }
 }
 
 bool Plant::MakesSun()
@@ -3893,6 +4036,7 @@ void Plant::UpdateAbilities()
     else if (mSeedType == SeedType::SEED_TALLNUT)                                               UpdateTallnut();
     else if (mSeedType == SeedType::SEED_SCAREDYSHROOM)                                         UpdateScaredyShroom();
     else if (mSeedType == SeedType::SEED_CARROTILLERY)                                          UpdateCarrotillery();
+    else if (mSeedType == SeedType::SEED_BONK_CHOY)                                             UpdateBonkChoy();
 
     if (mSubclass == PlantSubClass::SUBCLASS_SHOOTER)
     {
@@ -4869,6 +5013,19 @@ void Plant::UpdateShooting()
 
     if (mSeedType == SeedType::SEED_CARROTILLERY)
         return; // Its four action points are handled by UpdateCarrotillery.
+
+    if (mSeedType == SeedType::SEED_BONK_CHOY)
+    {
+        if (mShootingCounter > 0)
+        {
+            --mShootingCounter;
+            if ((mState == PlantState::STATE_BONK_PUNCH && mShootingCounter == 20) ||
+                (mState == PlantState::STATE_BONK_UPPERCUT && mShootingCounter == 24) ||
+                (mState == PlantState::STATE_BONK_QUAKE && mShootingCounter == 21))
+                BonkChoyHit();
+        }
+        return;
+    }
 
     if (mSeedType == SeedType::SEED_LOTUS_POD)
     {

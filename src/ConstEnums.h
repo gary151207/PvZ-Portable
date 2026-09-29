@@ -1028,6 +1028,7 @@ enum ReanimationType : uint32_t {
     REANIM_OAK_ARCHER,
     REANIM_OAK_ARROW,
     REANIM_OAK_FROST_ARROW,
+    REANIM_BONK_CHOY,
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1172,6 +1173,7 @@ enum SeedType : int32_t
     SEED_LOTUS_POD,                                 // 莲小蓬（斗蛐蛐 2 专属，固定四阶）
     SEED_CARROTILLERY,                              // 胡萝卜导弹车（斗蛐蛐 2 专属，固定四阶）
     SEED_OAK_ARCHER,                                 // 橡木弓手（斗蛐蛐 2 专属，固定五阶）
+    SEED_BONK_CHOY,                                  // 菜问（斗蛐蛐 2 专属，固定五阶）
     NUM_SEED_TYPES,
     NUM_SEEDS_IN_CHOOSER = 49,
     SEED_NONE = -1

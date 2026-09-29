@@ -1879,6 +1879,8 @@ static void SyncZombiesPortable(PortableSaveContext& theContext, Board* theBoard
 				c.SyncInt32(theZombie.mPoisonPeaPulseTicks);
 			});
 			AppendFieldWithSync(aOut, 4U, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mLotusStunTicks); });
+			if (theZombie.mBonkFloatTicks > 0)
+				AppendFieldWithSync(aOut, 5U, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mBonkFloatTicks); });
 			AppendFieldWithSync(aOut, PORTABLE_FIELD_TAIL, [&](PortableSaveContext& c){ SyncZombieTailPortable(c, theZombie); });
 		},
 		[&](uint32_t aFieldId, const unsigned char* aData, size_t aSize, Zombie& theZombie)
@@ -1893,6 +1895,7 @@ static void SyncZombiesPortable(PortableSaveContext& theContext, Board* theBoard
 				c.SyncInt32(theZombie.mPoisonPeaPulseTicks);
 			}); break;
 			case 4U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mLotusStunTicks); }); break;
+			case 5U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mBonkFloatTicks); }); break;
 			case PORTABLE_FIELD_TAIL: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ SyncZombieTailPortable(c, theZombie); }); break;
 			default: break;
 			}
@@ -1915,6 +1918,11 @@ static void SyncPlantsPortable(PortableSaveContext& theContext, Board* theBoard)
 			}
 			if (thePlant.mSeedType == SeedType::SEED_CARROTILLERY)
 				AppendFieldWithSync(aOut, 102U, [&](PortableSaveContext& c){ c.SyncInt32(thePlant.mCarrotVolleyShotsFired); });
+			if (thePlant.mSeedType == SeedType::SEED_BONK_CHOY)
+				AppendFieldWithSync(aOut, 103U, [&](PortableSaveContext& c){
+					c.SyncInt32(thePlant.mBonkPunchCount);
+					c.SyncInt32(thePlant.mBonkUppercutCount);
+				});
 		},
 		[&](uint32_t aFieldId, const unsigned char* aData, size_t aSize, Plant& thePlant)
 		{
@@ -1941,6 +1949,12 @@ static void SyncPlantsPortable(PortableSaveContext& theContext, Board* theBoard)
 				break;
 			case 102U:
 				ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(thePlant.mCarrotVolleyShotsFired); });
+				break;
+			case 103U:
+				ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){
+					c.SyncInt32(thePlant.mBonkPunchCount);
+					c.SyncInt32(thePlant.mBonkUppercutCount);
+				});
 				break;
 			default: break;
 			}

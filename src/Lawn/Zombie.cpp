@@ -136,6 +136,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mPoisonPeaTicks = 0;
     mPoisonPeaPulseTicks = 0;
     mLotusStunTicks = 0;
+    mBonkFloatTicks = 0;
     mMindControlled = false;
     mTorchwoodSummoned = false;
     mBlowingAway = false;
@@ -4928,9 +4929,12 @@ void Zombie::UpdatePlaying()
     if (IsDeadOrDying())
     {
         mLotusStunTicks = 0;
+        mBonkFloatTicks = 0;
         return;
     }
     if (mLotusStunTicks > 0 && --mLotusStunTicks == 0)
+        UpdateAnimSpeed();
+    if (mBonkFloatTicks > 0 && --mBonkFloatTicks == 0)
         UpdateAnimSpeed();
     if (mButteredCounter > 0)
     {
@@ -6529,6 +6533,11 @@ void Zombie::GetDrawPos(ZombieDrawPosition& theDrawPos)
         theDrawPos.mBodyY = -mAltitude;
         theDrawPos.mClipHeight = CLIP_HEIGHT_OFF;
     }
+    if (mBonkFloatTicks > 0)
+    {
+        const int aLiftTicks = std::min(60 - mBonkFloatTicks, mBonkFloatTicks);
+        theDrawPos.mBodyY -= 24.0f * aLiftTicks / 30.0f;
+    }
 }
 
 int Zombie::GetDancerFrame()
@@ -7004,7 +7013,20 @@ void Zombie::CheckSquish(ZombieAttackType theAttackType)
 
 bool Zombie::IsImmobilizied()
 {
-    return mIceTrapCounter > 0 || mButteredCounter > 0 || mLotusStunTicks > 0;
+    return mIceTrapCounter > 0 || mButteredCounter > 0 || mLotusStunTicks > 0 || mBonkFloatTicks > 0;
+}
+
+void Zombie::ApplyBonkFloat()
+{
+    if (IsDeadOrDying() || !mHasHead || IsFlying() ||
+        mZombieHeight != ZombieHeight::HEIGHT_ZOMBIE_NORMAL ||
+        mZombieType == ZombieType::ZOMBIE_ZAMBONI || mZombieType == ZombieType::ZOMBIE_CATAPULT ||
+        mZombieType == ZombieType::ZOMBIE_GARGANTUAR || mZombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR ||
+        mZombieType == ZombieType::ZOMBIE_BOSS || mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA ||
+        IsTangleKelpTarget() || IsBobsledTeamWithSled())
+        return;
+    mBonkFloatTicks = 60;
+    UpdateAnimSpeed();
 }
 
 void Zombie::ApplyLotusStun()
@@ -8087,6 +8109,7 @@ void Zombie::DieNoLoot()
     mPoisonPeaStacks = 0;
     mPoisonPeaTicks = 0;
     mPoisonPeaPulseTicks = 0;
+    mBonkFloatTicks = 0;
     StopZombieSound();
     AttachmentDie(mAttachmentID);
     mApp->RemoveReanimation(mBodyReanimID);
@@ -9644,6 +9667,7 @@ void Zombie::PlayDeathAnim(unsigned int theDamageFlags)
     mPoisonPeaStacks = 0;
     mPoisonPeaTicks = 0;
     mPoisonPeaPulseTicks = 0;
+    mBonkFloatTicks = 0;
 
     Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
     if (aBodyReanim == nullptr || !aBodyReanim->TrackExists("anim_death"))
@@ -10121,6 +10145,11 @@ void Zombie::DrawShadow(Graphics* g)
     int aShadowType = 0;
     float aShadowOffsetX = aDrawPos.mImageOffsetX;
     float aShadowOffsetY = aDrawPos.mImageOffsetY + aDrawPos.mBodyY;
+    if (mBonkFloatTicks > 0)
+    {
+        const int aLiftTicks = std::min(60 - mBonkFloatTicks, mBonkFloatTicks);
+        aShadowOffsetY += 24.0f * aLiftTicks / 30.0f;
+    }
     float aScale = mScaleZombie;
     aShadowOffsetX += mScaleZombie * 20.0f - 20.0f;
     if (IsOnBoard() && mBoard->StageIsNight())

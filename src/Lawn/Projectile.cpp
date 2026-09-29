@@ -66,7 +66,9 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_LOTUS_TORPEDO,  0, 300 },
 	{ ProjectileType::PROJECTILE_CARROT,        0, 1000 },
 	{ ProjectileType::PROJECTILE_OAK_ARROW,    0, 390 },
-	{ ProjectileType::PROJECTILE_OAK_FROST_ARROW, 0, 390 }
+	{ ProjectileType::PROJECTILE_OAK_FROST_ARROW, 0, 390 },
+	{ ProjectileType::PROJECTILE_BLOOMERANG, 0, 60 },
+	{ ProjectileType::PROJECTILE_BLOOMERANG_TORNADO, 0, 60 }
 };
 
 Projectile::Projectile()
@@ -127,6 +129,11 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 	mSourcePlantID = PlantID::PLANTID_NULL;
 	mElectricChainSource = false;
 	mLaserPeaBeamCountdown = 0;
+	mBloomerangLaunchX = 0.0f;
+	mBloomerangReturning = false;
+	mBloomerangHitCount = 0;
+	for (ZombieID& aHit : mBloomerangHitIDs)
+		aHit = ZombieID::ZOMBIEID_NULL;
 	if (mProjectileType == ProjectileType::PROJECTILE_SPIKE)
 	{
 		mPenetrations = 2;
@@ -224,6 +231,29 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		anArrow->mLoopType = ReanimLoopType::REANIM_LOOP;
 		anArrow->SetFramesForLayer("anim_fly");
 		AttachReanim(mAttachmentID, anArrow, 0.0f, 0.0f);
+		mWidth = 1;
+		mHeight = 1;
+		break;
+	}
+	case ProjectileType::PROJECTILE_BLOOMERANG:
+	case ProjectileType::PROJECTILE_BLOOMERANG_TORNADO:
+	{
+		Reanimation* aFlight = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 1,
+			ReanimationType::REANIM_BLOOMERANG_PROJECTILE);
+		aFlight->mLoopType = ReanimLoopType::REANIM_LOOP;
+		aFlight->mAnimRate = 24.0f;
+		aFlight->SetFramesForLayer("anim_fly");
+		aFlight->SetTruncateDisappearingFrames(nullptr, false);
+		AttachReanim(mAttachmentID, aFlight, 0.0f, 0.0f);
+		if (mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG_TORNADO)
+		{
+			Reanimation* aVortex = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 2,
+				ReanimationType::REANIM_BLOOMERANG_TORNADO);
+			aVortex->mLoopType = ReanimLoopType::REANIM_LOOP;
+			aVortex->mAnimRate = 24.0f;
+			aVortex->SetFramesForLayer("anim_spin");
+			AttachReanim(mAttachmentID, aVortex, 0.0f, 0.0f);
+		}
 		mWidth = 1;
 		mHeight = 1;
 		break;
@@ -1300,6 +1330,9 @@ unsigned int Projectile::GetDamageFlags(Zombie* theZombie)
 	{
 		SetBit(aDamageFlags, static_cast<int>(DamageFlags::DAMAGE_BYPASSES_SHIELD), true);
 	}
+	if (mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG ||
+		mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG_TORNADO)
+		SetBit(aDamageFlags, static_cast<int>(DamageFlags::DAMAGE_BYPASSES_SHIELD), true);
 
 	if (mProjectileType == ProjectileType::PROJECTILE_SNOWPEA || mProjectileType == ProjectileType::PROJECTILE_WINTERMELON ||
 		mProjectileType == ProjectileType::PROJECTILE_OAK_FROST_ARROW)
@@ -2089,6 +2122,75 @@ void Projectile::DoImpact(Zombie* theZombie)
 	Die();
 }
 
+void Projectile::UpdateBloomerang()
+{
+	const float aPreviousX = mPosX;
+	const float aPreviousGroundY = mBoard->GetPosYBasedOnRow(mPosX, mRow);
+	mPosX += mBloomerangReturning ? -3.33f : 3.33f;
+	mPosY += mBoard->GetPosYBasedOnRow(mPosX, mRow) - aPreviousGroundY;
+	mX = static_cast<int>(mPosX);
+	mY = static_cast<int>(mPosY);
+
+	if (mBloomerangHitCount < 3)
+	{
+		std::vector<std::pair<float, ZombieID>> aTargets;
+		Zombie* aZombie = nullptr;
+		while (mBoard->IterateZombies(aZombie))
+		{
+			if ((aZombie->mZombieType != ZombieType::ZOMBIE_BOSS && aZombie->mRow != mRow) ||
+				aZombie->IsDeadOrDying() ||
+				!aZombie->EffectedByDamage(static_cast<unsigned int>(mDamageRangeFlags)))
+				continue;
+			const ZombieID anID = mBoard->ZombieGetID(aZombie);
+			if (std::find(std::begin(mBloomerangHitIDs), std::end(mBloomerangHitIDs), anID)
+				!= std::end(mBloomerangHitIDs))
+				continue;
+			const Rect aRect = aZombie->GetZombieRect();
+			if ((!aZombie->IsFlying() &&
+				(mPosY + 5.0f < aRect.mY || mPosY + 5.0f >= aRect.mY + aRect.mHeight)) ||
+				std::max(mPosX, aPreviousX) < aRect.mX ||
+				std::min(mPosX, aPreviousX) > aRect.mX + aRect.mWidth)
+				continue;
+			aTargets.emplace_back(static_cast<float>(aRect.mX), anID);
+		}
+		std::stable_sort(aTargets.begin(), aTargets.end(), [this](const auto& left, const auto& right)
+		{
+			return mBloomerangReturning ? left.first > right.first : left.first < right.first;
+		});
+		for (const auto& aTarget : aTargets)
+		{
+			if (mBloomerangHitCount >= 3)
+				break;
+			Zombie* aHit = mBoard->ZombieTryToGet(aTarget.second);
+			if (!aHit || aHit->IsDeadOrDying())
+				continue;
+			mBloomerangHitIDs[mBloomerangHitCount++] = aTarget.second;
+			aHit->TakeDamage(GetProjectileDef().mDamage, GetDamageFlags(aHit));
+			if (mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG_TORNADO && !aHit->IsDeadOrDying())
+				aHit->ApplyBloomerangSpin();
+			Reanimation* aHitEffect = mApp->AddReanimation(mPosX, mPosY, mRenderOrder + 3,
+				ReanimationType::REANIM_BLOOMERANG_HIT);
+			aHitEffect->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE;
+			aHitEffect->mAnimRate = 30.0f;
+			aHitEffect->SetFramesForLayer("anim_hit");
+		}
+	}
+
+	if (!mBloomerangReturning && (mBloomerangHitCount == 3 || mPosX >= WIDE_BOARD_WIDTH - 20))
+	{
+		mBloomerangReturning = true;
+		mBloomerangHitCount = 0;
+		for (ZombieID& anID : mBloomerangHitIDs)
+			anID = ZombieID::ZOMBIEID_NULL;
+	}
+	else if (mBloomerangReturning)
+	{
+		Plant* aSource = mBoard->mPlants.DataArrayTryToGet(static_cast<unsigned int>(mSourcePlantID));
+		if ((aSource && mPosX <= mBloomerangLaunchX) || mPosX < -20.0f)
+			Die();
+	}
+}
+
 void Projectile::Update()
 {
 	mProjectileAge++;
@@ -2119,7 +2221,9 @@ void Projectile::Update()
 		mProjectileType == ProjectileType::PROJECTILE_LOTUS_SEED ||
 		mProjectileType == ProjectileType::PROJECTILE_LOTUS_TORPEDO ||
 		mProjectileType == ProjectileType::PROJECTILE_OAK_ARROW ||
-		mProjectileType == ProjectileType::PROJECTILE_OAK_FROST_ARROW)
+		mProjectileType == ProjectileType::PROJECTILE_OAK_FROST_ARROW ||
+		mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG ||
+		mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG_TORNADO)
 	{
 		aTime = 0;
 	}
@@ -2175,6 +2279,14 @@ void Projectile::Update()
 		UpdateLaserPeaBeam();
 		return;
 	}
+	if (mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG ||
+		mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG_TORNADO)
+	{
+		UpdateBloomerang();
+		if (!mDead)
+			AttachmentUpdateAndMove(mAttachmentID, mPosX, mPosY);
+		return;
+	}
 
 	UpdateMotion();
 	AttachmentUpdateAndMove(mAttachmentID, mPosX, mPosY + mPosZ);
@@ -2218,6 +2330,8 @@ void Projectile::Draw(Graphics* g)
 	case ProjectileType::PROJECTILE_LOTUS_TORPEDO:
 	case ProjectileType::PROJECTILE_OAK_ARROW:
 	case ProjectileType::PROJECTILE_OAK_FROST_ARROW:
+	case ProjectileType::PROJECTILE_BLOOMERANG:
+	case ProjectileType::PROJECTILE_BLOOMERANG_TORNADO:
 		aImage = nullptr;
 		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:

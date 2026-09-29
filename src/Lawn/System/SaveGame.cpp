@@ -1881,6 +1881,8 @@ static void SyncZombiesPortable(PortableSaveContext& theContext, Board* theBoard
 			AppendFieldWithSync(aOut, 4U, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mLotusStunTicks); });
 			if (theZombie.mBonkFloatTicks > 0)
 				AppendFieldWithSync(aOut, 5U, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mBonkFloatTicks); });
+			if (theZombie.mBloomerangSpinTicks > 0)
+				AppendFieldWithSync(aOut, 6U, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mBloomerangSpinTicks); });
 			AppendFieldWithSync(aOut, PORTABLE_FIELD_TAIL, [&](PortableSaveContext& c){ SyncZombieTailPortable(c, theZombie); });
 		},
 		[&](uint32_t aFieldId, const unsigned char* aData, size_t aSize, Zombie& theZombie)
@@ -1896,6 +1898,7 @@ static void SyncZombiesPortable(PortableSaveContext& theContext, Board* theBoard
 			}); break;
 			case 4U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mLotusStunTicks); }); break;
 			case 5U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mBonkFloatTicks); }); break;
+			case 6U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(theZombie.mBloomerangSpinTicks); }); break;
 			case PORTABLE_FIELD_TAIL: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ SyncZombieTailPortable(c, theZombie); }); break;
 			default: break;
 			}
@@ -1968,6 +1971,14 @@ static void SyncProjectilesPortable(PortableSaveContext& theContext, Board* theB
 		{
 			WriteGameObjectField(aOut, 1U, theProjectile);
 			AppendFieldWithSync(aOut, PORTABLE_FIELD_TAIL, [&](PortableSaveContext& c){ SyncProjectileTailPortable(c, theProjectile); });
+			if (theProjectile.mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG ||
+				theProjectile.mProjectileType == ProjectileType::PROJECTILE_BLOOMERANG_TORNADO)
+				AppendFieldWithSync(aOut, 101U, [&](PortableSaveContext& c){
+					c.SyncFloat(theProjectile.mBloomerangLaunchX);
+					c.SyncBool(theProjectile.mBloomerangReturning);
+					c.SyncInt32(theProjectile.mBloomerangHitCount);
+					SyncEnumU32Array(c, &theProjectile.mBloomerangHitIDs[0], 3);
+				});
 		},
 		[&](uint32_t aFieldId, const unsigned char* aData, size_t aSize, Projectile& theProjectile)
 		{
@@ -1977,6 +1988,12 @@ static void SyncProjectilesPortable(PortableSaveContext& theContext, Board* theB
 			case 2U: ReadPodTailField(aData, aSize, theProjectile, &Projectile::mMotionType); break; // legacy
 			case 3U: ReadPodTailField(aData, aSize, theProjectile, &Projectile::mFrame); break; // legacy
 			case PORTABLE_FIELD_TAIL: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ SyncProjectileTailPortable(c, theProjectile); }); break;
+			case 101U: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){
+				c.SyncFloat(theProjectile.mBloomerangLaunchX);
+				c.SyncBool(theProjectile.mBloomerangReturning);
+				c.SyncInt32(theProjectile.mBloomerangHitCount);
+				SyncEnumU32Array(c, &theProjectile.mBloomerangHitIDs[0], 3);
+			}); break;
 			default: break;
 			}
 		});

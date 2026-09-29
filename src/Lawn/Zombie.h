@@ -206,6 +206,7 @@ public:
     int32_t                         mPoisonPeaPulseTicks;
     int32_t                         mLotusStunTicks;
     int32_t                         mBonkFloatTicks = 0;
+    int32_t                         mBloomerangSpinTicks = 0;
 
 public:
     Zombie();
@@ -355,6 +356,8 @@ public:
     bool                            IsImmobilizied();
     void                            ApplyButter();
     void                            ApplyLotusStun();
+    void                            ApplyBloomerangSpin();
+    void                            UpdateBloomerangSpin();
     void                            ApplyBonkFloat();
     float                           ZombieTargetLeadX(float theTime);
     void                            UpdateZombieImp();

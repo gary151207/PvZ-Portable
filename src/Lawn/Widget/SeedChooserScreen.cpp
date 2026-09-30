@@ -312,7 +312,8 @@ void SeedChooserScreen::GetSeedPositionInChooser(int theIndex, int& x, int& y)
 	    (SeedType)theIndex == SeedType::SEED_OAK_ARCHER ||
 	    (SeedType)theIndex == SeedType::SEED_BONK_CHOY ||
 	    (SeedType)theIndex == SeedType::SEED_BLOOMERANG ||
-	    (SeedType)theIndex == SeedType::SEED_PEPPER_PULT)
+	    (SeedType)theIndex == SeedType::SEED_PEPPER_PULT ||
+	    (SeedType)theIndex == SeedType::SEED_CELERY_STALKER)
 	{
 		// 斗蛐蛐 2 的 PvZ2 植物紧接旅行植物排列。
 		int aPageIndex = NUM_TRAVEL_PLANTS + ((SeedType)theIndex == SeedType::SEED_SPORESHROOM ? 0 :
@@ -322,7 +323,8 @@ void SeedChooserScreen::GetSeedPositionInChooser(int theIndex, int& x, int& y)
 		    (SeedType)theIndex == SeedType::SEED_CARROTILLERY ? 4 :
 		    (SeedType)theIndex == SeedType::SEED_OAK_ARCHER ? 5 :
 		    (SeedType)theIndex == SeedType::SEED_BONK_CHOY ? 6 :
-		    (SeedType)theIndex == SeedType::SEED_BLOOMERANG ? 7 : 8);
+		    (SeedType)theIndex == SeedType::SEED_BLOOMERANG ? 7 :
+		    (SeedType)theIndex == SeedType::SEED_PEPPER_PULT ? 8 : 9);
 		int aRow = aPageIndex / 8;
 		int aCol = aPageIndex % 8;
 		x = aCol * 53 + 22;
@@ -1181,14 +1183,15 @@ bool SeedChooserScreen::SeedShownOnChooserPage(SeedType theSeedType)
 		 theSeedType == SeedType::SEED_COCONUT_CANNON || theSeedType == SeedType::SEED_LOTUS_POD ||
 		 theSeedType == SeedType::SEED_CARROTILLERY || theSeedType == SeedType::SEED_OAK_ARCHER ||
 		 theSeedType == SeedType::SEED_BONK_CHOY || theSeedType == SeedType::SEED_BLOOMERANG ||
-		 theSeedType == SeedType::SEED_PEPPER_PULT);
+		 theSeedType == SeedType::SEED_PEPPER_PULT || theSeedType == SeedType::SEED_CELERY_STALKER);
 	if (mChooserPage == 1)
 		return (IsTravelOnlySeed(theSeedType) && mApp->HasTravelChooserPage()) || aCricket2Extra;
 	return !IsTravelOnlySeed(theSeedType) && theSeedType != SeedType::SEED_SPORESHROOM &&
 	       theSeedType != SeedType::SEED_POISON_PEASHOOTER && theSeedType != SeedType::SEED_COCONUT_CANNON &&
 	       theSeedType != SeedType::SEED_LOTUS_POD && theSeedType != SeedType::SEED_CARROTILLERY &&
 	       theSeedType != SeedType::SEED_OAK_ARCHER && theSeedType != SeedType::SEED_BONK_CHOY &&
-	       theSeedType != SeedType::SEED_BLOOMERANG && theSeedType != SeedType::SEED_PEPPER_PULT;
+	       theSeedType != SeedType::SEED_BLOOMERANG && theSeedType != SeedType::SEED_PEPPER_PULT &&
+	       theSeedType != SeedType::SEED_CELERY_STALKER;
 }
 
 void SeedChooserScreen::CloseSeedChooser()

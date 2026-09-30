@@ -250,6 +250,8 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	{ ReanimationType::REANIM_PEPPER_PULT_PROJECTILE,                  "reanim/PepperPultProjectile.reanim",         1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_PEPPER_PULT_HIT,                         "reanim/PepperPultHit.reanim",                1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_PEPPER_PULT_BLUE_BURN,                   "reanim/PepperPultBlueBurn.reanim",           1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_CELERY_STALKER,                           "reanim/CeleryStalker.reanim",              1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_CELERY_STALKER_EFFECT,                    "reanim/CeleryStalkerEffect.reanim",        1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

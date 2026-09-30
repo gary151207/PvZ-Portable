@@ -1040,6 +1040,8 @@ enum ReanimationType : uint32_t {
     REANIM_PEPPER_PULT_PROJECTILE,
     REANIM_PEPPER_PULT_HIT,
     REANIM_PEPPER_PULT_BLUE_BURN,
+    REANIM_CELERY_STALKER,
+    REANIM_CELERY_STALKER_EFFECT,
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1187,6 +1189,7 @@ enum SeedType : int32_t
     SEED_BONK_CHOY,                                  // 菜问（斗蛐蛐 2 专属，固定五阶）
     SEED_BLOOMERANG,                                 // 回旋镖射手（斗蛐蛐 2 专属，固定五阶）
     SEED_PEPPER_PULT,                                // 辣椒投手（斗蛐蛐 2 专属，固定四阶）
+    SEED_CELERY_STALKER,                             // 潜伏芹菜（斗蛐蛐 2 专属，固定四阶）
     NUM_SEED_TYPES,
     NUM_SEEDS_IN_CHOOSER = 49,
     SEED_NONE = -1

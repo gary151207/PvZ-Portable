@@ -57,6 +57,8 @@ static constexpr int BONK_PUNCH_TICKS = 33;
 static constexpr int BONK_UPPERCUT_TICKS = 33;
 static constexpr int BONK_QUAKE_TICKS = 42;
 static constexpr int BONK_ATTACK_INTERVAL = 40;
+static constexpr int CELERY_HIDE_TICKS = 300;
+static constexpr int CELERY_HIT_INTERVAL = 50;
 
 PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_PEASHOOTER,        nullptr, ReanimationType::REANIM_PEASHOOTER,    0,  100,    750,    PlantSubClass::SUBCLASS_SHOOTER,    75,     "PEASHOOTER" },
@@ -136,6 +138,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_BONK_CHOY, nullptr, ReanimationType::REANIM_BONK_CHOY, 0, 150, 500, PlantSubClass::SUBCLASS_NORMAL, 0, "BONK_CHOY" },
     { SeedType::SEED_BLOOMERANG, nullptr, ReanimationType::REANIM_BLOOMERANG, 0, 175, 500, PlantSubClass::SUBCLASS_SHOOTER, 290, "BLOOMERANG" },
     { SeedType::SEED_PEPPER_PULT, nullptr, ReanimationType::REANIM_PEPPER_PULT, 0, 200, 500, PlantSubClass::SUBCLASS_SHOOTER, 290, "PEPPER_PULT" },
+    { SeedType::SEED_CELERY_STALKER, nullptr, ReanimationType::REANIM_CELERY_STALKER, 0, 50, 1500, PlantSubClass::SUBCLASS_NORMAL, 0, "CELERY_STALKER" },
     // ↑ 上面两只究极植物默认写原版植物的 reanim：只有专用贴图确实可用时，
     //   ElectricGatlingReanimType() / ElectricStarfruitReanimType() 才会把运行时类型换成
     //   REANIM_ELECTRIC_*。这样即使漏改某个调用点，也只会退回旧观感，不会出问题。
@@ -848,6 +851,24 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
                 ? "anim_water" : "anim_idle");
         }
         mState = PlantState::STATE_READY;
+        break;
+    case SeedType::SEED_CELERY_STALKER:
+        mPlantHealth = 3000;
+        if (IsInPlay())
+        {
+            mState = PlantState::STATE_CELERY_LOWERING;
+            mStateCountdown = 107; // 32 PAM frames at 30 FPS on a 100 Hz game clock.
+            PlayBodyReanim("anim_down", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+        }
+        else
+        {
+            mState = PlantState::STATE_READY;
+            if (aBodyReanim)
+            {
+                aBodyReanim->mAnimRate = 30.0f;
+                aBodyReanim->SetFramesForLayer("anim_idle");
+            }
+        }
         break;
     case SeedType::SEED_BLOVER:
     {
@@ -2202,6 +2223,166 @@ void Plant::UpdateBonkChoy()
         mShootingCounter = BONK_PUNCH_TICKS;
         PlayBodyReanim(aLeftAttack ? "anim_punch_left" : "anim_punch",
             ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+    }
+}
+
+Zombie* Plant::FindCeleryStalkerTarget()
+{
+    // The victim must have passed the plant's centre and still overlap the
+    // tile immediately to its left. Choose the closest eligible zombie.
+    const Rect aRange(mX - 80, mY, 120, mHeight);
+    Zombie* aBest = nullptr;
+    int aBestX = -100000;
+    Zombie* aZombie = nullptr;
+    while (mBoard->IterateZombies(aZombie))
+    {
+        if (aZombie->mRow != mRow || aZombie->mMindControlled || aZombie->IsDeadOrDying() ||
+            aZombie->mOnHighGround != IsOnHighGround() || !aZombie->EffectedByDamage(1U))
+            continue;
+        const Rect aRect = aZombie->GetZombieRect();
+        if (aRect.mX + aRect.mWidth > mX + 40 || GetRectOverlap(aRange, aRect) <= 0)
+            continue;
+        const int aCentreX = aRect.mX + aRect.mWidth / 2;
+        if (aCentreX > aBestX)
+        {
+            aBestX = aCentreX;
+            aBest = aZombie;
+        }
+    }
+    return aBest;
+}
+
+void Plant::CeleryStalkerHit()
+{
+    Zombie* aTarget = FindCeleryStalkerTarget();
+    if (aTarget)
+    {
+        mApp->PlayFoley(FoleyType::FOLEY_BONK);
+        aTarget->TakeDamage(250, 1U);
+    }
+}
+
+void Plant::UpdateCeleryStalker()
+{
+    if (NotOnGround())
+        return;
+
+    Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
+    if (mState == PlantState::STATE_CELERY_LOWERING)
+    {
+        if (mStateCountdown == 0)
+        {
+            mState = PlantState::STATE_CELERY_HIDDEN;
+            PlayBodyReanim("anim_idle_down", ReanimLoopType::REANIM_LOOP, 0, 30.0f);
+        }
+        return;
+    }
+    if (mState == PlantState::STATE_CELERY_HIDDEN)
+    {
+        if (FindCeleryStalkerTarget())
+        {
+            mState = PlantState::STATE_CELERY_RISING;
+            mStateCountdown = 107;
+            PlayBodyReanim("anim_up", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+        }
+        return;
+    }
+    if (mState == PlantState::STATE_CELERY_RISING)
+    {
+        if (mStateCountdown == 0)
+        {
+            if (FindCeleryStalkerTarget() && Rand(100) < 50)
+            {
+                mState = PlantState::STATE_CELERY_PALM;
+                mStateCountdown = 80;
+                PlayBodyReanim("anim_attack_special", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+            }
+            else
+            {
+                mState = PlantState::STATE_CELERY_EXPOSED;
+                mStateCountdown = CELERY_HIDE_TICKS;
+                PlayBodyReanim("anim_idle", ReanimLoopType::REANIM_LOOP, 0, 30.0f);
+            }
+        }
+        return;
+    }
+    if (mState == PlantState::STATE_CELERY_PALM)
+    {
+        // The sole use_action is source frame 558, nine frames into this span.
+        if (mStateCountdown == 50)
+        {
+            Zombie* aTarget = FindCeleryStalkerTarget();
+            if (aTarget)
+            {
+                // A full-tile shove can send a just-passed zombie back in
+                // front of Celery Stalker, where its left-only attacks cannot
+                // reach it. Stop one pixel short of the targeting boundary.
+                const Rect aTargetRect = aTarget->GetZombieRect();
+                const float aRoomBehindPlant = static_cast<float>(
+                    mX + 39 - (aTargetRect.mX + aTargetRect.mWidth));
+                const float aKnockback = std::min(80.0f, std::max(0.0f, aRoomBehindPlant));
+                if (aKnockback > 0.0f)
+                    aTarget->KnockBack(aKnockback);
+                Reanimation* anEffect = mApp->AddReanimation(mX + 40.0f, mY + 50.0f,
+                    mRenderOrder + 2, ReanimationType::REANIM_CELERY_STALKER_EFFECT);
+                anEffect->mAnimRate = 30.0f;
+                anEffect->mColorOverride = Color(255, 255, 80);
+                anEffect->SetFramesForLayer("anim_re");
+            }
+        }
+        if (mStateCountdown == 0)
+        {
+            mState = PlantState::STATE_CELERY_EXPOSED;
+            mStateCountdown = CELERY_HIDE_TICKS;
+            PlayBodyReanim("anim_idle", ReanimLoopType::REANIM_LOOP, 0, 30.0f);
+        }
+        return;
+    }
+    if (mState == PlantState::STATE_CELERY_ATTACK_START)
+    {
+        if (mStateCountdown == 0)
+        {
+            mState = PlantState::STATE_CELERY_ATTACKING;
+            mShootingCounter = 17; // First use_special is one frame into the 6-FPS loop.
+            PlayBodyReanim("anim_attack_loop", ReanimLoopType::REANIM_LOOP, 0, 6.0f);
+        }
+        return;
+    }
+    if (mState == PlantState::STATE_CELERY_ATTACKING)
+    {
+        if (!FindCeleryStalkerTarget())
+        {
+            mState = PlantState::STATE_CELERY_EXPOSED;
+            mStateCountdown = CELERY_HIDE_TICKS;
+            mShootingCounter = 0;
+            PlayBodyReanim("anim_attack_end", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+        }
+        else if (--mShootingCounter <= 0)
+        {
+            CeleryStalkerHit();
+            mShootingCounter = CELERY_HIT_INTERVAL;
+        }
+        return;
+    }
+    if (mState == PlantState::STATE_CELERY_EXPOSED)
+    {
+        if (FindCeleryStalkerTarget())
+        {
+            mState = PlantState::STATE_CELERY_ATTACK_START;
+            mStateCountdown = 27;
+            PlayBodyReanim("anim_attack_start", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+        }
+        else if (mStateCountdown == 0)
+        {
+            mState = PlantState::STATE_CELERY_LOWERING;
+            mStateCountdown = 107;
+            PlayBodyReanim("anim_down", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+        }
+        else if (aBodyReanim && aBodyReanim->mLoopCount > 0 &&
+                 aBodyReanim->mLoopType != ReanimLoopType::REANIM_LOOP)
+        {
+            PlayBodyReanim("anim_idle", ReanimLoopType::REANIM_LOOP, 0, 30.0f);
+        }
     }
 }
 
@@ -4074,6 +4255,7 @@ void Plant::UpdateAbilities()
     else if (mSeedType == SeedType::SEED_SCAREDYSHROOM)                                         UpdateScaredyShroom();
     else if (mSeedType == SeedType::SEED_CARROTILLERY)                                          UpdateCarrotillery();
     else if (mSeedType == SeedType::SEED_BONK_CHOY)                                             UpdateBonkChoy();
+    else if (mSeedType == SeedType::SEED_CELERY_STALKER)                                        UpdateCeleryStalker();
 
     if (mSubclass == PlantSubClass::SUBCLASS_SHOOTER)
     {
@@ -5048,8 +5230,8 @@ void Plant::UpdateShooting()
     if (NotOnGround())
         return;
 
-    if (mSeedType == SeedType::SEED_CARROTILLERY)
-        return; // Its four action points are handled by UpdateCarrotillery.
+    if (mSeedType == SeedType::SEED_CARROTILLERY || mSeedType == SeedType::SEED_CELERY_STALKER)
+        return; // Both plants handle their own animation action points.
 
     if (mSeedType == SeedType::SEED_BONK_CHOY)
     {
@@ -7804,6 +7986,10 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_PEPPER_PULT_PROJECTILE, true);
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_PEPPER_PULT_HIT, true);
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_PEPPER_PULT_BLUE_BURN, true);
+    }
+    else if (theSeedType == SeedType::SEED_CELERY_STALKER)
+    {
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_CELERY_STALKER_EFFECT, true);
     }
     else if (theSeedType == SeedType::SEED_POISON_PEASHOOTER)
     {

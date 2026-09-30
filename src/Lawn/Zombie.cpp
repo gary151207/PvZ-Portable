@@ -6769,6 +6769,12 @@ bool Zombie::CanTargetPlant(Plant* thePlant, ZombieAttackType theAttackType)
     if (mMindControlled)
         return false;
 
+    if (thePlant->mSeedType == SeedType::SEED_CELERY_STALKER &&
+        (thePlant->mState == PlantState::STATE_CELERY_LOWERING ||
+         thePlant->mState == PlantState::STATE_CELERY_HIDDEN ||
+         thePlant->mState == PlantState::STATE_CELERY_RISING))
+        return false;
+
     if (mApp->IsWallnutBowlingLevel() && theAttackType != ZombieAttackType::ATTACKTYPE_VAULT)
         return false;
 

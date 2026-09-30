@@ -102,7 +102,14 @@ enum PlantState : int32_t
     STATE_SPORESHROOM_GROWING,
     STATE_BONK_PUNCH,
     STATE_BONK_UPPERCUT,
-    STATE_BONK_QUAKE
+    STATE_BONK_QUAKE,
+    STATE_CELERY_LOWERING,
+    STATE_CELERY_HIDDEN,
+    STATE_CELERY_RISING,
+    STATE_CELERY_PALM,
+    STATE_CELERY_ATTACK_START,
+    STATE_CELERY_ATTACKING,
+    STATE_CELERY_EXPOSED
 };
 
 enum PLANT_LAYER : int32_t
@@ -376,6 +383,9 @@ public:
     void                    UpdateBonkChoy();
     Zombie*                 FindBonkChoyTarget(bool theRightOnly);
     void                    BonkChoyHit();
+    void                    UpdateCeleryStalker();
+    Zombie*                 FindCeleryStalkerTarget();
+    void                    CeleryStalkerHit();
     void                    UpdateFlowerPot();
     void                    UpdateLilypad();
     void                    UpdateTallnut();

@@ -41,6 +41,7 @@
 #include "../Sexy.TodLib/TodParticle.h"
 
 #include <climits>
+#include <cmath>
 
 ZombieDefinition gZombieDefs[NUM_ZOMBIE_TYPES] = {
     { ZOMBIE_NORMAL,            REANIM_ZOMBIE,              1,      1,      1,      4000,   "ZOMBIE" },
@@ -136,6 +137,11 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mPoisonPeaTicks = 0;
     mPoisonPeaPulseTicks = 0;
     mLotusStunTicks = 0;
+    mBonkFloatTicks = 0;
+    mBloomerangSpinTicks = 0;
+    mPepperBurnTicks = 0;
+    mPepperBurnPulseTicks = 0;
+    mPepperBurnAttachmentID = AttachmentID::ATTACHMENTID_NULL;
     mMindControlled = false;
     mTorchwoodSummoned = false;
     mBlowingAway = false;
@@ -4925,12 +4931,17 @@ void Zombie::UpdatePlaying()
         }
     }
     UpdatePoisonPea();
+    UpdatePepperBurn();
     if (IsDeadOrDying())
     {
         mLotusStunTicks = 0;
+        mBonkFloatTicks = 0;
+        mBloomerangSpinTicks = 0;
         return;
     }
     if (mLotusStunTicks > 0 && --mLotusStunTicks == 0)
+        UpdateAnimSpeed();
+    if (mBonkFloatTicks > 0 && --mBonkFloatTicks == 0)
         UpdateAnimSpeed();
     if (mButteredCounter > 0)
     {
@@ -4947,7 +4958,10 @@ void Zombie::UpdatePlaying()
         return;
     }
 
-    if (!IsImmobilizied())
+    const bool aWasBloomerangSpinning = mBloomerangSpinTicks > 0;
+    UpdateBloomerangSpin();
+
+    if (!IsImmobilizied() && !aWasBloomerangSpinning)
     {
         UpdateActions();
         UpdateZombiePosition();
@@ -6082,6 +6096,12 @@ void Zombie::DrawReanim(Graphics* g, const ZombieDrawPosition& theDrawPos, int t
         aExtraAdditiveColor = aColorOverride;
         aEnableExtraAdditiveDraw = true;
     }
+    else if (mPepperBurnTicks > 0)
+    {
+        aColorOverride = Color(90, 150, 255, aFadeAlpha);
+        aExtraAdditiveColor = aColorOverride;
+        aEnableExtraAdditiveDraw = true;
+    }
     else if (mLotusStunTicks > 0)
     {
         aColorOverride = Color(80, 190, 225, aFadeAlpha);
@@ -6529,6 +6549,11 @@ void Zombie::GetDrawPos(ZombieDrawPosition& theDrawPos)
         theDrawPos.mBodyY = -mAltitude;
         theDrawPos.mClipHeight = CLIP_HEIGHT_OFF;
     }
+    if (mBonkFloatTicks > 0)
+    {
+        const int aLiftTicks = std::min(60 - mBonkFloatTicks, mBonkFloatTicks);
+        theDrawPos.mBodyY -= 24.0f * aLiftTicks / 30.0f;
+    }
 }
 
 int Zombie::GetDancerFrame()
@@ -6683,7 +6708,27 @@ void Zombie::Draw(Graphics* g)
     {
         if (mBodyReanimID != ReanimationID::REANIMATIONID_NULL)
         {
+            Reanimation* aBody = mApp->ReanimationTryToGet(mBodyReanimID);
+            SexyTransform2D aSavedMatrix;
+            const bool aSpinBody = mBloomerangSpinTicks > 0 && aBody != nullptr;
+            if (aSpinBody)
+            {
+                aSavedMatrix = aBody->mOverlayMatrix;
+                const float anAngle = (100 - mBloomerangSpinTicks) * 0.35f;
+                const float c = std::cos(anAngle);
+                const float s = std::sin(anAngle);
+                const float aPivotX = aSavedMatrix.m00 * 40.0f + aSavedMatrix.m01 * 70.0f + aSavedMatrix.m02;
+                const float aPivotY = aSavedMatrix.m10 * 40.0f + aSavedMatrix.m11 * 70.0f + aSavedMatrix.m12;
+                aBody->mOverlayMatrix.m00 = c * aSavedMatrix.m00 - s * aSavedMatrix.m10;
+                aBody->mOverlayMatrix.m01 = c * aSavedMatrix.m01 - s * aSavedMatrix.m11;
+                aBody->mOverlayMatrix.m10 = s * aSavedMatrix.m00 + c * aSavedMatrix.m10;
+                aBody->mOverlayMatrix.m11 = s * aSavedMatrix.m01 + c * aSavedMatrix.m11;
+                aBody->mOverlayMatrix.m02 = aPivotX + c * (aSavedMatrix.m02 - aPivotX) - s * (aSavedMatrix.m12 - aPivotY);
+                aBody->mOverlayMatrix.m12 = aPivotY + s * (aSavedMatrix.m02 - aPivotX) + c * (aSavedMatrix.m12 - aPivotY);
+            }
             DrawReanim(g, aDrawPos, RENDER_GROUP_NORMAL);
+            if (aSpinBody)
+                aBody->mOverlayMatrix = aSavedMatrix;
         }
         else
         {
@@ -6722,6 +6767,12 @@ bool Zombie::CanTargetPlant(Plant* thePlant, ZombieAttackType theAttackType)
     // 被魅惑的僵尸一律不攻击植物：它已经"倒戈"了，只会打对面阵营的僵尸
     // （冰车/投石车被魅惑时尤其明显 —— 否则它会一边向右开一边把自己的植物碾平）。
     if (mMindControlled)
+        return false;
+
+    if (thePlant->mSeedType == SeedType::SEED_CELERY_STALKER &&
+        (thePlant->mState == PlantState::STATE_CELERY_LOWERING ||
+         thePlant->mState == PlantState::STATE_CELERY_HIDDEN ||
+         thePlant->mState == PlantState::STATE_CELERY_RISING))
         return false;
 
     if (mApp->IsWallnutBowlingLevel() && theAttackType != ZombieAttackType::ATTACKTYPE_VAULT)
@@ -7004,7 +7055,68 @@ void Zombie::CheckSquish(ZombieAttackType theAttackType)
 
 bool Zombie::IsImmobilizied()
 {
-    return mIceTrapCounter > 0 || mButteredCounter > 0 || mLotusStunTicks > 0;
+    return mIceTrapCounter > 0 || mButteredCounter > 0 || mLotusStunTicks > 0 ||
+        mBonkFloatTicks > 0 || mBloomerangSpinTicks > 0;
+}
+
+void Zombie::ApplyBloomerangSpin()
+{
+    if (IsDeadOrDying() || !mHasHead || !IsOnBoard() || IsFlying() ||
+        mZombieHeight != ZombieHeight::HEIGHT_ZOMBIE_NORMAL ||
+        mZombieType == ZombieType::ZOMBIE_ZAMBONI || mZombieType == ZombieType::ZOMBIE_CATAPULT ||
+        mZombieType == ZombieType::ZOMBIE_GARGANTUAR || mZombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR ||
+        mZombieType == ZombieType::ZOMBIE_BOSS || mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA ||
+        IsBobsledTeamWithSled() || IsTangleKelpTarget())
+        return;
+    if (mIsEating)
+        StopEating();
+    mBloomerangSpinTicks = 100;
+    UpdateAnimSpeed();
+}
+
+void Zombie::UpdateBloomerangSpin()
+{
+    if (mBloomerangSpinTicks <= 0)
+        return;
+
+    mPosX += 1.0f;
+    mX = static_cast<int>(mPosX);
+    const Rect aSpinningRect = GetZombieRect();
+    Zombie* aZombie = nullptr;
+    while (mBoard->IterateZombies(aZombie))
+    {
+        if (aZombie == this || aZombie->mRow != mRow || aZombie->IsDeadOrDying() ||
+            !aZombie->EffectedByDamage(0U))
+            continue;
+        const Rect aRect = aZombie->GetZombieRect();
+        if (aSpinningRect.mX < aRect.mX + aRect.mWidth &&
+            aSpinningRect.mX + aSpinningRect.mWidth > aRect.mX &&
+            aSpinningRect.mY < aRect.mY + aRect.mHeight &&
+            aSpinningRect.mY + aSpinningRect.mHeight > aRect.mY)
+        {
+            aZombie->TakeDamage(60, 0U);
+            if (!aZombie->IsDeadOrDying() && aZombie->mZombieType != ZombieType::ZOMBIE_BOSS)
+                aZombie->KnockBack(40.0f);
+            mBloomerangSpinTicks = 0;
+            UpdateAnimSpeed();
+            return;
+        }
+    }
+    if (--mBloomerangSpinTicks == 0)
+        UpdateAnimSpeed();
+}
+
+void Zombie::ApplyBonkFloat()
+{
+    if (IsDeadOrDying() || !mHasHead || IsFlying() ||
+        mZombieHeight != ZombieHeight::HEIGHT_ZOMBIE_NORMAL ||
+        mZombieType == ZombieType::ZOMBIE_ZAMBONI || mZombieType == ZombieType::ZOMBIE_CATAPULT ||
+        mZombieType == ZombieType::ZOMBIE_GARGANTUAR || mZombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR ||
+        mZombieType == ZombieType::ZOMBIE_BOSS || mZombieType == ZombieType::ZOMBIE_BOSS_CONHEAD_PEA ||
+        IsTangleKelpTarget() || IsBobsledTeamWithSled())
+        return;
+    mBonkFloatTicks = 60;
+    UpdateAnimSpeed();
 }
 
 void Zombie::ApplyLotusStun()
@@ -7075,6 +7187,51 @@ void Zombie::ApplyPoisonPea()
     {
         mPoisonPeaPulseTicks = POISON_PEA_PULSE_TICKS;
         UpdateAnimSpeed();
+    }
+}
+
+void Zombie::ApplyPepperBurn()
+{
+    if (IsDeadOrDying())
+        return;
+    if (mPepperBurnTicks == 0)
+        mPepperBurnPulseTicks = 10;
+    mPepperBurnTicks = 400;
+    if (mPepperBurnAttachmentID == AttachmentID::ATTACHMENTID_NULL)
+    {
+        Reanimation* aBurn = mApp->AddReanimation(mPosX + 20.0f, mPosY + 30.0f,
+            mRenderOrder + 1, ReanimationType::REANIM_PEPPER_PULT_BLUE_BURN);
+        aBurn->mLoopType = ReanimLoopType::REANIM_LOOP;
+        aBurn->mAnimRate = 30.0f;
+        aBurn->SetFramesForLayer("anim_burn");
+        AttachReanim(mPepperBurnAttachmentID, aBurn, 0.0f, 0.0f);
+    }
+}
+
+void Zombie::UpdatePepperBurn()
+{
+    if (mPepperBurnTicks <= 0 || IsDeadOrDying())
+    {
+        mPepperBurnTicks = 0;
+        mPepperBurnPulseTicks = 0;
+        AttachmentDie(mPepperBurnAttachmentID);
+        return;
+    }
+
+    AttachmentUpdateAndMove(mPepperBurnAttachmentID, mPosX + 20.0f, mPosY + 30.0f);
+    --mPepperBurnTicks;
+    if (--mPepperBurnPulseTicks <= 0)
+    {
+        mPepperBurnPulseTicks = 10;
+        // The blue flame deals 100 body damage per second. Repeated hits refresh
+        // duration without restarting or stacking this ten-tick pulse.
+        TakeBodyDamage(10, 1U << static_cast<int>(DamageFlags::DAMAGE_DOESNT_CAUSE_FLASH));
+    }
+    if (mPepperBurnTicks == 0 || IsDeadOrDying())
+    {
+        mPepperBurnTicks = 0;
+        mPepperBurnPulseTicks = 0;
+        AttachmentDie(mPepperBurnAttachmentID);
     }
 }
 
@@ -8087,6 +8244,11 @@ void Zombie::DieNoLoot()
     mPoisonPeaStacks = 0;
     mPoisonPeaTicks = 0;
     mPoisonPeaPulseTicks = 0;
+    mBonkFloatTicks = 0;
+    mBloomerangSpinTicks = 0;
+    mPepperBurnTicks = 0;
+    mPepperBurnPulseTicks = 0;
+    AttachmentDie(mPepperBurnAttachmentID);
     StopZombieSound();
     AttachmentDie(mAttachmentID);
     mApp->RemoveReanimation(mBodyReanimID);
@@ -9644,6 +9806,11 @@ void Zombie::PlayDeathAnim(unsigned int theDamageFlags)
     mPoisonPeaStacks = 0;
     mPoisonPeaTicks = 0;
     mPoisonPeaPulseTicks = 0;
+    mBonkFloatTicks = 0;
+    mBloomerangSpinTicks = 0;
+    mPepperBurnTicks = 0;
+    mPepperBurnPulseTicks = 0;
+    AttachmentDie(mPepperBurnAttachmentID);
 
     Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
     if (aBodyReanim == nullptr || !aBodyReanim->TrackExists("anim_death"))
@@ -10121,6 +10288,11 @@ void Zombie::DrawShadow(Graphics* g)
     int aShadowType = 0;
     float aShadowOffsetX = aDrawPos.mImageOffsetX;
     float aShadowOffsetY = aDrawPos.mImageOffsetY + aDrawPos.mBodyY;
+    if (mBonkFloatTicks > 0)
+    {
+        const int aLiftTicks = std::min(60 - mBonkFloatTicks, mBonkFloatTicks);
+        aShadowOffsetY += 24.0f * aLiftTicks / 30.0f;
+    }
     float aScale = mScaleZombie;
     aShadowOffsetX += mScaleZombie * 20.0f - 20.0f;
     if (IsOnBoard() && mBoard->StageIsNight())

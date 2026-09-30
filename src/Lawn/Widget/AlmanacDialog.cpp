@@ -62,6 +62,10 @@ namespace
 		SeedType::SEED_LOTUS_POD,            // 莲小蓬（斗蛐蛐 2 第二选卡页）
 		SeedType::SEED_CARROTILLERY,        // 胡萝卜导弹车（斗蛐蛐 2 第二选卡页）
 		SeedType::SEED_OAK_ARCHER,          // 橡木弓手（斗蛐蛐 2 第二选卡页）
+		SeedType::SEED_BONK_CHOY,           // 菜问（斗蛐蛐 2 第二选卡页）
+		SeedType::SEED_BLOOMERANG,          // 回旋镖射手（斗蛐蛐 2 第二选卡页）
+		SeedType::SEED_PEPPER_PULT,         // 辣椒投手（斗蛐蛐 2 第二选卡页）
+		SeedType::SEED_CELERY_STALKER,      // 潜伏芹菜（斗蛐蛐 2 第二选卡页）
 	};
 
 	// 图鉴「僵尸」页末尾追加的僵尸：排在第 5 行（原版僵尸博士那一行）的空位上。

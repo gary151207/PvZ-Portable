@@ -205,6 +205,11 @@ public:
     int32_t                         mPoisonPeaTicks;
     int32_t                         mPoisonPeaPulseTicks;
     int32_t                         mLotusStunTicks;
+    int32_t                         mBonkFloatTicks = 0;
+    int32_t                         mBloomerangSpinTicks = 0;
+    int32_t                         mPepperBurnTicks = 0;
+    int32_t                         mPepperBurnPulseTicks = 0;
+    AttachmentID                    mPepperBurnAttachmentID = AttachmentID::ATTACHMENTID_NULL;
 
 public:
     Zombie();
@@ -309,6 +314,8 @@ public:
     void                            TakeBodyDamage(int theDamage, unsigned int theDamageFlags);
     void                            ApplyPoisonPea();
     void                            UpdatePoisonPea();
+    void                            ApplyPepperBurn();
+    void                            UpdatePepperBurn();
     void                            AttachShield();
     void                            DetachShield();
     void                            UpdateReanim();
@@ -354,6 +361,9 @@ public:
     bool                            IsImmobilizied();
     void                            ApplyButter();
     void                            ApplyLotusStun();
+    void                            ApplyBloomerangSpin();
+    void                            UpdateBloomerangSpin();
+    void                            ApplyBonkFloat();
     float                           ZombieTargetLeadX(float theTime);
     void                            UpdateZombieImp();
     void                            SquishAllInSquare(int theX, int theY, ZombieAttackType theAttackType);

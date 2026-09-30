@@ -110,6 +110,11 @@ public:
     // 光束是"不移动的弹丸"，只在出生那一帧结算一次本行的贯穿伤害（见 UpdateLaserPeaBeam），
     // 之后这个字段只驱动观感（越接近 0 越暗）。纯表现字段，读档按 0 处理即可，无需写进存档。
     int32_t                 mLaserPeaBeamCountdown = 0;
+    float                   mBloomerangLaunchX = 0.0f;
+    bool                    mBloomerangReturning = false;
+    int32_t                 mBloomerangHitCount = 0;
+    ZombieID                mBloomerangHitIDs[3] = {
+        ZombieID::ZOMBIEID_NULL, ZombieID::ZOMBIEID_NULL, ZombieID::ZOMBIEID_NULL};
 
 public:
     Projectile();
@@ -122,6 +127,7 @@ public:
     void                    Die();
     void                    DoImpact(Zombie* theZombie);
     void                    UpdateMotion();
+    void                    UpdateBloomerang();
     void                    CheckForCollision();
     Zombie*                 FindCollisionTarget();
     void                    UpdateLobMotion();

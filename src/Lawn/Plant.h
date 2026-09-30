@@ -99,7 +99,17 @@ enum PlantState : int32_t
     STATE_FLOWERPOT_INVULNERABLE,
     STATE_LILYPAD_INVULNERABLE,
     STATE_UMBRELLA_KNOCKING,  // proximity shove in progress
-    STATE_SPORESHROOM_GROWING
+    STATE_SPORESHROOM_GROWING,
+    STATE_BONK_PUNCH,
+    STATE_BONK_UPPERCUT,
+    STATE_BONK_QUAKE,
+    STATE_CELERY_LOWERING,
+    STATE_CELERY_HIDDEN,
+    STATE_CELERY_RISING,
+    STATE_CELERY_PALM,
+    STATE_CELERY_ATTACK_START,
+    STATE_CELERY_ATTACKING,
+    STATE_CELERY_EXPOSED
 };
 
 enum PLANT_LAYER : int32_t
@@ -195,6 +205,8 @@ public:
     ParticleSystemID        mParticleID;
     int32_t                 mShootingCounter;
     int32_t                 mCarrotVolleyShotsFired = 0;
+    int32_t                 mBonkPunchCount = 0;
+    int32_t                 mBonkUppercutCount = 0;
     int32_t                 mGatlingScatterCountdown;
     int32_t                 mGatlingScatterChance;
     int32_t                 mScaredyShroomLaunchRate;
@@ -368,6 +380,12 @@ public:
     /*inline*/ bool         IsInPlay();
     void                    UpdateNeedsFood() { ; }
     void                    PlayIdleAnim(float theRate);
+    void                    UpdateBonkChoy();
+    Zombie*                 FindBonkChoyTarget(bool theRightOnly);
+    void                    BonkChoyHit();
+    void                    UpdateCeleryStalker();
+    Zombie*                 FindCeleryStalkerTarget();
+    void                    CeleryStalkerHit();
     void                    UpdateFlowerPot();
     void                    UpdateLilypad();
     void                    UpdateTallnut();

@@ -417,6 +417,10 @@ void DrawSeedPacket(Graphics* g, float x, float y, PacketType theSeedType, SeedT
 		aOffsetY = 8.0f;
 		break;
 	case SeedType::SEED_OAK_ARCHER:
+	case SeedType::SEED_BONK_CHOY:
+	case SeedType::SEED_BLOOMERANG:
+	case SeedType::SEED_PEPPER_PULT:
+	case SeedType::SEED_CELERY_STALKER:
 		aScale = 0.42f;
 		aOffsetX = 5.0f;
 		aOffsetY = 8.0f;

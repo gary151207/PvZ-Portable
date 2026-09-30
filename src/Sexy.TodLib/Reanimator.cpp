@@ -241,6 +241,17 @@ ReanimationParams gLawnReanimationArray[ReanimationType::NUM_REANIMS] = {
 	{ ReanimationType::REANIM_OAK_ARCHER,                              "reanim/OakArcher.reanim",                      1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_OAK_ARROW,                               "reanim/OakArcherArrow.reanim",                 1 << ReanimFlags::REANIM_NO_ATLAS },
 	{ ReanimationType::REANIM_OAK_FROST_ARROW,                         "reanim/OakArcherFrostArrow.reanim",            1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_BONK_CHOY,                               "reanim/BonkChoy.reanim",                       1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_BLOOMERANG,                              "reanim/Bloomerang.reanim",                     1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_BLOOMERANG_PROJECTILE,                   "reanim/BloomerangProjectile.reanim",           1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_BLOOMERANG_TORNADO,                      "reanim/BloomerangTornado.reanim",              1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_BLOOMERANG_HIT,                          "reanim/BloomerangHit.reanim",                  1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_PEPPER_PULT,                             "reanim/PepperPult.reanim",                   1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_PEPPER_PULT_PROJECTILE,                  "reanim/PepperPultProjectile.reanim",         1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_PEPPER_PULT_HIT,                         "reanim/PepperPultHit.reanim",                1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_PEPPER_PULT_BLUE_BURN,                   "reanim/PepperPultBlueBurn.reanim",           1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_CELERY_STALKER,                           "reanim/CeleryStalker.reanim",              1 << ReanimFlags::REANIM_NO_ATLAS },
+	{ ReanimationType::REANIM_CELERY_STALKER_EFFECT,                    "reanim/CeleryStalkerEffect.reanim",        1 << ReanimFlags::REANIM_NO_ATLAS },
 };
 
 ReanimatorTransform::ReanimatorTransform() :

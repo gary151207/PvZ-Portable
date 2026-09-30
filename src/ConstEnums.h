@@ -839,6 +839,9 @@ enum ProjectileType : int32_t
     PROJECTILE_CARROT = 24, // 四阶胡萝卜导弹车普通飞弹
     PROJECTILE_OAK_ARROW = 25,
     PROJECTILE_OAK_FROST_ARROW = 26,
+    PROJECTILE_BLOOMERANG,
+    PROJECTILE_BLOOMERANG_TORNADO,
+    PROJECTILE_PEPPER_PULT,
     NUM_PROJECTILES,
 };
 enum ReanimationType : uint32_t {
@@ -1028,6 +1031,17 @@ enum ReanimationType : uint32_t {
     REANIM_OAK_ARCHER,
     REANIM_OAK_ARROW,
     REANIM_OAK_FROST_ARROW,
+    REANIM_BONK_CHOY,
+    REANIM_BLOOMERANG,
+    REANIM_BLOOMERANG_PROJECTILE,
+    REANIM_BLOOMERANG_TORNADO,
+    REANIM_BLOOMERANG_HIT,
+    REANIM_PEPPER_PULT,
+    REANIM_PEPPER_PULT_PROJECTILE,
+    REANIM_PEPPER_PULT_HIT,
+    REANIM_PEPPER_PULT_BLUE_BURN,
+    REANIM_CELERY_STALKER,
+    REANIM_CELERY_STALKER_EFFECT,
     NUM_REANIMS
 };
 enum ReanimLoopType : int32_t
@@ -1172,6 +1186,10 @@ enum SeedType : int32_t
     SEED_LOTUS_POD,                                 // 莲小蓬（斗蛐蛐 2 专属，固定四阶）
     SEED_CARROTILLERY,                              // 胡萝卜导弹车（斗蛐蛐 2 专属，固定四阶）
     SEED_OAK_ARCHER,                                 // 橡木弓手（斗蛐蛐 2 专属，固定五阶）
+    SEED_BONK_CHOY,                                  // 菜问（斗蛐蛐 2 专属，固定五阶）
+    SEED_BLOOMERANG,                                 // 回旋镖射手（斗蛐蛐 2 专属，固定五阶）
+    SEED_PEPPER_PULT,                                // 辣椒投手（斗蛐蛐 2 专属，固定四阶）
+    SEED_CELERY_STALKER,                             // 潜伏芹菜（斗蛐蛐 2 专属，固定四阶）
     NUM_SEED_TYPES,
     NUM_SEEDS_IN_CHOOSER = 49,
     SEED_NONE = -1

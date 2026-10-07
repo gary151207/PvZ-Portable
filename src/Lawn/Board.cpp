@@ -83,6 +83,8 @@ Board::Board(LawnApp* theApp)
 	}
 	mCoinBankFadeCount = 0;
 	mLevel = 0;
+	// 自带 4 倍出怪：默认为 4 倍，可由 LawnApp 通过命令行参数 -zombiemult 覆盖
+	mZombieSpawnMultiplier = mApp->mZombieSpawnMultiplier;
 	mCursorObject = new CursorObject();
 	mCursorPreview = new CursorPreview();
 	mSeedBank = new SeedBank();
@@ -4825,6 +4827,15 @@ void Board::PickSpecialGraveStone()
 	}
 }
 
+// 自带 4 倍出怪：本波实际要生成的僵尸数量 = 基础出怪列表长度 × ZOMBIE_SPAWN_MULTIPLIER，
+// 同时受僵尸池剩余容量与出怪列表上限约束，避免超出容量后被静默丢弃。
+int Board::ZombieWaveSpawnBudget(int theBaseCount, int theSpawnedCount, int theMaxSpawned) const
+{
+	int aBudget = theBaseCount * mZombieSpawnMultiplier;
+	aBudget = std::min(aBudget, theMaxSpawned - theSpawnedCount);
+	return std::max(aBudget, 0);
+}
+
 void Board::SpawnZombiesFromPool()
 {
 	if (mIceTrapCounter > 0)
@@ -4865,6 +4876,8 @@ void Board::SpawnZombiesFromPool()
 	{
 		aGridArrayCount = 0;
 	}
+	// 每个泳池出怪格只能浮起一只僵尸，因此 4 倍出怪受可用格子数限制
+	aCount = ZombieWaveSpawnBudget(aCount, 0, aGridArrayCount);
 	for (int i = 0; i < aCount; i++)
 	{
 		TodWeightedGridArray* aGrid = TodPickFromWeightedGridArray(aGridArray, aGridArrayCount);
@@ -4939,6 +4952,8 @@ void Board::SpawnZombiesFromSky()
 	
 	BungeeDropGrid aBungeeDropGrid;
 	SetupBungeeDrop(&aBungeeDropGrid);
+	// 每只空降僵尸都要占用一个尚未使用的落点，因此 4 倍出怪受可用落点数限制
+	aCount = ZombieWaveSpawnBudget(aCount, 0, aBungeeDropGrid.mGridArrayCount);
 	if (aCount > aBungeeDropGrid.mGridArrayCount)
 	{
 		aCount = aBungeeDropGrid.mGridArrayCount;
@@ -5027,43 +5042,69 @@ void Board::SpawnZombieWave()
 	{
 		BungeeDropGrid aBungeeDropGrid;
 		SetupBungeeDrop(&aBungeeDropGrid);
+		int aSpawnedCount = 0;
 		for (int i = 0; i < MAX_ZOMBIES_IN_WAVE; i++)
 		{
 			ZombieType aZombieType = mZombiesInWave[mCurrentWave][i];
 			if (aZombieType == ZombieType::ZOMBIE_INVALID)
 				break;
 
+			// 蹦极僵尸必须落在尚未占用的格子上，因此其数量受可用格子数限制
+			int aBudget = ZombieWaveSpawnBudget(1, aSpawnedCount, aBungeeDropGrid.mGridArrayCount);
 			if (aZombieType == ZombieType::ZOMBIE_BUNGEE || aZombieType == ZombieType::ZOMBIE_ZAMBONI)
 			{
-				AddZombie(aZombieType, mCurrentWave);
+				for (int aIndex = 0; aIndex < aBudget; aIndex++)
+				{
+					AddZombie(aZombieType, mCurrentWave);
+					aSpawnedCount++;
+				}
 			}
 			else
 			{
-				BungeeDropZombie(&aBungeeDropGrid, aZombieType);
+				for (int aIndex = 0; aIndex < aBudget; aIndex++)
+				{
+					BungeeDropZombie(&aBungeeDropGrid, aZombieType);
+					aSpawnedCount++;
+				}
 			}
 		}
 	}
 	else
 	{
 		TOD_ASSERT(mCurrentWave >= 0 && mCurrentWave < MAX_ZOMBIE_WAVES && mCurrentWave < mNumWaves);
-		for (int i = 0; i < MAX_ZOMBIES_IN_WAVE; i++)
+		int aWaveZombieCount = 0;
+		while (aWaveZombieCount < MAX_ZOMBIES_IN_WAVE && mZombiesInWave[mCurrentWave][aWaveZombieCount] != ZombieType::ZOMBIE_INVALID)
 		{
-			ZombieType aZombieType = mZombiesInWave[mCurrentWave][i];
-			if (aZombieType == ZombieType::ZOMBIE_INVALID)
-				break;
+			aWaveZombieCount++;
+		}
 
-			if (aZombieType == ZombieType::ZOMBIE_BOBSLED && !CanAddBobSled())
+		int aSpawnedCount = 0;
+		int aBudget = ZombieWaveSpawnBudget(aWaveZombieCount, aSpawnedCount, (int)mZombies.mMaxSize - 1);
+		// 每轮刷怪都会重新读取一次出怪列表，僵尸池空间不足时下一轮自动刷得更少
+		while (aSpawnedCount < aBudget)
+		{
+			for (int i = 0; i < aWaveZombieCount && aSpawnedCount < aBudget; i++)
 			{
-				for (int i = 0; i < MAX_ZOMBIE_FOLLOWERS; i++)
+				ZombieType aZombieType = mZombiesInWave[mCurrentWave][i];
+				if (aZombieType == ZombieType::ZOMBIE_BOBSLED && !CanAddBobSled())
 				{
-					AddZombie(ZombieType::ZOMBIE_NORMAL, mCurrentWave);  // 生成 4 只普通僵尸以代替雪橇僵尸小队
+					for (int aFollower = 0; aFollower < MAX_ZOMBIE_FOLLOWERS && aSpawnedCount < aBudget; aFollower++)
+					{
+						AddZombie(ZombieType::ZOMBIE_NORMAL, mCurrentWave);  // 生成 4 只普通僵尸以代替雪橇僵尸小队
+						aSpawnedCount++;
+					}
+				}
+				else
+				{
+					AddZombie(aZombieType, mCurrentWave);
+					aSpawnedCount++;
 				}
 			}
-			else
-			{
-				AddZombie(aZombieType, mCurrentWave);
-			}
 		}
+
+		// 诊断输出：便于确认 4 倍出怪是否生效（基础列表长度 × 倍数 = 本波实际刷出数量）
+		TodTrace("[ZombieSpawn] wave=%d multiplier=%d base=%d spawned=%d",
+			mCurrentWave, mZombieSpawnMultiplier, aWaveZombieCount, aSpawnedCount);
 	}
 
 	if (mCurrentWave == mNumWaves - 1 && !mApp->IsContinuousChallenge())

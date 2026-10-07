@@ -159,6 +159,7 @@ LawnApp::LawnApp()
 	mFirstTimeGameSelector = true;
 	mGameMode = GameMode::GAMEMODE_ADVENTURE;
 	mEasyPlantingCheat = false;
+	mZombieSpawnMultiplier = ZOMBIE_SPAWN_MULTIPLIER;
 	mAutoEnable3D = true;
 	Tod_SWTri_AddAllDrawTriFuncs();
 	mLoadingZombiesThreadCompleted = true;
@@ -1381,6 +1382,20 @@ void LawnApp::HandleCmdLineParam(const std::string& theParamName, const std::str
 		mTodCheatKeys = true;
 		mDebugKeysEnabled = true;
 #endif
+	}
+	else if (theParamName == "-zombiemult")
+	{
+		// 覆盖默认的出怪倍数（自带 4 倍出怪），便于按需调整难度
+		int aMultiplier = atoi(theParamValue.c_str());
+		if (aMultiplier < 1)
+		{
+			aMultiplier = 1;
+		}
+		mZombieSpawnMultiplier = aMultiplier;
+		if (mBoard != nullptr)
+		{
+			mBoard->mZombieSpawnMultiplier = aMultiplier;
+		}
 	}
 	else
 	{

@@ -98,6 +98,8 @@ public:
 	int								mMaxPlays;
 	int								mMaxTime;
 	bool							mEasyPlantingCheat;
+	// 自带 4 倍出怪：出怪倍数，默认 ZOMBIE_SPAWN_MULTIPLIER，可由命令行参数 -zombiemult 覆盖
+	int								mZombieSpawnMultiplier;
 	PoolEffect*						mPoolEffect;
 	ZenGarden*						mZenGarden;
 	EffectSystem*					mEffectSystem;

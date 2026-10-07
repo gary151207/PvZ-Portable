@@ -42,6 +42,8 @@ using namespace Sexy;
 #define MAX_GRID_SIZE_Y 6
 #define MAX_ZOMBIES_IN_WAVE 50
 #define MAX_ZOMBIE_WAVES 100
+// 自带 4 倍出怪：每波实际刷出的僵尸数量为基础出怪列表的 4 倍
+#define ZOMBIE_SPAWN_MULTIPLIER 4
 #define MAX_GRAVE_STONES MAX_GRID_SIZE_X * MAX_GRID_SIZE_Y
 #define MAX_POOL_GRID_SIZE 10
 #define MAX_RENDER_ITEMS 2048
@@ -190,6 +192,7 @@ public:
 	int32_t							mZombieHealthWaveStart;
 	int32_t							mZombieCountDown;
 	int32_t							mZombieCountDownStart;
+	int32_t							mZombieSpawnMultiplier;
 	int32_t							mHugeWaveCountDown;
 	bool							mHelpDisplayed[NUM_ADVICE_TYPES];
 	AdviceType						mHelpIndex;
@@ -272,6 +275,7 @@ public:
 	ZombieType						PickZombieType(int theZombiePoints, int theWaveIndex, ZombiePicker* theZombiePicker);
 	int								PickRowForNewZombie(ZombieType theZombieType);
 	/*inline*/ Zombie*				AddZombie(ZombieType theZombieType, int theFromWave);
+	int								ZombieWaveSpawnBudget(int theBaseCount, int theSpawnedCount, int theMaxSpawned) const;
 	void							SpawnZombieWave();
 	void							RemoveAllZombies();
 	void							RemoveCutsceneZombies();

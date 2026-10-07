@@ -414,4 +414,8 @@ tools/run/
 tools/read-compiled/target
 *.sublime-workspace
 
+# Local game data and build output (never commit copyrighted PvZ assets)
+res/
+dist/
+
 build-*/

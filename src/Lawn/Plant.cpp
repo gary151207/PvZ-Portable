@@ -47,6 +47,8 @@
 static const int PEA_BURST_CHANCE_PERCENT = 10;
 //+Gaga: 三连发时每两发豌豆之间的间隔帧数，逻辑帧率为 100fps，10 帧即 0.1 秒
 static const int PEA_BURST_INTERVAL_TICKS = 10;
+//+Gaga: 向日葵每次产出阳光时额外再产出一朵阳光的概率（百分比）
+static const int SUNFLOWER_EXTRA_SUN_CHANCE_PERCENT = 25;
 
 PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_PEASHOOTER,        nullptr, ReanimationType::REANIM_PEASHOOTER,    0,  100,    750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "PEASHOOTER" },
@@ -1063,6 +1065,12 @@ void Plant::UpdateProductionPlant()
         else if (mSeedType == SeedType::SEED_SUNFLOWER)
         {
             mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+
+            // +Gaga: 25% 概率在这一朵之外再额外产出一朵阳光
+            if (Sexy::Rand(100) < SUNFLOWER_EXTRA_SUN_CHANCE_PERCENT)
+            {
+                mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+            }
         }
         else if (mSeedType == SeedType::SEED_TWINSUNFLOWER)
         {

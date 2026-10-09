@@ -43,6 +43,11 @@
 #include "../Sexy.TodLib/TodStringFile.h"
 #include "Widget/AchievementsScreen.h"
 
+//+Gaga: 豌豆射手每次开火时触发三连发的概率（百分比）
+static const int PEA_BURST_CHANCE_PERCENT = 10;
+//+Gaga: 三连发时每两发豌豆之间的间隔帧数，逻辑帧率为 100fps，10 帧即 0.1 秒
+static const int PEA_BURST_INTERVAL_TICKS = 10;
+
 PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_PEASHOOTER,        nullptr, ReanimationType::REANIM_PEASHOOTER,    0,  100,    750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "PEASHOOTER" },
     { SeedType::SEED_SUNFLOWER,         nullptr, ReanimationType::REANIM_SUNFLOWER,     1,  50,     750,    PlantSubClass::SUBCLASS_NORMAL,     2500,   "SUNFLOWER" },
@@ -117,6 +122,8 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mAnimPing = true;
     mFrame = 0;
     mShootingCounter = 0;
+    mPeaBurstShots = 0;
+    mPeaBurstDelay = 0;
     mShakeOffsetX = 0.0f;
     mShakeOffsetY = 0.0f;
     mFrameLength = RandRangeInt(12, 18);
@@ -972,7 +979,18 @@ void Plant::UpdateShooter()
         }
         else
         {
-            FindTargetAndFire(mRow, PlantWeapon::WEAPON_PRIMARY);
+            // +Gaga: 豌豆射手有 10% 概率排入两发后续豌豆凑成三连发，首发由下面照常打出
+            if (mSeedType == SeedType::SEED_PEASHOOTER && Sexy::Rand(100) < PEA_BURST_CHANCE_PERCENT)
+            {
+                mPeaBurstShots = 2;
+                mPeaBurstDelay = PEA_BURST_INTERVAL_TICKS;
+            }
+
+            if (!FindTargetAndFire(mRow, PlantWeapon::WEAPON_PRIMARY))
+            {
+                // 这一帧前面没有目标，首发没打出去，后续两发也一并取消
+                mPeaBurstShots = 0;
+            }
         }
     }
 
@@ -3206,6 +3224,28 @@ void Plant::UpdateShooting()
 
     mShootingCounter--;
 
+    if (mPeaBurstShots > 0)
+    {
+        // +Gaga: 三连发的后续豌豆，每隔 PEA_BURST_INTERVAL_TICKS 帧吐出一发，共用第一次开火的射击动画
+        if (mPeaBurstDelay > 0)
+        {
+            mPeaBurstDelay--;
+        }
+
+        if (mPeaBurstDelay <= 0)
+        {
+            mPeaBurstDelay = PEA_BURST_INTERVAL_TICKS;
+            mPeaBurstShots--;
+
+            // 后两发上下交错，让连发的每一发都分得清；豌豆碰撞按行判定，不受影响
+            Projectile* aProjectile = Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
+            if (aProjectile && mPeaBurstShots < 2)
+            {
+                aProjectile->mPosY += mPeaBurstShots == 1 ? -20.0f : 20.0f;
+            }
+        }
+    }
+
     if (mSeedType == SeedType::SEED_FUMESHROOM && mShootingCounter == 15)
     {
         int aRenderPosition = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_PARTICLE, mRow, 0);
@@ -4472,23 +4512,23 @@ void Plant::CobCannonFire(int theTargetX, int theTargetY)
     aTrackInstance->mTrackColor = Color::White;
 }
 
-void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon)
+Projectile* Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon)
 {
     if (mSeedType == SeedType::SEED_FUMESHROOM)
     {
         DoRowAreaDamage(20, 2U);
         mApp->PlayFoley(FoleyType::FOLEY_FUME);
-        return;
+        return nullptr;
     }
     if (mSeedType == SeedType::SEED_GLOOMSHROOM)
     {
         DoRowAreaDamage(20, 2U);
-        return;
+        return nullptr;
     }
     if (mSeedType == SeedType::SEED_STARFRUIT)
     {
         StarFruitFire();
-        return;
+        return nullptr;
     }
 
     ProjectileType aProjectileType;
@@ -4764,6 +4804,8 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
         aProjectile->mCobTargetX = mTargetX - 40;
         aProjectile->mCobTargetRow = mBoard->PixelToGridYKeepOnBoard(mTargetX, mTargetY);
     }
+
+    return aProjectile;
 }
 
 Zombie* Plant::FindTargetZombie(int theRow, PlantWeapon thePlantWeapon)

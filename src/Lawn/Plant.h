@@ -159,6 +159,7 @@ public:
 class Coin;
 class Zombie;
 class Reanimation;
+class Projectile;
 class TodParticleSystem;
 
 class Plant : public GameObject
@@ -186,6 +187,8 @@ public:
     int32_t                 mStartRow;
     ParticleSystemID        mParticleID;
     int32_t                 mShootingCounter;
+    int32_t                 mPeaBurstShots;                                     //+Gaga: 豌豆射手三连发还剩余几发待发射
+    int32_t                 mPeaBurstDelay;                                     //+Gaga: 豌豆射手三连发中距下一发的间隔帧数
     ReanimationID           mBodyReanimID;
     ReanimationID           mHeadReanimID;
     ReanimationID           mHeadReanimID2;
@@ -221,7 +224,7 @@ public:
     void                    Draw(Graphics* g);
     void                    MouseDown(int x, int y, int theClickCount);
     void                    DoSpecial();
-    void                    Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY);
+    Projectile*             Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY);
     Zombie*                 FindTargetZombie(int theRow, PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY);
     void                    Die();
     void                    UpdateProductionPlant();

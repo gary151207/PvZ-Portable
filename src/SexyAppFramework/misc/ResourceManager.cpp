@@ -29,6 +29,7 @@
 #include "graphics/GLImage.h"
 #include "graphics/GLInterface.h"
 #include "graphics/ImageFont.h"
+#include "graphics/ModFont.h"
 //#include "graphics/SysFont.h"
 #include "imagelib/ImageLib.h"
 #include "../../Sexy.TodLib/TodCommon.h"
@@ -878,7 +879,7 @@ bool ResourceManager::DoLoadFont(FontRes* theRes)
 		}
 	}
 
-	theRes->mFont = aFont;
+	theRes->mFont = CreateModFont(aFont, theRes->mId);
 
 	SEXY_PERF_END("ResourceManager:DoLoadFont");
 

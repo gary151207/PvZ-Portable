@@ -44,11 +44,21 @@
 #include "Widget/AchievementsScreen.h"
 
 //+Gaga: 豌豆射手每次开火时触发三连发的概率（百分比）
-static const int PEA_BURST_CHANCE_PERCENT = 10;
+static const int PEA_BURST_CHANCE_PERCENT = 20;
 //+Gaga: 三连发时每两发豌豆之间的间隔帧数，逻辑帧率为 100fps，10 帧即 0.1 秒
 static const int PEA_BURST_INTERVAL_TICKS = 10;
 //+Gaga: 向日葵每次产出阳光时额外再产出一朵阳光的概率（百分比）
 static const int SUNFLOWER_EXTRA_SUN_CHANCE_PERCENT = 25;
+//+Gaga: 土豆雷爆炸后不消失、重新入土的概率（百分比）
+static const int POTATO_MINE_REBURROW_CHANCE_PERCENT = 25;
+//+Gaga: 重新入土后再次武装所需帧数，与刚种下时的 1500 帧（15 秒）一致
+static const int POTATO_MINE_REBURROW_DELAY_TICKS = 1500;
+//+Gaga: 反向播放入土动画的速率，绝对值与起身动画的 18.0f 对称
+static const float POTATO_MINE_REBURROW_ANIM_RATE = 18.0f;
+//+Gaga: 入土完成后入土待机动画速率，与刚种下时一致
+static const float POTATO_MINE_IDLE_ANIM_RATE = 12.0f;
+//+Gaga: 寒冰射手每次开火时射出冻结冰锥的概率（百分比）
+static const int SNOWPEA_ICE_SPIKE_CHANCE_PERCENT = 15;
 
 PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_PEASHOOTER,        nullptr, ReanimationType::REANIM_PEASHOOTER,    0,  100,    750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "PEASHOOTER" },
@@ -981,7 +991,7 @@ void Plant::UpdateShooter()
         }
         else
         {
-            // +Gaga: 豌豆射手有 10% 概率排入两发后续豌豆凑成三连发，首发由下面照常打出
+            // +Gaga: 豌豆射手有 20% 概率排入两发后续豌豆凑成三连发，首发由下面照常打出
             if (mSeedType == SeedType::SEED_PEASHOOTER && Sexy::Rand(100) < PEA_BURST_CHANCE_PERCENT)
             {
                 mPeaBurstShots = 2;
@@ -1172,6 +1182,19 @@ void Plant::UpdatePotato()
 
     if (mState == PlantState::STATE_NOTREADY)
     {
+        // +Gaga: 入土进行中：倒放结束后切到入土待机姿态，并补一次土尘与音效
+        if (aBodyReanim->mAnimRate < 0.0f)
+        {
+            if (aBodyReanim->mLoopCount > 0)
+            {
+                PlayBodyReanim("anim_idle", ReanimLoopType::REANIM_LOOP, 0, POTATO_MINE_IDLE_ANIM_RATE);
+                mApp->AddTodParticle(mX + mWidth / 2, mY + mHeight / 2, mRenderOrder, ParticleEffect::PARTICLE_POTATO_MINE_RISE);
+                mApp->PlayFoley(FoleyType::FOLEY_DIRT_RISE);
+            }
+
+            return;     // 入土未收尾前不进入钻出流程
+        }
+
         if (mStateCountdown == 0)
         {
             mApp->AddTodParticle(mX + mWidth / 2, mY + mHeight / 2, mRenderOrder, ParticleEffect::PARTICLE_POTATO_MINE_RISE);
@@ -1405,7 +1428,8 @@ void Plant::UpdateTorchwood()
     while (mBoard->IterateProjectiles(aProjectile))
     {
         if ((aProjectile->mRow == mRow) && 
-            (aProjectile->mProjectileType == ProjectileType::PROJECTILE_PEA || aProjectile->mProjectileType == ProjectileType::PROJECTILE_SNOWPEA))
+            (aProjectile->mProjectileType == ProjectileType::PROJECTILE_PEA || aProjectile->mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
+             aProjectile->mProjectileType == ProjectileType::PROJECTILE_ICE_SPIKE))
         {
             Rect aProjectileRect = aProjectile->GetProjectileRect();
             if (GetRectOverlap(aAttackRect, aProjectileRect) >= 10)
@@ -1414,8 +1438,10 @@ void Plant::UpdateTorchwood()
                 {
                     aProjectile->ConvertToFireball(mPlantCol);
                 }
-                else if (aProjectile->mProjectileType == ProjectileType::PROJECTILE_SNOWPEA)
+                else if (aProjectile->mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
+                         aProjectile->mProjectileType == ProjectileType::PROJECTILE_ICE_SPIKE)
                 {
+                    // 冻结冰锥与冰豌豆一样会被火炬树桩烧成普通豌豆
                     aProjectile->ConvertToPea(mPlantCol);
                 }
             }
@@ -4428,7 +4454,27 @@ void Plant::DoSpecial()
         mApp->AddTodParticle(aPosX + 20.0f, aPosY, aRenderPosition, ParticleEffect::PARTICLE_POTATO_MINE);
         mBoard->ShakeBoard(3, -4);
 
-        Die();
+        // +Gaga: 25% 概率这次爆炸不消失，而是反向播放钻出动画重新入土
+        Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
+        if (aBodyReanim && Sexy::Rand(100) < POTATO_MINE_REBURROW_CHANCE_PERCENT)
+        {
+            // 先收掉武装发光动画，避免入土后仍显示已武装的光效；再次钻出时会重新创建
+            mApp->RemoveReanimation(mLightReanimID);
+            mLightReanimID = ReanimationID::REANIMATIONID_NULL;
+
+            // 负速率 = 倒放 anim_rise（缩回土里），播完停在入土姿态，后续由 UpdatePotato 收尾
+            aBodyReanim->mAnimRate = -POTATO_MINE_REBURROW_ANIM_RATE;
+            aBodyReanim->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
+            aBodyReanim->mLoopCount = 0;
+            aBodyReanim->SetFramesForLayer("anim_rise");    // 必须在设置负速率之后调用
+
+            mStateCountdown = POTATO_MINE_REBURROW_DELAY_TICKS;
+            mState = PlantState::STATE_NOTREADY;            // 沿用未激活状态的全部语义
+        }
+        else
+        {
+            Die();
+        }
         break;
     }
     case SeedType::SEED_INSTANT_COFFEE:
@@ -4551,7 +4597,10 @@ Projectile* Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlan
         aProjectileType = ProjectileType::PROJECTILE_PEA;
         break;
     case SeedType::SEED_SNOWPEA:
-        aProjectileType = ProjectileType::PROJECTILE_SNOWPEA;
+        // +Gaga: 寒冰射手有 15% 概率改射冻结冰锥
+        aProjectileType = Sexy::Rand(100) < SNOWPEA_ICE_SPIKE_CHANCE_PERCENT
+            ? ProjectileType::PROJECTILE_ICE_SPIKE
+            : ProjectileType::PROJECTILE_SNOWPEA;
         break;
     case SeedType::SEED_PUFFSHROOM:
     case SeedType::SEED_SCAREDYSHROOM:

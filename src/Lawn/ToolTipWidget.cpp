@@ -20,6 +20,7 @@
  */
 
 #include "../Resources.h"
+#include <climits>
 #include "ToolTipWidget.h"
 #include "../GameConstants.h"
 #include "../Sexy.TodLib/TodCommon.h"
@@ -41,6 +42,7 @@ ToolTipWidget::ToolTipWidget()
 	mGetsLinesWidth = 0;
 	mWarningFlashCounter = 0;
 	mMaxLinesWidth = 0;
+	mNoWrap = false;
 }
 
 void ToolTipWidget::GetLines(std::vector<std::string>& theLines)
@@ -132,6 +134,8 @@ void ToolTipWidget::CalculateSize()
 	mGetsLinesWidth = std::max(aMaxWidth - 30, 100);
 	if (mMaxLinesWidth > 0)
 		mGetsLinesWidth = std::min(mGetsLinesWidth, mMaxLinesWidth);
+	if (mNoWrap)
+		mGetsLinesWidth = INT_MAX;  // 只按显式 '\n' 分行，不自动折行
 	GetLines(aLines);
 
 	for (size_t i = 0; i < aLines.size(); i++)

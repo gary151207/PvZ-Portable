@@ -569,7 +569,8 @@ enum LawnMowerState : int32_t
     MOWER_ROLLING_IN = 0,
     MOWER_READY = 1,
     MOWER_TRIGGERED = 2,
-    MOWER_SQUISHED = 3
+    MOWER_SQUISHED = 3,
+    MOWER_RETURNING = 4 //+Gaga: 推出场外后掉头回来
 };
 enum LawnMowerType : int32_t
 {
@@ -812,7 +813,8 @@ enum ProjectileType : int32_t
     PROJECTILE_COBBIG = 11,  // 玉米加农炮
     PROJECTILE_BUTTER = 12,  // 黄油
     PROJECTILE_ZOMBIE_PEA = 13,  // 僵尸豌豆
-    NUM_PROJECTILES = 14
+    PROJECTILE_ICE_SPIKE = 14,  // 冻结冰锥
+    NUM_PROJECTILES = 15
 };
 enum ReanimationType : uint32_t {
     REANIM_NONE = static_cast<uint32_t>(-1),

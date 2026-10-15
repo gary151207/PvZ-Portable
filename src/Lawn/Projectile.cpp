@@ -33,6 +33,9 @@
 #include "../Sexy.TodLib/Attachment.h"
 #include "Widget/AchievementsScreen.h"
 
+//+Gaga: 冻结冰锥命中后把僵尸冻成冰块的概率（百分比）
+static const int ICE_SPIKE_FREEZE_CHANCE_PERCENT = 50;
+
 ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_PEA,           0,  20  },
 	{ ProjectileType::PROJECTILE_SNOWPEA,       0,  20  },
@@ -47,7 +50,8 @@ ProjectileDefinition gProjectileDefinition[] = {
 	{ ProjectileType::PROJECTILE_KERNEL,        0,  20  },
 	{ ProjectileType::PROJECTILE_COBBIG,        0,  300 },
 	{ ProjectileType::PROJECTILE_BUTTER,        0,  40  },
-	{ ProjectileType::PROJECTILE_ZOMBIE_PEA,    0,  20  }
+	{ ProjectileType::PROJECTILE_ZOMBIE_PEA,    0,  20  },
+	{ ProjectileType::PROJECTILE_ICE_SPIKE,     0,  20  }
 };
 
 Projectile::Projectile()
@@ -113,6 +117,7 @@ void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, in
 		mRotationSpeed = RandRangeFloat(-0.2f, -0.08f);
 		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
+	case ProjectileType::PROJECTILE_ICE_SPIKE:
 	{
 		TodParticleSystem* aParticle = mApp->AddTodParticle(mPosX + 8.0f, mPosY + 13.0f, 400000, ParticleEffect::PARTICLE_SNOWPEA_TRAIL);
 		AttachParticle(mAttachmentID, aParticle, 8.0f, 13.0f);
@@ -196,7 +201,7 @@ bool Projectile::PeaAboutToHitTorchwood()
 	if (mMotionType != ProjectileMotion::MOTION_STRAIGHT)
 		return false;
 
-	if (mProjectileType != ProjectileType::PROJECTILE_PEA && mProjectileType != ProjectileType::PROJECTILE_SNOWPEA)
+	if (mProjectileType != ProjectileType::PROJECTILE_PEA && mProjectileType != ProjectileType::PROJECTILE_SNOWPEA && mProjectileType != ProjectileType::PROJECTILE_ICE_SPIKE)
 		return false;
 
 	Plant* aPlant = nullptr;
@@ -338,6 +343,7 @@ bool Projectile::CantHitHighGround()
 	return (
 		mProjectileType == ProjectileType::PROJECTILE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
+		mProjectileType == ProjectileType::PROJECTILE_ICE_SPIKE ||
 		mProjectileType == ProjectileType::PROJECTILE_STAR ||
 		mProjectileType == ProjectileType::PROJECTILE_PUFF ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREBALL
@@ -350,6 +356,7 @@ void Projectile::CheckForHighGround()
 
 	if (mProjectileType == ProjectileType::PROJECTILE_PEA ||
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
+		mProjectileType == ProjectileType::PROJECTILE_ICE_SPIKE ||
 		mProjectileType == ProjectileType::PROJECTILE_FIREBALL ||
 		mProjectileType == ProjectileType::PROJECTILE_SPIKE ||
 		mProjectileType == ProjectileType::PROJECTILE_COBBIG)
@@ -411,7 +418,7 @@ unsigned int Projectile::GetDamageFlags(Zombie* theZombie)
 		SetBit(aDamageFlags, static_cast<int>(DamageFlags::DAMAGE_BYPASSES_SHIELD), true);
 	}
 
-	if (mProjectileType == ProjectileType::PROJECTILE_SNOWPEA || mProjectileType == ProjectileType::PROJECTILE_WINTERMELON)
+	if (mProjectileType == ProjectileType::PROJECTILE_SNOWPEA || mProjectileType == ProjectileType::PROJECTILE_ICE_SPIKE || mProjectileType == ProjectileType::PROJECTILE_WINTERMELON)
 	{
 		SetBit(aDamageFlags, static_cast<int>(DamageFlags::DAMAGE_FREEZE), true);
 	}
@@ -833,6 +840,13 @@ void Projectile::DoImpact(Zombie* theZombie)
 	{
 		unsigned int aDamageFlags = GetDamageFlags(theZombie);
 		theZombie->TakeDamage(GetProjectileDef().mDamage, aDamageFlags);
+
+		// +Gaga: 冻结冰锥命中后有 50% 概率把僵尸冻成冰块（与寒冰菇一致）；
+		// 若这一发已把僵尸打死，HitIceTrap 内部会因 CanBeFrozen() 失败而自行空转
+		if (mProjectileType == ProjectileType::PROJECTILE_ICE_SPIKE && Sexy::Rand(100) < ICE_SPIKE_FREEZE_CHANCE_PERCENT)
+		{
+			theZombie->HitIceTrap();
+		}
 	}
 
 	float aLastPosX = mPosX - mVelX;
@@ -862,6 +876,7 @@ void Projectile::DoImpact(Zombie* theZombie)
 		aEffect = ParticleEffect::PARTICLE_PEA_SPLAT;
 		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
+	case ProjectileType::PROJECTILE_ICE_SPIKE:
 		aSplatPosX -= 15.0f;
 		aEffect = ParticleEffect::PARTICLE_SNOWPEA_SPLAT;
 		break;
@@ -942,6 +957,7 @@ void Projectile::Update()
 	int aTime = 20;
 	if (mProjectileType == ProjectileType::PROJECTILE_PEA || 
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA || 
+		mProjectileType == ProjectileType::PROJECTILE_ICE_SPIKE || 
 		mProjectileType == ProjectileType::PROJECTILE_CABBAGE || 
 		mProjectileType == ProjectileType::PROJECTILE_MELON || 
 		mProjectileType == ProjectileType::PROJECTILE_WINTERMELON || 
@@ -986,6 +1002,9 @@ void Projectile::Draw(Graphics* g)
 		break;
 	case ProjectileType::PROJECTILE_SNOWPEA:
 		aImage = IMAGE_PROJECTILESNOWPEA;
+		break;
+	case ProjectileType::PROJECTILE_ICE_SPIKE:
+		aImage = IMAGE_PROJECTILE_ICE_SPIKE;
 		break;
 	case ProjectileType::PROJECTILE_FIREBALL:
 		aImage = nullptr;
@@ -1102,6 +1121,7 @@ void Projectile::DrawShadow(Graphics* g)
 		break;
 
 	case ProjectileType::PROJECTILE_SNOWPEA:
+	case ProjectileType::PROJECTILE_ICE_SPIKE:
 		aOffsetX += -1.0f;
 		aScale = 1.3f;
 		break;
@@ -1149,7 +1169,7 @@ void Projectile::Die()
 {
 	mDead = true;
 
-	if (mProjectileType == ProjectileType::PROJECTILE_PUFF || mProjectileType == ProjectileType::PROJECTILE_SNOWPEA)
+	if (mProjectileType == ProjectileType::PROJECTILE_PUFF || mProjectileType == ProjectileType::PROJECTILE_SNOWPEA || mProjectileType == ProjectileType::PROJECTILE_ICE_SPIKE)
 	{
 		AttachmentCrossFade(mAttachmentID, "FadeOut");
 		AttachmentDetach(mAttachmentID);
@@ -1164,6 +1184,7 @@ Rect Projectile::GetProjectileRect()
 {
 	if (mProjectileType == ProjectileType::PROJECTILE_PEA || 
 		mProjectileType == ProjectileType::PROJECTILE_SNOWPEA ||
+		mProjectileType == ProjectileType::PROJECTILE_ICE_SPIKE ||
 		mProjectileType == ProjectileType::PROJECTILE_ZOMBIE_PEA)
 	{
 		return Rect(mX - 15, mY, mWidth + 15, mHeight);

@@ -41,6 +41,13 @@
 
 #include <climits>
 
+//+Gaga: 路障僵尸每隔一段时间回复一次血量
+//+Gaga: 逻辑帧率为 100fps，500 帧即 5 秒
+static const int CONEHEAD_REGEN_INTERVAL_TICKS = 500;
+//+Gaga: 每次回血随机回复的点数区间（闭区间）
+static const int CONEHEAD_REGEN_HEAL_MIN = 5;
+static const int CONEHEAD_REGEN_HEAL_MAX = 15;
+
 ZombieDefinition gZombieDefs[NUM_ZOMBIE_TYPES] = {
     { ZOMBIE_NORMAL,            REANIM_ZOMBIE,              1,      1,      1,      4000,   "ZOMBIE" },
     { ZOMBIE_FLAG,              REANIM_ZOMBIE,              1,      1,      1,      0,      "FLAG_ZOMBIE" },
@@ -162,6 +169,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mHelmHealth = 0;
     mAltitude = 0.0f;
     mFlyingHealth = 0;
+    mHealthRegenCounter = CONEHEAD_REGEN_INTERVAL_TICKS;                            //+Gaga: 路障僵尸回血计时
     mOriginalAnimRate = 0.0f;
     mAttachmentID = AttachmentID::ATTACHMENTID_NULL;
     mSummonCounter = 0;
@@ -4209,6 +4217,12 @@ void Zombie::Update()
                 mPhaseCounter--;
             }
 
+            // +Gaga: 场上的路障僵尸定时回血
+            if (mZombieType == ZombieType::ZOMBIE_TRAFFIC_CONE && IsOnBoard())
+            {
+                UpdateConeheadHealthRegen();
+            }
+
             if (mApp->mGameScene == GameScenes::SCENE_ZOMBIES_WON)
             {
                 if (mBoard->mCutScene->ShowZombieWalking())
@@ -4258,6 +4272,72 @@ void Zombie::Update()
 
         AttachmentUpdateAndMove(mAttachmentID, mPosX, mPosY);
         UpdateReanim();
+    }
+}
+
+// +Gaga: 路障僵尸每 CONEHEAD_REGEN_INTERVAL_TICKS 帧（5 秒）回一次血
+// +Gaga: 每次回复 CONEHEAD_REGEN_HEAL_MIN~CONEHEAD_REGEN_HEAL_MAX 点，先补还没掉的路障，多出来的补给本体
+void Zombie::UpdateConeheadHealthRegen()
+{
+    if (IsDeadOrDying())
+    {
+        return;
+    }
+
+    // 读档等情况下计时器可能还是 0，这里补满一个完整间隔，避免刚登场就立刻回血
+    if (mHealthRegenCounter <= 0)
+    {
+        mHealthRegenCounter = CONEHEAD_REGEN_INTERVAL_TICKS;
+        return;
+    }
+
+    mHealthRegenCounter--;
+    if (mHealthRegenCounter > 0)
+    {
+        return;
+    }
+
+    mHealthRegenCounter = CONEHEAD_REGEN_INTERVAL_TICKS;
+
+    int aHealRemaining = RandRangeInt(CONEHEAD_REGEN_HEAL_MIN, CONEHEAD_REGEN_HEAL_MAX);
+
+    // 路障还在头上时先修复路障，路障已经掉了就不再回血到路障上
+    if (mHelmType == HelmType::HELMTYPE_TRAFFIC_CONE)
+    {
+        int aHelmDamageIndexBefore = GetHelmDamageIndex();
+        int aHelmHeal = std::min(aHealRemaining, mHelmMaxHealth - mHelmHealth);
+        if (aHelmHeal > 0)
+        {
+            mHelmHealth += aHelmHeal;
+            aHealRemaining -= aHelmHeal;
+
+            // 路障血量回升会让裂纹等级下降，需要把贴图同步回去
+            int aHelmDamageIndexAfter = GetHelmDamageIndex();
+            if (aHelmDamageIndexAfter != aHelmDamageIndexBefore)
+            {
+                Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
+                if (aBodyReanim)
+                {
+                    if (aHelmDamageIndexAfter == 0)
+                    {
+                        aBodyReanim->SetImageOverride("anim_cone", nullptr);
+                    }
+                    else if (aHelmDamageIndexAfter == 1)
+                    {
+                        aBodyReanim->SetImageOverride("anim_cone", IMAGE_REANIM_ZOMBIE_CONE2);
+                    }
+                    else
+                    {
+                        aBodyReanim->SetImageOverride("anim_cone", IMAGE_REANIM_ZOMBIE_CONE3);
+                    }
+                }
+            }
+        }
+    }
+
+    if (aHealRemaining > 0)
+    {
+        mBodyHealth = std::min(mBodyHealth + aHealRemaining, mBodyMaxHealth);
     }
 }
 

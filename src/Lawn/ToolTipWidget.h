@@ -45,6 +45,7 @@ public:
     int                 mGetsLinesWidth;
     int                 mWarningFlashCounter;
     int                 mMaxLinesWidth;         // max line width override (0 = auto)
+    bool                mNoWrap;                // true = 只按显式 '\n' 分行，不自动折行
 
 public:
     ToolTipWidget();

@@ -135,6 +135,26 @@ for %%F in (
 )
 if defined MISSING goto err_no_deps
 
+REM --- Game data and Python ---------------------------------------------------
+REM The CMake pvz-dist target packs res\main into dist\main.pak and copies
+REM res\properties into dist\properties, which needs the unpacked resource tree
+REM plus Python 3.9+. Without the game data the build still succeeds; it just
+REM cannot stage a playable dist\.
+set "PVZ_DIST_OPT=-DPVZ_BUILD_DIST=ON"
+if not exist "res\main" set "PVZ_DIST_OPT=-DPVZ_BUILD_DIST=OFF"
+if not exist "res\properties" set "PVZ_DIST_OPT=-DPVZ_BUILD_DIST=OFF"
+if "%PVZ_DIST_OPT%"=="-DPVZ_BUILD_DIST=OFF" goto dist_opt_skip
+where python >nul 2>nul
+if errorlevel 1 goto err_no_python
+goto dist_opt_done
+:dist_opt_skip
+echo Warning: game data missing under res\ - need res\main\ and res\properties\.
+echo          The build continues, but dist\ will not be playable.
+echo          Unpack your legally purchased main.pak into res\main\ and copy the
+echo          external properties\ into res\properties\, then rerun.
+echo.
+:dist_opt_done
+
 REM --- Reject a build directory configured by another generator or toolchain -
 set "CACHED_GEN="
 set "CACHED_CC="
@@ -179,7 +199,7 @@ echo.
 
 REM --- Configure -------------------------------------------------------------
 echo [1/4] Configuring with CMake ...
-set "CMAKE_OPTS=-DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DBUILD_STATIC=%BUILD_STATIC% -DCONSOLE=%CONSOLE%"
+set "CMAKE_OPTS=-DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DBUILD_STATIC=%BUILD_STATIC% -DCONSOLE=%CONSOLE% %PVZ_DIST_OPT%"
 "%CMAKE_EXE%" -S . -B "%BUILD_DIR%" -G "%CMAKE_GENERATOR%" %CMAKE_OPTS%
 if errorlevel 1 (
 	echo.
@@ -209,8 +229,9 @@ if /i "%BUILD_STATIC%"=="ON" if /i "%CONSOLE%"=="OFF" (
 )
 
 REM --- Assemble dist ----------------------------------------------------------
-REM dist\ holds the exe next to the game data it loads at startup
-REM (main.pak + properties\), so the game can simply be run from there.
+REM The CMake pvz-dist target already packed res\main into dist\main.pak and
+REM copied res\properties into dist\properties. Here we only lay the stripped
+REM executable on top, so dist\ is a directory the game can be run from.
 echo.
 echo [3/4] Assembling dist ...
 if not exist "%BUILD_DIR%\pvz-portable.exe" (
@@ -224,30 +245,6 @@ if errorlevel 1 (
 	goto err_pause
 )
 
-set "RES_MISSING="
-if not exist "res\main.pak" set "RES_MISSING=1"
-if not exist "res\properties" set "RES_MISSING=1"
-if defined RES_MISSING (
-	echo.
-	echo Warning: game data missing under res\ - need main.pak and properties.
-	echo          Put your legally purchased PvZ GOTY files there, then rerun.
-	goto skip_res_copy
-)
-
-echo   Copying resources from res\ (this may take a moment) ...
-copy /y "res\main.pak" "dist\main.pak" >nul
-if errorlevel 1 (
-	echo Error: could not copy "res\main.pak" into "dist".
-	goto err_pause
-)
-if exist "dist\properties" rmdir /s /q "dist\properties"
-xcopy /e /i /q /y "res\properties" "dist\properties" >nul
-if errorlevel 1 (
-	echo Error: could not copy "res\properties" into "dist".
-	goto err_pause
-)
-:skip_res_copy
-
 REM --- Report -----------------------------------------------------------------
 echo.
 echo [4/4] Verifying output ...
@@ -255,7 +252,7 @@ for %%F in ("dist\pvz-portable.exe") do echo   Executable : %%~fF  ^(%%~zF bytes
 if exist "dist\main.pak" (
 	for %%F in ("dist\main.pak") do echo   Resources  : "%%~fF"  ^(%%~zF bytes^)
 ) else (
-	echo   Resources  : "dist\main.pak" is missing ^(check res\main.pak^).
+	echo   Resources  : "dist\main.pak" is missing ^(check res\main^).
 )
 if exist "dist\properties" (
 	echo   Properties : "dist\properties" found.
@@ -300,4 +297,11 @@ echo Error: development packages are missing from "%MSYS2_ROOT%":!MISSING!
 echo.
 echo   In the "MSYS2 UCRT64" shell run:
 echo     pacman -S --needed mingw-w64-ucrt-x86_64-libjpeg-turbo mingw-w64-ucrt-x86_64-libopenmpt mingw-w64-ucrt-x86_64-libogg mingw-w64-ucrt-x86_64-libpng mingw-w64-ucrt-x86_64-libvorbis mingw-w64-ucrt-x86_64-mpg123 mingw-w64-ucrt-x86_64-SDL2
+goto err_pause
+
+:err_no_python
+echo Error: Python 3.9+ was not found. CMake needs it to pack "res\main" into "dist\main.pak".
+echo.
+echo   Install Python, or add it to MSYS2 with:
+echo     pacman -S mingw-w64-ucrt-x86_64-python
 goto err_pause

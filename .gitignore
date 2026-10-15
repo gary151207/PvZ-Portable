@@ -414,8 +414,18 @@ tools/run/
 tools/read-compiled/target
 *.sublime-workspace
 
-# Local game data and build output (never commit copyrighted PvZ assets)
-res/
+# Packed game data and staged build output. res/ is the editable resource tree
+# (res/main unpacked from main.pak, plus the external res/properties) and is
+# tracked; only the packed PAK and the generated dist/ are ignored.
+main.pak
+main.unpak
 dist/
 
 build-*/
+
+.pylibs/
+.wheels/
+analysis/
+extracted-fonts/
+savedata/
+.tmp/

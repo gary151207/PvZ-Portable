@@ -100,6 +100,9 @@ public:
 	bool							mEasyPlantingCheat;
 	// 自带 4 倍出怪：出怪倍数，默认 ZOMBIE_SPAWN_MULTIPLIER，可由命令行参数 -zombiemult 覆盖
 	int								mZombieSpawnMultiplier;
+	// 字体替换（-modfont 指定字体文件，-nomodfont 关闭替换）
+	std::string						mModFontPath;
+	bool							mModFontDisabled;
 	PoolEffect*						mPoolEffect;
 	ZenGarden*						mZenGarden;
 	EffectSystem*					mEffectSystem;

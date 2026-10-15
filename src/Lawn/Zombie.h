@@ -160,6 +160,7 @@ public:
     int32_t                         mShieldMaxHealth;
     int32_t                         mFlyingHealth;
     int32_t                         mFlyingMaxHealth;
+    int32_t                         mHealthRegenCounter;                        //+Gaga: 路障僵尸距下一次回血的剩余帧数
     bool                            mDead;
     ZombieID                        mRelatedZombieID;
     ZombieID                        mFollowerZombieID[MAX_ZOMBIE_FOLLOWERS];
@@ -195,6 +196,7 @@ public:
     void                            EatZombie(Zombie* theZombie);
     void                            EatPlant(Plant* thePlant);
     void                            Update();
+    void                            UpdateConeheadHealthRegen();
     void                            DieNoLoot();
     /*inline*/ void                 DieWithLoot();
     void                            Draw(Graphics* g);

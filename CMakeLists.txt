@@ -352,3 +352,70 @@ elseif (IOS)
 			PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 	endif()
 endif()
+
+# Keep the unpacked PAK tree and external properties separate, then stage a
+# self-contained native build. Both properties locations are needed at runtime.
+if(NOT ANDROID AND NOT IOS AND NOT EMSCRIPTEN AND NOT NINTENDO_SWITCH AND NOT NINTENDO_3DS)
+	option(PVZ_BUILD_DIST "Build a staged native distribution in dist/" ON)
+	set(PVZ_MAIN_RESOURCE_DIR "${PROJECT_SOURCE_DIR}/res/main" CACHE PATH "Unpacked main.pak resource directory")
+	set(PVZ_PROPERTIES_DIR "${PROJECT_SOURCE_DIR}/res/properties" CACHE PATH "External properties resource directory")
+	set(PVZ_DIST_DIR "${PROJECT_SOURCE_DIR}/dist" CACHE PATH "Staged native distribution directory")
+
+	if(PVZ_BUILD_DIST)
+		if(NOT IS_DIRECTORY "${PVZ_MAIN_RESOURCE_DIR}")
+			message(FATAL_ERROR "PVZ_MAIN_RESOURCE_DIR does not exist: ${PVZ_MAIN_RESOURCE_DIR}")
+		endif()
+		if(NOT IS_DIRECTORY "${PVZ_PROPERTIES_DIR}")
+			message(FATAL_ERROR "PVZ_PROPERTIES_DIR does not exist: ${PVZ_PROPERTIES_DIR}")
+		endif()
+		get_filename_component(PVZ_MAIN_RESOURCE_DIR_ABS "${PVZ_MAIN_RESOURCE_DIR}" REALPATH)
+		get_filename_component(PVZ_PROPERTIES_DIR_ABS "${PVZ_PROPERTIES_DIR}" REALPATH)
+		if(EXISTS "${PVZ_DIST_DIR}")
+			get_filename_component(PVZ_DIST_DIR_ABS "${PVZ_DIST_DIR}" REALPATH)
+		else()
+			get_filename_component(PVZ_DIST_PARENT_DIR "${PVZ_DIST_DIR}" DIRECTORY)
+			get_filename_component(PVZ_DIST_DIRECTORY_NAME "${PVZ_DIST_DIR}" NAME)
+			get_filename_component(PVZ_DIST_PARENT_DIR_ABS "${PVZ_DIST_PARENT_DIR}" REALPATH)
+			set(PVZ_DIST_DIR_ABS "${PVZ_DIST_PARENT_DIR_ABS}/${PVZ_DIST_DIRECTORY_NAME}")
+		endif()
+		foreach(PVZ_RESOURCE_SOURCE_DIR "${PVZ_MAIN_RESOURCE_DIR_ABS}" "${PVZ_PROPERTIES_DIR_ABS}")
+			file(RELATIVE_PATH PVZ_PATH_TO_DIST "${PVZ_RESOURCE_SOURCE_DIR}" "${PVZ_DIST_DIR_ABS}")
+			file(RELATIVE_PATH PVZ_PATH_TO_SOURCE "${PVZ_DIST_DIR_ABS}" "${PVZ_RESOURCE_SOURCE_DIR}")
+			if((NOT PVZ_PATH_TO_DIST STREQUAL ".." AND NOT PVZ_PATH_TO_DIST MATCHES "^\\.\\./") OR
+			   (NOT PVZ_PATH_TO_SOURCE STREQUAL ".." AND NOT PVZ_PATH_TO_SOURCE MATCHES "^\\.\\./"))
+				message(FATAL_ERROR "PVZ_DIST_DIR must not overlap a resource source directory.")
+			endif()
+		endforeach()
+
+		if(CMAKE_VERSION VERSION_LESS "3.12")
+			find_package(PythonInterp 3.9 REQUIRED)
+			set(PVZ_PYTHON_EXECUTABLE "${PYTHON_EXECUTABLE}")
+		else()
+			find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
+			set(PVZ_PYTHON_EXECUTABLE "${Python3_EXECUTABLE}")
+		endif()
+
+		set(PVZ_MAIN_PAK "${PVZ_DIST_DIR}/main.pak")
+		# This is intentionally a custom target rather than an incremental output
+		# command: CMake cannot otherwise notice resources deleted from the tree.
+		add_custom_target(pvz-resources
+			COMMAND "${CMAKE_COMMAND}" -E make_directory "${PVZ_DIST_DIR}"
+			COMMAND "${PVZ_PYTHON_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/pak.py"
+				pack --source "${PVZ_MAIN_RESOURCE_DIR}" --output "${PVZ_MAIN_PAK}"
+			COMMAND "${CMAKE_COMMAND}" -E remove_directory "${PVZ_DIST_DIR}/properties"
+			COMMAND "${CMAKE_COMMAND}" -E copy_directory
+				"${PVZ_PROPERTIES_DIR}" "${PVZ_DIST_DIR}/properties"
+			DEPENDS "${PROJECT_SOURCE_DIR}/scripts/pak.py"
+			COMMENT "Packing and staging editable resources"
+			VERBATIM
+		)
+		add_custom_target(pvz-dist ALL
+			COMMAND "${CMAKE_COMMAND}" -E make_directory "${PVZ_DIST_DIR}"
+			COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+				"$<TARGET_FILE:pvz-portable>" "${PVZ_DIST_DIR}/"
+			DEPENDS pvz-portable pvz-resources
+			COMMENT "Staging pvz-portable distribution in ${PVZ_DIST_DIR}"
+			VERBATIM
+		)
+	endif()
+endif()

@@ -27,6 +27,11 @@
 #include "../Sexy.TodLib/TodFoley.h"
 #include "../Sexy.TodLib/Reanimator.h"
 
+//+Gaga: 小推车推出场外后掉头回来的概率（百分比）
+static const int MOWER_RETURN_CHANCE_PERCENT = 50;
+//+Gaga: 返场途中的折返点，与 MOWER_ROLLING_IN 入场动画的起点一致，之后由入场动画接回待命位 -21
+static const float MOWER_RETURN_END_X = -160.0f;
+
 void LawnMower::LawnMowerInitialize(int theRow)
 {
     mApp = (LawnApp*)gSexyAppBase;
@@ -147,7 +152,8 @@ void LawnMower::MowZombie(Zombie* theZombie)
         StartMower();
         mChompCounter = 25;
     }
-    else if (mMowerState == LawnMowerState::MOWER_TRIGGERED)
+    else if (mMowerState == LawnMowerState::MOWER_TRIGGERED || 
+             mMowerState == LawnMowerState::MOWER_RETURNING)
     {
         mChompCounter = 50;
     }
@@ -232,10 +238,16 @@ void LawnMower::Update()
         }
     }
 
-    if (mMowerState != LawnMowerState::MOWER_TRIGGERED && mMowerState != LawnMowerState::MOWER_SQUISHED)
+    //+Gaga: 会移动的状态有：推出的路上、回来的路上、被压扁
+    if (mMowerState != LawnMowerState::MOWER_TRIGGERED && 
+        mMowerState != LawnMowerState::MOWER_RETURNING && 
+        mMowerState != LawnMowerState::MOWER_SQUISHED)
     {
         return;
     }
+
+    //+Gaga: 返程与推出共用同一套速度与减速逻辑，只是方向相反
+    bool aReturning = mMowerState == LawnMowerState::MOWER_RETURNING;
 
     float aSpeed = 3.33f;
     if (mMowerType == LawnMowerType::LAWNMOWER_POOL)
@@ -247,14 +259,15 @@ void LawnMower::Update()
         mChompCounter--;
         aSpeed = TodAnimateCurveFloat(50, 0, mChompCounter, aSpeed, 1.0f, TodCurves::CURVE_BOUNCE_SLOW_MIDDLE);
     }
-    mPosX += aSpeed;
+    mPosX += aReturning ? -aSpeed : aSpeed;
     mPosY = mBoard->GetPosYBasedOnRow(mPosX + 40.0f, mRow) + 23.0f;
 
     if (mMowerType == LawnMowerType::LAWNMOWER_POOL)
     {
-        UpdatePool();
+        UpdatePool(); //+Gaga: 泳池清洁车按位置自动再次入水/出水，与行进方向无关
     }
-    if (mMowerType == LawnMowerType::LAWNMOWER_LAWN && mBoard->mPlantRow[mRow] == PlantRowType::PLANTROW_POOL && mPosX > 50.0f)
+    //+Gaga: 普通小推车冲进泳池只发生在推出的路上，返程不再重复判定
+    if (!aReturning && mMowerType == LawnMowerType::LAWNMOWER_LAWN && mBoard->mPlantRow[mRow] == PlantRowType::PLANTROW_POOL && mPosX > 50.0f)
     {
         Reanimation* aSplashReanim = mApp->AddReanimation(mPosX, mPosY + 25.0f, mRenderOrder + 1, ReanimationType::REANIM_SPLASH);
         aSplashReanim->OverrideScale(1.2f, 0.8f);
@@ -263,9 +276,29 @@ void LawnMower::Update()
         mApp->mSoundSystem->StopFoley(FoleyType::FOLEY_LAWNMOWER);
         Die();
     }
-    if (mPosX > WIDE_BOARD_WIDTH)
+    else if (aReturning)
     {
-        Die();
+        if (mPosX <= MOWER_RETURN_END_X)
+        {
+            //+Gaga: 回到场外后交给原版的“滚回入场”动画，动画结束时自动恢复待命（MOWER_READY）
+            mPosX = MOWER_RETURN_END_X;
+            mChompCounter = 0;
+            mRollingInCounter = 0;
+            mMowerState = LawnMowerState::MOWER_ROLLING_IN;
+        }
+    }
+    else if (mPosX > WIDE_BOARD_WIDTH)
+    {
+        //+Gaga: 推出场外后有 50% 概率掉头回来，回来的路上继续推走僵尸
+        if (Sexy::Rand(100) < MOWER_RETURN_CHANCE_PERCENT)
+        {
+            mChompCounter = 0;
+            mMowerState = LawnMowerState::MOWER_RETURNING;
+        }
+        else
+        {
+            Die();
+        }
     }
 
     mApp->ReanimationGet(mReanimID)->Update();
@@ -275,6 +308,10 @@ void LawnMower::Draw(Graphics* g)
 {
     if (!mVisible)
         return;
+
+    //+Gaga: 返程途中与推出时一样画行走动画，阴影与贴图偏移也保持一致
+    const bool aMowerMoving = mMowerState == LawnMowerState::MOWER_TRIGGERED || 
+                              mMowerState == LawnMowerState::MOWER_RETURNING;
 
     if (mMowerHeight != MowerHeight::MOWER_HEIGHT_UP_TO_LAND && 
         mMowerHeight != MowerHeight::MOWER_HEIGHT_DOWN_TO_POOL && 
@@ -301,7 +338,7 @@ void LawnMower::Draw(Graphics* g)
             aShadowX -= 9.0f;
             aShadowY -= 36.0f;
             aScaleY = 1.2f;
-            if (mMowerState == LawnMowerState::MOWER_TRIGGERED)
+            if (aMowerMoving)
             {
                 aShadowY += 36.0f;
             }
@@ -322,7 +359,7 @@ void LawnMower::Draw(Graphics* g)
     aMowerGraphics.mTransY += mPosY - mAltitude;
     if (mMowerType == LawnMowerType::LAWNMOWER_POOL)
     {
-        if (mMowerState == LawnMowerState::MOWER_TRIGGERED)
+        if (aMowerMoving)
         {
             aMowerGraphics.mTransY -= 7.0f;
             aMowerGraphics.mTransX -= 10.0f;
@@ -339,7 +376,7 @@ void LawnMower::Draw(Graphics* g)
     }
     else if (mMowerType == LawnMowerType::LAWNMOWER_ROOF)
     {
-        if (mMowerState == LawnMowerState::MOWER_TRIGGERED)
+        if (aMowerMoving)
         {
             aMowerGraphics.mTransY -= 4.0f;
             aMowerGraphics.mTransX -= 10.0f;
@@ -350,7 +387,7 @@ void LawnMower::Draw(Graphics* g)
         }
     }
 
-    if (mMowerState == LawnMowerState::MOWER_TRIGGERED || mMowerState == LawnMowerState::MOWER_SQUISHED)
+    if (aMowerMoving || mMowerState == LawnMowerState::MOWER_SQUISHED)
     {
         mApp->ReanimationGet(mReanimID)->Draw(&aMowerGraphics);
     }

@@ -33,6 +33,8 @@
 #include "graphics/GLImage.h"
 #include "graphics/Graphics.h"
 #include "graphics/ImageFont.h"
+#include "graphics/ModFont.h"
+#include "graphics/TrueTypeFont.h"
 #include "misc/PerfTimer.h"
 #include "misc/SexyMatrix.h"
 #include "graphics/GLInterface.h"
@@ -462,13 +464,98 @@ static RenderCommand gRenderCommandPool[POOL_SIZE];
 static RenderCommand* gRenderTail[256];
 static RenderCommand* gRenderHead[256];
 
+// Draws a reanimated (matrix transformed) string with a font that was replaced by
+// the mod font: every glyph comes from the TrueType atlas and is blitted through
+// the same transform the original bitmap path used.
+static void TodDrawModFontMatrix(Graphics* g, const ModFont* theFont, const SexyMatrix3& theMatrix, const std::string& theString, const Color& theColor)
+{
+	TrueTypeFont* aTrueTypeFont = theFont->GetTrueTypeFont();
+	if (aTrueTypeFont == nullptr || !aTrueTypeFont->IsValid())
+		return;
+
+	Image* aAtlas = aTrueTypeFont->GetAtlasImage();
+	_Font* aFallbackFont = theFont->GetOriginalFont();
+	const int aLayerCount = theFont->GetLayerStyleCount();
+
+	int aPenX = 0;
+	size_t anOffset = 0;
+	char32_t aChar = 0;
+	while (anOffset < theString.size())
+	{
+		size_t aCharStart = anOffset;
+		if (!UTF8DecodeNext(theString, anOffset, aChar))
+		{
+			// A lone byte of a multi-byte character cannot be drawn
+			anOffset = aCharStart + 1;
+			continue;
+		}
+
+		Rect aSrcRect;
+		int anAdvance = 0;
+		int anOffsetX = 0;
+		int anOffsetY = 0;
+		if (aTrueTypeFont->GetGlyph(aChar, aSrcRect, anAdvance, anOffsetX, anOffsetY))
+		{
+			if (aSrcRect.mWidth > 0 && aSrcRect.mHeight > 0 && aAtlas != nullptr)
+			{
+				for (int aLayer = 0; aLayer < aLayerCount; aLayer++)
+				{
+					const ModFont::LayerStyle aStyle = theFont->GetLayerStyle(aLayer);
+					SexyTransform2D aTransform;
+					// Like ImageFont's matrix path, the local origin is the baseline
+					float aPosX = aSrcRect.mWidth * 0.5f + (aPenX + anOffsetX + aStyle.mOffset.mX);
+					float aPosY = aSrcRect.mHeight * 0.5f + (anOffsetY + aStyle.mOffset.mY);
+					SexyMatrix3Translation(aTransform, aPosX, aPosY);
+					SexyMatrix3Multiply(aTransform, theMatrix, aTransform);
+					TodBltMatrix(g, aAtlas, aTransform, g->mClipRect, ModFont::ApplyLayerColor(theColor, aStyle),
+						g->GetDrawMode(), aSrcRect);
+				}
+			}
+
+			aPenX += anAdvance;
+		}
+		else if (aFallbackFont != nullptr)
+		{
+			// Characters the replacement font does not cover stay with the original
+			// bitmap font, positioned through the matrix translation only
+			std::string aFallbackChar;
+			aFallbackChar.append(theString, aCharStart, anOffset - aCharStart);
+
+			SexyTransform2D aTransform;
+			SexyMatrix3Translation(aTransform, static_cast<float>(aPenX), 0.0f);
+			SexyMatrix3Multiply(aTransform, theMatrix, aTransform);
+			aFallbackFont->DrawString(g, static_cast<int>(aTransform.m[0][2]), static_cast<int>(aTransform.m[1][2]),
+				aFallbackChar, theColor, g->mClipRect);
+
+			aPenX += aFallbackFont->StringWidth(aFallbackChar);
+		}
+	}
+}
+
 void TodDrawStringMatrix(Graphics* g, const _Font* theFont, const SexyMatrix3& theMatrix, const std::string& theString, const Color& theColor)
 {
 	std::string aFinalString = TodStringTranslate(theString);
 
+	if (const ModFont* aModFont = dynamic_cast<const ModFont*>(theFont))
+	{
+		if (aModFont->GetTrueTypeFont() != nullptr)
+		{
+			TodDrawModFontMatrix(g, aModFont, theMatrix, aFinalString, theColor);
+			return;
+		}
+	}
+
 	memset(gRenderTail, 0, sizeof(gRenderTail));
 	memset(gRenderHead, 0, sizeof(gRenderHead));
-	ImageFont* aFont = reinterpret_cast<ImageFont*>(const_cast<_Font*>(theFont));
+	ImageFont* aFont = dynamic_cast<ImageFont*>(const_cast<_Font*>(theFont));
+	if (aFont == nullptr)
+	{
+		// Unknown font type: draw at the matrix translation, ignoring rotation and scale
+		const_cast<_Font*>(theFont)->DrawString(g, static_cast<int>(theMatrix.m[0][2]), static_cast<int>(theMatrix.m[1][2]),
+			aFinalString, theColor, g->mClipRect);
+		return;
+	}
+
 	if (!aFont->mFontData->mInitialized)
 		return;
 

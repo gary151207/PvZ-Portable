@@ -60,6 +60,11 @@
 
 bool gShownMoreSunTutorial = false;
 
+//+Gaga: 樱桃炸弹种下时返还阳光的概率（百分比）
+static const int CHERRY_BOMB_REFUND_CHANCE_PERCENT = 50;
+//+Gaga: 樱桃炸弹种下时返还的阳光数
+static const int CHERRY_BOMB_REFUND_SUN = 50;
+
 // GOTY @Patoke: 0x40A3C0
 Board::Board(LawnApp* theApp)
 {
@@ -3116,6 +3121,49 @@ void Board::MouseDrag(int x, int y)
 	mChallenge->MouseMove(x, y);
 }
 
+//+Gaga: 悬停显血面板文本；优先取 properties 里的覆盖（[KEY]），缺键时用内置中文兜底
+static std::string HealthText(const char* theKey, const char* theDefaultText)
+{
+	std::string aKey = StrFormat("[%s]", theKey);
+	return TodStringListExists(aKey) ? TodStringTranslate(aKey) : std::string(theDefaultText);
+}
+
+//+Gaga: 逐行格式化血量；TodReplaceString 只替换第一处，所以每次调用只能处理一行
+static std::string FormatHealthLine(const char* theKey, const char* theDefaultText, int theHealth, int theMaxHealth)
+{
+	std::string aText = HealthText(theKey, theDefaultText);
+	aText = TodReplaceString(aText, "{CUR}", StrFormat("%d", theHealth));
+	return TodReplaceString(aText, "{MAX}", StrFormat("%d", theMaxHealth));
+}
+
+//+Gaga: 植物僵尸的头对应哪种植物（只用于显示名）
+static SeedType ZombotanyHeadSeedType(ZombieType theZombieType)
+{
+	switch (theZombieType)
+	{
+	case ZombieType::ZOMBIE_PEA_HEAD:      return SeedType::SEED_PEASHOOTER;
+	case ZombieType::ZOMBIE_WALLNUT_HEAD:  return SeedType::SEED_WALLNUT;
+	case ZombieType::ZOMBIE_TALLNUT_HEAD:  return SeedType::SEED_TALLNUT;
+	case ZombieType::ZOMBIE_JALAPENO_HEAD: return SeedType::SEED_JALAPENO;
+	case ZombieType::ZOMBIE_GATLING_HEAD:  return SeedType::SEED_GATLINGPEA;
+	case ZombieType::ZOMBIE_SQUASH_HEAD:   return SeedType::SEED_SQUASH;
+	default:                               return SeedType::SEED_NONE;
+	}
+}
+
+//+Gaga: 僵尸显示名；植物僵尸用「<植物名>僵尸」，而不是 gZombieDefs 里的通用 "ZOMBIE"
+static std::string ZombieDisplayName(Zombie* theZombie)
+{
+	SeedType aHeadSeedType = ZombotanyHeadSeedType(theZombie->mZombieType);
+	if (aHeadSeedType != SeedType::SEED_NONE)
+	{
+		std::string aName = HealthText("ZOMBOTANY_NAME", "{PLANT}僵尸");
+		return TodReplaceString(aName, "{PLANT}", Plant::GetNameString(aHeadSeedType));
+	}
+
+	return TodStringTranslate(StrFormat("[%s]", GetZombieDefinition(theZombie->mZombieType).mZombieName));
+}
+
 Zombie* Board::ZombieHitTest(int theMouseX, int theMouseY)
 {
 	Zombie* aZombie = nullptr;
@@ -3141,6 +3189,87 @@ Zombie* Board::ZombieHitTest(int theMouseX, int theMouseY)
 	}
 
 	return aRecord;
+}
+
+//+Gaga: 植物命中检测（与 ZombieHitTest 镜像：跳过死亡，取 Y 最大者）
+Plant* Board::PlantHitTest(int theMouseX, int theMouseY)
+{
+	Plant* aPlant = nullptr;
+	Plant* aRecord = nullptr;
+	while (IteratePlants(aPlant))
+	{
+		if (aPlant->GetPlantRect().Contains(theMouseX, theMouseY))
+		{
+			if (aRecord == nullptr || aPlant->mY > aRecord->mY)
+			{
+				aRecord = aPlant;
+			}
+		}
+	}
+
+	return aRecord;
+}
+
+//+Gaga: 按住右键悬停时显示植物/僵尸血量。命中并设置好面板返回 true，调用方应直接 return
+bool Board::UpdateHealthToolTip(int theMouseX, int theMouseY)
+{
+	Zombie* aZombie = ZombieHitTest(theMouseX, theMouseY);
+	if (aZombie)
+	{
+		std::string aLines = FormatHealthLine("HP_TOOLTIP_BODY", "本体：{CUR}/{MAX}",
+			aZombie->mBodyHealth, aZombie->mBodyMaxHealth);
+
+		// 一类防具 = 头盔；气球僵尸的气球血量并入这一行
+		if (aZombie->mHelmType != HelmType::HELMTYPE_NONE || aZombie->mFlyingHealth > 0)
+		{
+			aLines += "\n" + FormatHealthLine("HP_TOOLTIP_ARMOR1", "一类防具：{CUR}/{MAX}",
+				aZombie->mHelmHealth + aZombie->mFlyingHealth,
+				aZombie->mHelmMaxHealth + aZombie->mFlyingMaxHealth);
+		}
+		// 二类防具 = 护盾（铁门/报纸/梯子）
+		if (aZombie->mShieldType != ShieldType::SHIELDTYPE_NONE)
+		{
+			aLines += "\n" + FormatHealthLine("HP_TOOLTIP_ARMOR2", "二类防具：{CUR}/{MAX}",
+				aZombie->mShieldHealth, aZombie->mShieldMaxHealth);
+		}
+
+		mToolTip->SetTitle(ZombieDisplayName(aZombie));
+		mToolTip->SetWarningText("");
+		mToolTip->mNoWrap = true;  // 面板文本按显式 '\n' 分行
+		mToolTip->SetLabel(aLines);
+		mToolTip->mNoWrap = false;
+
+		Rect aRect = aZombie->GetZombieRect();
+		mToolTip->mX = aRect.mWidth / 2 + aRect.mX + 5;
+		mToolTip->mY = aRect.mHeight + aRect.mY - 10;
+		mToolTip->mCenter = true;
+		mToolTip->mMinLeft = 0;
+		mToolTip->mMaxBottom = BOARD_HEIGHT;
+		mToolTip->mVisible = true;
+		return true;
+	}
+
+	Plant* aPlant = PlantHitTest(theMouseX, theMouseY);
+	if (aPlant)
+	{
+		mToolTip->SetTitle(Plant::GetNameString(aPlant->mSeedType, aPlant->mImitaterType));
+		mToolTip->SetWarningText("");
+		mToolTip->mNoWrap = true;
+		mToolTip->SetLabel(FormatHealthLine("HP_TOOLTIP_PLANT", "血量：{CUR}/{MAX}",
+			aPlant->mPlantHealth, aPlant->mPlantMaxHealth));
+		mToolTip->mNoWrap = false;
+
+		Rect aRect = aPlant->GetPlantRect();
+		mToolTip->mX = aRect.mWidth / 2 + aRect.mX + 5;
+		mToolTip->mY = aRect.mHeight + aRect.mY - 10;
+		mToolTip->mCenter = true;
+		mToolTip->mMinLeft = 0;
+		mToolTip->mMaxBottom = BOARD_HEIGHT;
+		mToolTip->mVisible = true;
+		return true;
+	}
+
+	return false;
 }
 
 bool Board::IsPlantInGoldWateringCanRange(int theMouseX, int theMouseY, Plant* thePlant)
@@ -3311,6 +3440,15 @@ void Board::UpdateToolTip()
 
 	int aMouseX = mApp->mWidgetManager->mLastMouseX - mX;
 	int aMouseY = mApp->mWidgetManager->mLastMouseY - mY;
+
+	//+Gaga: 按住鼠标右键并把指针移到植物/僵尸上时显示血量
+	constexpr int kMouseRightButtonMask = 0x02;  // WidgetManager::MouseDown 中 0x02 即鼠标右键
+	if ((mApp->mWidgetManager->mDownButtons & kMouseRightButtonMask) != 0 &&
+		mApp->mGameScene == GameScenes::SCENE_PLAYING &&
+		UpdateHealthToolTip(aMouseX, aMouseY))
+	{
+		return;
+	}
 
 	if (mApp->mGameScene == GameScenes::SCENE_LEVEL_INTRO)
 	{
@@ -3973,6 +4111,14 @@ void Board::MouseDownWithPlant(int x, int y, int theClickCount)
 		}
 
 		mSeedBank->mSeedPackets[mCursorObject->mSeedBankIndex].WasPlanted();
+
+		// +Gaga: 樱桃炸弹种下时有 50% 概率返还 50 点阳光
+		// +Gaga: 传送带与免费种植没有扣阳光，因此也不返还
+		if (aPlantingSeedType == SeedType::SEED_CHERRYBOMB && !mApp->mEasyPlantingCheat && !HasConveyorBeltSeedBank() &&
+			Rand(100) < CHERRY_BOMB_REFUND_CHANCE_PERCENT)
+		{
+			AddSunMoney(CHERRY_BOMB_REFUND_SUN);
+		}
 	}
 	else
 	{

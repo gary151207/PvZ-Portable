@@ -52,6 +52,7 @@
 #include "Sexy.TodLib/EffectSystem.h"
 #include "Sexy.TodLib/FilterEffect.h"
 #include "graphics/Graphics.h"
+#include "graphics/ModFont.h"
 #include "Sexy.TodLib/TodStringFile.h"
 #include "Lawn/Widget/AlmanacDialog.h"
 #include "Lawn/Widget/NewUserDialog.h"
@@ -160,6 +161,8 @@ LawnApp::LawnApp()
 	mGameMode = GameMode::GAMEMODE_ADVENTURE;
 	mEasyPlantingCheat = false;
 	mZombieSpawnMultiplier = ZOMBIE_SPAWN_MULTIPLIER;
+	mModFontPath = "";
+	mModFontDisabled = false;
 	mAutoEnable3D = true;
 	Tod_SWTri_AddAllDrawTriFuncs();
 	mLoadingZombiesThreadCompleted = true;
@@ -1397,6 +1400,16 @@ void LawnApp::HandleCmdLineParam(const std::string& theParamName, const std::str
 			mBoard->mZombieSpawnMultiplier = aMultiplier;
 		}
 	}
+	else if (theParamName == "-modfont")
+	{
+		// 指定用于替换位图字体的字体文件
+		mModFontPath = theParamValue;
+	}
+	else if (theParamName == "-nomodfont")
+	{
+		// 关闭字体替换，保留原版位图字体
+		mModFontDisabled = true;
+	}
 	else
 	{
 		SexyApp::HandleCmdLineParam(theParamName, theParamValue);
@@ -1846,6 +1859,12 @@ void LawnApp::LoadingThreadCompleted()
 // GOTY @Patoke: 0x456150
 void LawnApp::LoadingCompleted()
 {
+	std::string aModFontSummary = Sexy::GetModFontSummary();
+	if (!aModFontSummary.empty())
+	{
+		TodTrace("mod font mapping: %s", aModFontSummary.c_str());
+	}
+
 	mWidgetManager->RemoveWidget(mTitleScreen);
 	SafeDeleteWidget(mTitleScreen);
 	mTitleScreen = nullptr;
@@ -3260,6 +3279,20 @@ bool LawnApp::IsTrialStageLocked()
 void LawnApp::InitHook()
 {
 	mTrialType = TrialType::TRIALTYPE_NONE;
+
+	// 字体替换：加载用于替换原版位图字体的 TrueType 字体文件
+	if (mModFontDisabled)
+	{
+		TodTrace("mod font: disabled by -nomodfont");
+	}
+	else if (Sexy::InitializeModFont(mModFontPath))
+	{
+		TodTrace("mod font: %s", Sexy::GetModFontPath().c_str());
+	}
+	else
+	{
+		TodTrace("mod font: no font file found, keeping the original bitmap fonts");
+	}
 }
 
 std::string LawnApp::GetMoneyString(int theAmount)

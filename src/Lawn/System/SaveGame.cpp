@@ -1204,6 +1204,12 @@ static void SyncReanimationPortable(Board* theBoard, Reanimation* theReanimation
 			else
 			{
 				aUseTemp = false;
+				//+Gaga: 轨道缩放覆写不进存档，读档时补上构造函数默认值（Calloc 会把新字段清零）
+				for (int aTrackIndex = 0; aTrackIndex < aCount; aTrackIndex++)
+				{
+					theReanimation->mTrackInstances[aTrackIndex].mScaleOverrideX = 1.0f;
+					theReanimation->mTrackInstances[aTrackIndex].mScaleOverrideY = 1.0f;
+				}
 			}
 		}
 		else

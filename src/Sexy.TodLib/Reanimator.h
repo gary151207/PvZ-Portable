@@ -188,6 +188,8 @@ public:
     float                           mShakeOverride;
     float                           mShakeX;
     float                           mShakeY;
+    float                           mScaleOverrideX;                                        //+Gaga: 轨道额外缩放倍率，默认 1.0
+    float                           mScaleOverrideY;                                        //+Gaga: 轨道额外缩放倍率，默认 1.0
     AttachmentID                    mAttachmentID;
     Image*                          mImageOverride;
     int32_t                         mRenderGroup;
@@ -254,6 +256,7 @@ public:
     float                           GetTrackVelocity(const char* theTrackName);
     /*inline*/ void                 SetImageOverride(const char* theTrackName, Image* theImage);
     /*inline*/ Image*               GetImageOverride(const char* theTrackName);
+    /*inline*/ void                 SetTrackScale(const char* theTrackName, float theScaleX, float theScaleY);
     void                            ShowOnlyTrack(const char* theTrackName);
     void                            GetTrackMatrix(int theTrackIndex, SexyTransform2D& theMatrix);
     void                            AssignRenderGroupToTrack(const char* theTrackName, int theRenderGroup);

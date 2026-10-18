@@ -64,7 +64,8 @@ private:
         GameSelector_Zombatar = 111, // @Patoke: add stuff after 110
         GameSelector_AchievementsBack = 112,
         GameSelector_Achievements = 113,
-        GameSelector_QuickPlay = 114
+        GameSelector_QuickPlay = 114,
+        GameSelector_Settings = 115 // @Gaga: 右下角设置按钮
     };
 
 public:
@@ -83,6 +84,7 @@ public:
     NewLawnButton*              mZombatarButton;             //+GOTY @Patoke: 0xC0
     NewLawnButton*              mAchievementsButton;        //+GOTY @Patoke: 0xC4
     NewLawnButton*              mQuickPlayButton;           //+GOTY @Patoke: 0xC8
+    LawnStoneButton*            mSettingsButton;            //+Gaga: 右下角「设置」按钮
     Widget*                     mOverlayWidget;
     bool                        mStartingGame;
     int                         mStartingGameCounter;

@@ -1796,6 +1796,62 @@ void Plant::UpdateCactus()
     }
 }
 
+//+Gaga: 「深渊巨口」的视觉：把嘴部零件整体放大；theScale 传 1.0 恢复原样
+static void ChomperSetMouthScale(Reanimation* theBodyReanim, float theScale)
+{
+    if (theBodyReanim == nullptr)
+        return;
+
+    static const char* aMouthTracks[] = {
+        "Chomper_topjaw", "Chomper_underjaw", "Chomper_bottomlip",
+        "Chomper_insidemouth", "Chomper_tongue",
+        "Chomper_spike1", "Chomper_spike2", "Chomper_spike3", "Chomper_spike4"
+    };
+    for (const char* aTrackName : aMouthTracks)
+    {
+        if (theBodyReanim->TrackExists(aTrackName))
+        {
+            theBodyReanim->SetTrackScale(aTrackName, theScale, theScale);
+        }
+    }
+}
+
+//+Gaga: 「深渊巨口」：吞掉前方一格内所有能咬到的僵尸；范围内的僵王博士吞不掉，改为吃下一次普通咬击的伤害
+static void ChomperAbyssMaw(Board* theBoard, int theRow, const Rect& theMawRect, int theDamageRangeFlags, int theBiteDamage,
+                            int& theSwallowedCount, bool& theBitBoss)
+{
+    theSwallowedCount = 0;
+    theBitBoss = false;
+
+    Zombie* aZombie = nullptr;
+    while (theBoard->IterateZombies(aZombie))
+    {
+        bool aIsBoss = aZombie->mZombieType == ZombieType::ZOMBIE_BOSS;
+
+        // 与原版 FindTargetZombie 的大嘴花判定一致：僵王不受行限制，其余僵尸必须与植物同一行
+        if (!aIsBoss && aZombie->mRow != theRow)
+            continue;
+        // 与原版一致：无头僵尸、被缠绕水草抓住的僵尸不会被咬
+        if (!aZombie->mHasHead || aZombie->IsTangleKelpTarget())
+            continue;
+        if (!aZombie->EffectedByDamage(theDamageRangeFlags))
+            continue;
+        if (GetRectOverlap(theMawRect, aZombie->GetZombieRect()) <= 0)
+            continue;
+
+        if (aIsBoss)
+        {
+            aZombie->TakeDamage(theBiteDamage, 0U);
+            theBitBoss = true;
+        }
+        else
+        {
+            aZombie->DieWithLoot();
+            theSwallowedCount++;
+        }
+    }
+}
+
 void Plant::UpdateChomper()
 {
     Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
@@ -1838,10 +1894,35 @@ void Plant::UpdateChomper()
                 }
             }
 
-            if (doBite)
+            // +Gaga: 每次咬到僵尸有 25% 概率发动「深渊巨口」，吞掉前方一格内所有能咬到的僵尸（僵王改为吃普通咬击伤害）
+            int aMawSwallowed = 0;
+            bool aMawBitBoss = false;
+            if (aZombie != nullptr && Sexy::Rand(100) < CHOMPER_ABYSS_MAW_CHANCE_PERCENT)
+            {
+                Rect aMawRect(mX + mWidth, mY, mWidth, mHeight);
+                ChomperAbyssMaw(mBoard, mRow, aMawRect, GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY),
+                                CHOMPER_BITE_DAMAGE, aMawSwallowed, aMawBitBoss);
+            }
+
+            if (aMawSwallowed > 0 || aMawBitBoss)
+            {
+                // +Gaga: 深渊巨口的表现就是嘴部零件放大
+                ChomperSetMouthScale(aBodyReanim, CHOMPER_ABYSS_MAW_MOUTH_SCALE);
+                if (aMawBitBoss)
+                {
+                    mApp->PlayFoley(FoleyType::FOLEY_SPLAT);
+                }
+                if (aMawSwallowed > 0)
+                {
+                    mBoard->ShakeBoard(3, -4);
+                }
+
+                mState = aMawSwallowed > 0 ? PlantState::STATE_CHOMPER_BITING_GOT_ONE : PlantState::STATE_CHOMPER_BITING_MISSED;
+            }
+            else if (doBite)
             {
                 mApp->PlayFoley(FoleyType::FOLEY_SPLAT);
-                aZombie->TakeDamage(40, 0U);
+                aZombie->TakeDamage(CHOMPER_BITE_DAMAGE, 0U);
                 mState = PlantState::STATE_CHOMPER_BITING_MISSED;
             }
             else if (doMiss)
@@ -1859,6 +1940,7 @@ void Plant::UpdateChomper()
     {
         if (aBodyReanim->mLoopCount > 0)
         {
+            ChomperSetMouthScale(aBodyReanim, 1.0f);    // +Gaga: 深渊巨口结束，嘴部恢复原大小
             PlayBodyReanim("anim_chew", ReanimLoopType::REANIM_LOOP, 0, 15.0f);
             if (mApp->IsIZombieLevel())
             {
@@ -1879,6 +1961,7 @@ void Plant::UpdateChomper()
     }
     else if ((mState == PlantState::STATE_CHOMPER_SWALLOWING || mState == PlantState::STATE_CHOMPER_BITING_MISSED) && aBodyReanim->mLoopCount > 0)
     {
+        ChomperSetMouthScale(aBodyReanim, 1.0f);    // +Gaga: 兜底恢复嘴部大小（例如深渊巨口只咬到僵王博士）
         PlayIdleAnim(aBodyReanim->mDefinition->mFPS);
         mState = PlantState::STATE_READY;
     }

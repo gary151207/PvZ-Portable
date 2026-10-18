@@ -48,6 +48,7 @@ class ChallengeScreen;
 class StoreScreen;
 class AlmanacDialog;
 class TypingCheck;
+class SettingsScreen; // +Gaga
 
 namespace Sexy
 {
@@ -57,6 +58,20 @@ namespace Sexy
 };
 
 using namespace Sexy;
+
+// +Gaga: 设置页里的 7 个模式/彩蛋开关。
+// 它们与作弊键（TypingCheck）操作的是同一批 LawnApp 成员，并且会写入配置文件持久化。
+enum class GagaCheatMode : int32_t
+{
+	GAGA_CHEAT_MUSTACHE = 0,
+	GAGA_CHEAT_SUPER_MOWER,
+	GAGA_CHEAT_FUTURE,
+	GAGA_CHEAT_PINATA,
+	GAGA_CHEAT_DANCE,
+	GAGA_CHEAT_DAISY,
+	GAGA_CHEAT_SUKHBIR,
+	GAGA_CHEAT_COUNT
+};
 
 typedef std::list<ButtonWidget*> ButtonList;
 typedef std::list<Image*> ImageList;
@@ -334,8 +349,21 @@ public:
 	/*inline*/ bool					CanDoPinataMode();
 	/*inline*/ bool					CanDoDanceMode();
 	/*inline*/ bool					CanDoDaisyMode();
+	// +Gaga: 主菜单设置页与一键通关冒险模式
+	void							ShowSettingsScreen();
+	bool							KillSettingsScreen();
+	bool							GetCheatMode(GagaCheatMode theMode);
+	bool							SetCheatMode(GagaCheatMode theMode, bool theEnable);
+	void							CompleteAdventureMode();
 	virtual void					SwitchScreenMode(bool wantWindowed, bool is3d, bool force = false);
 	static /*inline*/ void			CenterDialog(Dialog* theDialog, int theWidth, int theHeight);
+
+private:
+	// +Gaga: 只写成员变量（不播放音效、不写配置），供读取配置与 SetCheatMode 共用
+	void							ApplyCheatMode(GagaCheatMode theMode, bool theEnable);
+	bool							*GetCheatModeField(GagaCheatMode theMode);
+	const char*						GetCheatModeRegistryKey(GagaCheatMode theMode);
+	void							PlayCheatModeSound(GagaCheatMode theMode);
 };
 
 std::string							LawnGetCurrentLevelName();

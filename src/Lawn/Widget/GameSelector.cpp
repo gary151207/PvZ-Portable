@@ -188,6 +188,13 @@ GameSelector::GameSelector(LawnApp* theApp)
 	);
 	mQuickPlayButton->Resize(mApp->mWidth - 150, 455, Sexy::IMAGE_QUICKPLAY_BACK_BUTTON->mWidth, Sexy::IMAGE_QUICKPLAY_BACK_BUTTON->mHeight);
 
+	// +Gaga: 屏幕右下角的「设置」按钮
+	mSettingsButton = MakeButton(GameSelector::GameSelector_Settings, this, "设置");
+	mSettingsButton->Resize(0, 0, 120, 33);
+	// 与三个钥匙按钮一样，等开场动画结束再显示
+	mSettingsButton->mBtnNoDraw = true;
+	mSettingsButton->mMouseVisible = false;
+
 	mZenGardenButton = MakeNewButton(
 		GameSelector::GameSelector_ZenGarden, 
 		this, 
@@ -399,6 +406,8 @@ GameSelector::~GameSelector()
 		delete mAchievementsWidget;
 	if (mQuickPlayButton)
 		delete mQuickPlayButton;
+	if (mSettingsButton) // +Gaga
+		delete mSettingsButton;
 
 	delete mToolTip;
 }
@@ -812,6 +821,7 @@ void GameSelector::Update()
 		mQuitButton->MarkDirty();
 		mStoreButton->MarkDirty();
 		mZenGardenButton->MarkDirty();
+		mSettingsButton->MarkDirty(); // +Gaga
 
 		mSlideCounter--;
 	}
@@ -885,6 +895,7 @@ void GameSelector::Update()
 			mQuitButton->mBtnNoDraw = false;
 			mZombatarButton->mBtnNoDraw = false; // @Patoke: new widgets
 			mAchievementsButton->mBtnNoDraw = false;
+			mSettingsButton->mBtnNoDraw = false; // +Gaga
 			mAdventureButton->mMouseVisible = true;
 			mMinigameButton->mMouseVisible = true;
 			mPuzzleButton->mMouseVisible = true;
@@ -898,6 +909,7 @@ void GameSelector::Update()
 			mChangeUserButton->mMouseVisible = true;
 			mZombatarButton->mMouseVisible = true; // @Patoke: new widgets
 			mAchievementsButton->mMouseVisible = true;
+			mSettingsButton->mMouseVisible = true; // +Gaga
 
 			if (mApp->mPlayerInfo == nullptr)
 			{
@@ -995,6 +1007,11 @@ void GameSelector::Update()
 	TrackButton(mChangeUserButton, "woodsign2", 24.0f, 10.0f);
 	TrackButton(mZombatarButton, "woodsign3", 0.f, 0.f); // @Patoke: add shart here
 	TrackButton(mAchievementsButton, "SelectorScreen_BG_Left", 20.f, 480.f);
+	// +Gaga: 设置按钮固定在屏幕右下角（不使用轨道坐标，避免不同分辨率下的偏移），
+	// 并把选择界面自身的偏移补上，这样向上滑动（成就界面）时它会跟着一起走
+	mSettingsButton->mX = mApp->mWidth - 132 + mX;
+	mSettingsButton->mY = mApp->mHeight - 53 + mY;
+	mSettingsButton->MarkDirty();
 	aSelectorReanim->SetImageOverride("woodsign2", (mChangeUserButton->mIsOver || mChangeUserButton->mIsDown) ? Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN2_PRESS : nullptr);
 	aSelectorReanim->SetImageOverride("woodsign3", (mZombatarButton->mIsOver || mZombatarButton->mIsDown) ? Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN3_PRESS : nullptr);
 }
@@ -1031,6 +1048,7 @@ void GameSelector::AddedToManager(WidgetManager* theWidgetManager)
 	//theWidgetManager->AddWidget(mZombatarWidget);
 	theWidgetManager->AddWidget(mAchievementsButton);
 	theWidgetManager->AddWidget(mAchievementsWidget);
+	theWidgetManager->AddWidget(mSettingsButton); // +Gaga
 	//theWidgetManager->AddWidget(mQuickPlayButton);
 }
 
@@ -1054,6 +1072,7 @@ void GameSelector::RemovedFromManager(WidgetManager* theWidgetManager)
 	//theWidgetManager->RemoveWidget(mZombatarWidget);
 	theWidgetManager->RemoveWidget(mAchievementsButton);
 	theWidgetManager->RemoveWidget(mAchievementsWidget);
+	theWidgetManager->RemoveWidget(mSettingsButton); // +Gaga
 	//theWidgetManager->RemoveWidget(mQuickPlayButton);
 }
 
@@ -1074,6 +1093,7 @@ void GameSelector::OrderInManagerChanged()
 	mWidgetManager->PutInfront(mChangeUserButton, this);
 	mWidgetManager->PutInfront(mZombatarButton, this); // @Patoke: z order for new widgets
 	mWidgetManager->PutInfront(mAchievementsButton, this);
+	mWidgetManager->PutInfront(mSettingsButton, this); // +Gaga
 	//mWidgetManager->PutInfront(mQuickPlayButton, this);
 }
 
@@ -1087,64 +1107,44 @@ void GameSelector::KeyDown(KeyCode theKey)
 	}
 	if (mApp->mMustacheCheck->Check(theKey) || mApp->mMoustacheCheck->Check(theKey))
 	{
-		mApp->PlayFoley(FoleyType::FOLEY_POLEVAULT);
-		mApp->mMustacheMode = !mApp->mMustacheMode;
+		// +Gaga: 与设置页共用 SetCheatMode，作弊键切换同样会保存到配置
+		mApp->SetCheatMode(GagaCheatMode::GAGA_CHEAT_MUSTACHE, !mApp->mMustacheMode);
 		ReportAchievement::GiveAchievement(mApp, MustacheMode, false);
 		return;
 	}
 	if (mApp->mSuperMowerCheck->Check(theKey) || mApp->mSuperMowerCheck2->Check(theKey))
 	{
-		mApp->PlayFoley(FoleyType::FOLEY_ZAMBONI);
-		mApp->mSuperMowerMode = !mApp->mSuperMowerMode;
+		mApp->SetCheatMode(GagaCheatMode::GAGA_CHEAT_SUPER_MOWER, !mApp->mSuperMowerMode);
 		return;
 	}
 	if (mApp->mFutureCheck->Check(theKey))
 	{
-		mApp->PlaySample(Sexy::SOUND_BOING);
-		mApp->mFutureMode = !mApp->mFutureMode;
+		mApp->SetCheatMode(GagaCheatMode::GAGA_CHEAT_FUTURE, !mApp->mFutureMode);
 		return;
 	}
 	if (mApp->mPinataCheck->Check(theKey))
 	{
-		if (mApp->CanDoPinataMode())
-		{
-			mApp->PlayFoley(FoleyType::FOLEY_JUICY);
-			mApp->mPinataMode = !mApp->mPinataMode;
-			return;
-		}
-		else
+		if (!mApp->SetCheatMode(GagaCheatMode::GAGA_CHEAT_PINATA, !mApp->mPinataMode))
 		{
 			mApp->PlaySample(Sexy::SOUND_BUZZER);
-			return;
 		}
+		return;
 	}
 	if (mApp->mDanceCheck->Check(theKey))
 	{
-		if (mApp->CanDoDanceMode())
-		{
-			mApp->PlayFoley(FoleyType::FOLEY_DANCER);
-			mApp->mDanceMode = !mApp->mDanceMode;
-			return;
-		}
-		else
+		if (!mApp->SetCheatMode(GagaCheatMode::GAGA_CHEAT_DANCE, !mApp->mDanceMode))
 		{
 			mApp->PlaySample(Sexy::SOUND_BUZZER);
-			return;
 		}
+		return;
 	}
 	if (mApp->mDaisyCheck->Check(theKey))
 	{
-		if (mApp->CanDoDaisyMode())
-		{
-			mApp->PlaySample(Sexy::SOUND_LOADINGBAR_FLOWER);
-			mApp->mDaisyMode = !mApp->mDaisyMode;
-			return;
-		}
-		else
+		if (!mApp->SetCheatMode(GagaCheatMode::GAGA_CHEAT_DAISY, !mApp->mDaisyMode))
 		{
 			mApp->PlaySample(Sexy::SOUND_BUZZER);
-			return;
 		}
+		return;
 	}
 	if (mApp->mSukhbirCheck->Check(theKey))
 	{
@@ -1164,21 +1164,8 @@ void GameSelector::KeyChar(char theChar)
 	{
 		TodTraceAndLog("Selector cheat key '%c'", theChar);
 
-		mApp->mPlayerInfo->mFinishedAdventure = 2;
-		mApp->mPlayerInfo->AddCoins(50000);
-		mApp->mPlayerInfo->mHasUsedCheatKeys = true;
-		mApp->mPlayerInfo->mHasUnlockedMinigames = true;
-		mApp->mPlayerInfo->mHasUnlockedPuzzleMode = true;
-		mApp->mPlayerInfo->mHasUnlockedSurvivalMode = true;
-
-		for (int i = 1; i < 100; i++)
-			if (i != static_cast<int>(GameMode::GAMEMODE_TREE_OF_WISDOM) && i != static_cast<int>(GameMode::GAMEMODE_SCARY_POTTER_ENDLESS) &&
-				i != static_cast<int>(GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS) && i != static_cast<int>(GameMode::GAMEMODE_SURVIVAL_ENDLESS_STAGE_3))
-				mApp->mPlayerInfo->mChallengeRecords[i - 1] = 20;
-		SyncProfile(true);
-
-		mApp->EraseFile(GetSavedGameName(GameMode::GAMEMODE_ADVENTURE, mApp->mPlayerInfo->mId));
-		mApp->EraseFile(GetLegacySavedGameName(GameMode::GAMEMODE_ADVENTURE, mApp->mPlayerInfo->mId));
+		// +Gaga: 与设置页的「一键通关冒险模式」共用同一段逻辑
+		mApp->CompleteAdventureMode();
 	}
 
 	if (mApp->mDebugKeysEnabled)
@@ -1270,6 +1257,7 @@ void GameSelector::ClickedAdventure()
 	mZenGardenButton->SetDisabled(true);
 	mZombatarButton->SetDisabled(true); // @Patoke: added new widgets
 	mAchievementsButton->SetDisabled(true);
+	mSettingsButton->SetDisabled(true); // +Gaga
 
 	Reanimation* aHandReanim = mApp->AddReanimation(-70.0f, 10.0f, 0, ReanimationType::REANIM_ZOMBIE_HAND);
 	aHandReanim->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
@@ -1376,6 +1364,9 @@ void GameSelector::ButtonDepress(int theId)
 		break;
 	case GameSelector::GameSelector_QuickPlay:
 		// GameSelector::ShowQuickPlayScreen();
+		break;
+	case GameSelector::GameSelector_Settings: // +Gaga: 打开设置页
+		mApp->ShowSettingsScreen();
 		break;
 	}
 }

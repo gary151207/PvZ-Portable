@@ -60,6 +60,7 @@
 #include "Lawn/System/ReanimationLawn.h"
 #include "Lawn/Widget/ChallengeScreen.h"
 #include "Lawn/Widget/NewOptionsDialog.h"
+#include "Lawn/Widget/SettingsScreen.h" // +Gaga
 #include "Lawn/Widget/SeedChooserScreen.h"
 #include "widget/WidgetManager.h"
 #include "misc/ResourceManager.h"
@@ -404,12 +405,30 @@ void LawnApp::WriteToRegistry()
 		mPlayerInfo->SaveDetails();
 	}
 
+	// +Gaga: 保存设置页的模式开关（关卡内 Board::SetXxxMode 也可能改动它们）
+	for (int i = 0; i < static_cast<int>(GagaCheatMode::GAGA_CHEAT_COUNT); i++)
+	{
+		const char* aKey = GetCheatModeRegistryKey(static_cast<GagaCheatMode>(i));
+		if (aKey != nullptr)
+			RegistryWriteInteger(aKey, GetCheatMode(static_cast<GagaCheatMode>(i)) ? 1 : 0);
+	}
+
 	SexyAppBase::WriteToRegistry();
 }
 
 void LawnApp::ReadFromRegistry()
 {
 	SexyApp::ReadFromRegistry();
+
+	// +Gaga: 恢复设置页保存的模式开关。此处不校验前置条件，因为用户档案还没加载，
+	// 保存的时候已经校验过一次。
+	for (int i = 0; i < static_cast<int>(GagaCheatMode::GAGA_CHEAT_COUNT); i++)
+	{
+		const char* aKey = GetCheatModeRegistryKey(static_cast<GagaCheatMode>(i));
+		int aValue = 0;
+		if (aKey != nullptr && RegistryReadInteger(aKey, &aValue))
+			ApplyCheatMode(static_cast<GagaCheatMode>(i), aValue != 0);
+	}
 }
 
 // GOTY @Patoke: 0x452800
@@ -644,6 +663,53 @@ void LawnApp::KillStoreScreen()
 		KillDialog(Dialogs::DIALOG_STORE);
 		ClearUpdateBacklog(false);
 	}
+}
+
+// +Gaga: 打开设置页（整屏 Challenge_Background 背景）
+void LawnApp::ShowSettingsScreen()
+{
+	if (GetDialog(Dialogs::DIALOG_SETTINGS) != nullptr)
+		return;
+
+	SettingsScreen* aSettingsScreen = new SettingsScreen(this);
+	AddDialog(Dialogs::DIALOG_SETTINGS, aSettingsScreen);
+	mWidgetManager->SetFocus(aSettingsScreen);
+}
+
+bool LawnApp::KillSettingsScreen()
+{
+	if (GetDialog(Dialogs::DIALOG_SETTINGS) == nullptr)
+		return false;
+
+	KillDialog(Dialogs::DIALOG_SETTINGS);
+	ClearUpdateBacklog(false);
+	return true;
+}
+
+// +Gaga: 「一键通关冒险模式」，与内置作弊键 'u' 完全一致
+void LawnApp::CompleteAdventureMode()
+{
+	if (mPlayerInfo == nullptr)
+		return;
+
+	mPlayerInfo->mFinishedAdventure = 2;
+	mPlayerInfo->AddCoins(50000);
+	mPlayerInfo->mHasUsedCheatKeys = true;
+	mPlayerInfo->mHasUnlockedMinigames = true;
+	mPlayerInfo->mHasUnlockedPuzzleMode = true;
+	mPlayerInfo->mHasUnlockedSurvivalMode = true;
+
+	for (int i = 1; i < 100; i++)
+		if (i != static_cast<int>(GameMode::GAMEMODE_TREE_OF_WISDOM) && i != static_cast<int>(GameMode::GAMEMODE_SCARY_POTTER_ENDLESS) &&
+			i != static_cast<int>(GameMode::GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS) && i != static_cast<int>(GameMode::GAMEMODE_SURVIVAL_ENDLESS_STAGE_3))
+			mPlayerInfo->mChallengeRecords[i - 1] = 20;
+
+	if (mGameSelector)
+		mGameSelector->SyncProfile(true);
+
+	EraseFile(GetSavedGameName(GameMode::GAMEMODE_ADVENTURE, mPlayerInfo->mId));
+	EraseFile(GetLegacySavedGameName(GameMode::GAMEMODE_ADVENTURE, mPlayerInfo->mId));
+	WriteCurrentUserConfig();
 }
 
 // GOTY @Patoke: 0x453050
@@ -3377,6 +3443,89 @@ bool LawnApp::CanDoDaisyMode()
 		return false;
 
 	return mPlayerInfo->mChallengeRecords[static_cast<int>(GameMode::GAMEMODE_TREE_OF_WISDOM) - static_cast<int>(GameMode::GAMEMODE_SURVIVAL_NORMAL_STAGE_1)] >= 100;
+}
+
+// +Gaga: 设置页的 7 个模式/彩蛋开关 ------------------------------------------------------------
+
+bool* LawnApp::GetCheatModeField(GagaCheatMode theMode)
+{
+	switch (theMode)
+	{
+	case GagaCheatMode::GAGA_CHEAT_MUSTACHE:	return &mMustacheMode;
+	case GagaCheatMode::GAGA_CHEAT_SUPER_MOWER:	return &mSuperMowerMode;
+	case GagaCheatMode::GAGA_CHEAT_FUTURE:		return &mFutureMode;
+	case GagaCheatMode::GAGA_CHEAT_PINATA:		return &mPinataMode;
+	case GagaCheatMode::GAGA_CHEAT_DANCE:		return &mDanceMode;
+	case GagaCheatMode::GAGA_CHEAT_DAISY:		return &mDaisyMode;
+	case GagaCheatMode::GAGA_CHEAT_SUKHBIR:		return &mSukhbirMode;
+	default:									return nullptr;
+	}
+}
+
+const char* LawnApp::GetCheatModeRegistryKey(GagaCheatMode theMode)
+{
+	switch (theMode)
+	{
+	case GagaCheatMode::GAGA_CHEAT_MUSTACHE:	return "GagaCheatMustache";
+	case GagaCheatMode::GAGA_CHEAT_SUPER_MOWER:	return "GagaCheatSuperMower";
+	case GagaCheatMode::GAGA_CHEAT_FUTURE:		return "GagaCheatFuture";
+	case GagaCheatMode::GAGA_CHEAT_PINATA:		return "GagaCheatPinata";
+	case GagaCheatMode::GAGA_CHEAT_DANCE:		return "GagaCheatDance";
+	case GagaCheatMode::GAGA_CHEAT_DAISY:		return "GagaCheatDaisy";
+	case GagaCheatMode::GAGA_CHEAT_SUKHBIR:		return "GagaCheatSukhbir";
+	default:									return nullptr;
+	}
+}
+
+void LawnApp::PlayCheatModeSound(GagaCheatMode theMode)
+{
+	switch (theMode)
+	{
+	case GagaCheatMode::GAGA_CHEAT_MUSTACHE:	PlayFoley(FoleyType::FOLEY_POLEVAULT); break;
+	case GagaCheatMode::GAGA_CHEAT_SUPER_MOWER:	PlayFoley(FoleyType::FOLEY_ZAMBONI); break;
+	case GagaCheatMode::GAGA_CHEAT_FUTURE:		PlaySample(Sexy::SOUND_BOING); break;
+	case GagaCheatMode::GAGA_CHEAT_PINATA:		PlayFoley(FoleyType::FOLEY_JUICY); break;
+	case GagaCheatMode::GAGA_CHEAT_DANCE:		PlayFoley(FoleyType::FOLEY_DANCER); break;
+	case GagaCheatMode::GAGA_CHEAT_DAISY:		PlaySample(Sexy::SOUND_LOADINGBAR_FLOWER); break;
+	case GagaCheatMode::GAGA_CHEAT_SUKHBIR:		PlaySample(Sexy::SOUND_SUKHBIR); break;
+	default:									break;
+	}
+}
+
+void LawnApp::ApplyCheatMode(GagaCheatMode theMode, bool theEnable)
+{
+	bool* aField = GetCheatModeField(theMode);
+	if (aField)
+		*aField = theEnable;
+}
+
+bool LawnApp::GetCheatMode(GagaCheatMode theMode)
+{
+	bool* aField = GetCheatModeField(theMode);
+	return aField != nullptr && *aField;
+}
+
+bool LawnApp::SetCheatMode(GagaCheatMode theMode, bool theEnable)
+{
+	if (theEnable)
+	{
+		// 皮纳塔 / 舞王 / 雏菊 与作弊键一样有前置条件（智慧树分数）
+		if (theMode == GagaCheatMode::GAGA_CHEAT_PINATA && !CanDoPinataMode())
+			return false;
+		if (theMode == GagaCheatMode::GAGA_CHEAT_DANCE && !CanDoDanceMode())
+			return false;
+		if (theMode == GagaCheatMode::GAGA_CHEAT_DAISY && !CanDoDaisyMode())
+			return false;
+	}
+
+	ApplyCheatMode(theMode, theEnable);
+
+	const char* aKey = GetCheatModeRegistryKey(theMode);
+	if (aKey != nullptr)
+		RegistryWriteInteger(aKey, theEnable ? 1 : 0);
+
+	PlayCheatModeSound(theMode);
+	return true;
 }
 
 void LawnApp::PlaySample(intptr_t theSoundNum)

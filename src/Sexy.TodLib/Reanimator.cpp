@@ -291,6 +291,8 @@ ReanimatorTrackInstance::ReanimatorTrackInstance()
 	mShakeOverride = 0.0f;
 	mShakeX = 0.0f;
 	mShakeY = 0.0f;
+	mScaleOverrideX = 1.0f;
+	mScaleOverrideY = 1.0f;
 	mAttachmentID = AttachmentID::ATTACHMENTID_NULL;
 	mRenderGroup = RENDER_GROUP_NORMAL;
 	mIgnoreClipRect = false;
@@ -632,6 +634,22 @@ void Reanimation::ReanimBltMatrix(Graphics* g, Image* theImage, SexyMatrix3& the
 		TodBltMatrix(g, theImage, theTransform, theClipRect, theColor, theDrawMode, theSrcRect);
 }
 
+//+Gaga: 把轨道的额外缩放倍率作用到轨道矩阵上（以该轨道图像枢轴为中心，即枢轴平移之后、动画变换之前）
+static void ReanimatorApplyTrackScale(const ReanimatorTrackInstance& theTrackInstance, SexyMatrix3& theMatrix)
+{
+	// 1.0 表示不缩放；非正值只可能来自未初始化的轨道实例（例如读档路径用 Calloc 分配），同样按不缩放处理
+	if (theTrackInstance.mScaleOverrideX <= 0.0f || theTrackInstance.mScaleOverrideY <= 0.0f)
+		return;
+	if (theTrackInstance.mScaleOverrideX == 1.0f && theTrackInstance.mScaleOverrideY == 1.0f)
+		return;
+
+	SexyTransform2D aTrackScale;
+	aTrackScale.LoadIdentity();
+	aTrackScale.m00 = theTrackInstance.mScaleOverrideX;
+	aTrackScale.m11 = theTrackInstance.mScaleOverrideY;
+	SexyMatrix3Multiply(theMatrix, aTrackScale, theMatrix);
+}
+
 // GOTY @Patoke: 0x4769B0
 bool Reanimation::DrawTrack(Graphics* g, int theTrackIndex, int theRenderGroup, TodTriangleGroup* theTriangleGroup)
 {
@@ -744,6 +762,8 @@ bool Reanimation::DrawTrack(Graphics* g, int theTrackIndex, int theRenderGroup, 
 
 	if (mDefinition->mReanimAtlas != nullptr && aAtlasImage == nullptr)  // 有 atlas 但不用的情况
 		theTriangleGroup->DrawGroup(g);  // 先把原有的三角组绘制了
+
+	ReanimatorApplyTrackScale(*aTrackInstance, aMatrix);  //+Gaga: 轨道额外缩放
 
 	SexyMatrix3 aTransformMatrix;
 	MatrixFromTransform(aTransform, aTransformMatrix);
@@ -884,6 +904,8 @@ void Reanimation::GetTrackMatrix(int theTrackIndex, SexyTransform2D& theMatrix)
 	}
 	else if (aTransform.mFont != nullptr && *aTransform.mText != '\0')
 		SexyMatrix3Translation(theMatrix, 0.0f, aTransform.mFont->mAscent);
+
+	ReanimatorApplyTrackScale(*aTrackInstance, theMatrix);  //+Gaga: 轨道额外缩放
 
 	SexyTransform2D aTransformMatrix;
 	MatrixFromTransform(aTransform, aTransformMatrix);
@@ -1118,6 +1140,14 @@ Image* Reanimation::GetImageOverride(const char* theTrackName)
 void Reanimation::SetImageOverride(const char* theTrackName, Image* theImage)
 {
 	GetTrackInstanceByName(theTrackName)->mImageOverride = theImage;
+}
+
+//+Gaga: 设置某个轨道的额外缩放倍率（默认 1.0；调用方需先用 TrackExists 确认轨道存在）
+void Reanimation::SetTrackScale(const char* theTrackName, float theScaleX, float theScaleY)
+{
+	ReanimatorTrackInstance* aTrackInstance = GetTrackInstanceByName(theTrackName);
+	aTrackInstance->mScaleOverrideX = theScaleX;
+	aTrackInstance->mScaleOverrideY = theScaleY;
 }
 
 void Reanimation::SetTruncateDisappearingFrames(const char* theTrackName, bool theTruncateDisappearingFrames)

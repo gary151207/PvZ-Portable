@@ -198,7 +198,8 @@ Plant* Projectile::FindCollisionTargetPlant()
 
 bool Projectile::PeaAboutToHitTorchwood()
 {
-	if (mMotionType != ProjectileMotion::MOTION_STRAIGHT)
+	// +Gaga: 双发射手扇形散射的豌豆走斜线（MOTION_FAN），同样要在火炬树桩前留出点燃的一帧
+	if (mMotionType != ProjectileMotion::MOTION_STRAIGHT && mMotionType != ProjectileMotion::MOTION_FAN)
 		return false;
 
 	if (mProjectileType != ProjectileType::PROJECTILE_PEA && mProjectileType != ProjectileType::PROJECTILE_SNOWPEA && mProjectileType != ProjectileType::PROJECTILE_ICE_SPIKE)
@@ -291,7 +292,9 @@ void Projectile::CheckForCollision()
 		return;
 	}
 
-	if (mProjectileType == ProjectileType::PROJECTILE_STAR && (mPosY > 600.0f || mPosY < 0.0f))
+	// +Gaga: 斜线飞行的豌豆（双发射手的扇形散射）飞出草坪上下边界后直接消失，与杨桃的斜射一致
+	if ((mProjectileType == ProjectileType::PROJECTILE_STAR || mMotionType == ProjectileMotion::MOTION_FAN) &&
+		(mPosY > 600.0f || mPosY < 0.0f))
 	{
 		Die();
 		return;
@@ -681,6 +684,18 @@ void Projectile::UpdateNormalMotion()
 		{
 			mRow = mBoard->PixelToGridYKeepOnBoard(mPosX, mPosY);
 		}
+	}
+	else if (mMotionType == ProjectileMotion::MOTION_FAN)
+	{
+		// +Gaga: 双发射手扇形散射的斜线飞行。行号用「高度差」跟随豌豆的高度：
+		// 只取这一帧跨过的高度所对应的换行数，出膛口本身高过本行地面也不会让行号一开始就偏到上一行。
+		int aOldRow = mBoard->PixelToGridYKeepOnBoard(mPosX, mPosY);
+		int aNewRow = mBoard->PixelToGridYKeepOnBoard(mPosX, mPosY + mVelY);
+
+		mPosX += mVelX;
+		mPosY += mVelY;
+		mShadowY += mVelY;
+		mRow = ClampInt(mRow + aNewRow - aOldRow, 0, MAX_GRID_SIZE_Y - 1);
 	}
 	else if (mMotionType == ProjectileMotion::MOTION_BEE)
 	{

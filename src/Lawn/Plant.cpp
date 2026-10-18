@@ -59,6 +59,18 @@ static const float POTATO_MINE_REBURROW_ANIM_RATE = 18.0f;
 static const float POTATO_MINE_IDLE_ANIM_RATE = 12.0f;
 //+Gaga: 寒冰射手每次开火时射出冻结冰锥的概率（百分比）
 static const int SNOWPEA_ICE_SPIKE_CHANCE_PERCENT = 15;
+//+Gaga: 双发射手每打出一颗豌豆时再扇形散射四颗豌豆的概率（百分比）
+static const int REPEATER_FAN_FIRE_CHANCE_PERCENT = 50;
+//+Gaga: 扇形散射的偏角（度），依次为正 45 度、负 45 度、正 60 度、负 60 度（正角朝屏幕上方）
+static const float REPEATER_FAN_FIRE_ANGLES[4] = { 45.0f, -45.0f, 60.0f, -60.0f };
+//+Gaga: 豌豆飞行的基础速度，与直行豌豆每帧 3.33 像素一致，斜射时按角度分解到两轴
+static const float PEA_FLIGHT_SPEED = 3.33f;
+//+Gaga: 大嘴花每次咬击发动「深渊巨口」的概率（百分比）
+static const int CHOMPER_ABYSS_MAW_CHANCE_PERCENT = 25;
+//+Gaga: 大嘴花咬不动巨人/僵王时的一次咬击伤害（原版硬编码 40）
+static const int CHOMPER_BITE_DAMAGE = 40;
+//+Gaga: 「深渊巨口」发动时嘴部零件的额外放大倍率（叠加在原动画自带的缩放上）
+static const float CHOMPER_ABYSS_MAW_MOUTH_SCALE = 1.5f;
 
 PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_PEASHOOTER,        nullptr, ReanimationType::REANIM_PEASHOOTER,    0,  100,    750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "PEASHOOTER" },
@@ -955,6 +967,20 @@ void Plant::StarFruitFire()
         case 4:     aProjectile->mVelX = aShootAngleX;  aProjectile->mVelY = -aShootAngleY;     break;
         default:    TOD_ASSERT(false);                                                               break;
         }
+    }
+}
+
+void Plant::RepeaterFanFire(int theOriginX, int theOriginY, int theRow)
+{
+    // +Gaga: 双发射手的扇形散射，四颗豌豆都以同一出膛点为原点，按各自偏角斜着飞出去；
+    // 用 MOTION_FAN 处理斜线飞行：每帧两轴一起推进，行号跟着高度走（详见 Projectile::UpdateNormalMotion）
+    for (int i = 0; i < 4; i++)
+    {
+        Projectile* aProjectile = mBoard->AddProjectile(theOriginX, theOriginY, mRenderOrder - 1, theRow, ProjectileType::PROJECTILE_PEA);
+        aProjectile->mDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
+        aProjectile->mMotionType = ProjectileMotion::MOTION_FAN;
+        aProjectile->mVelX = cos(DEG_TO_RAD(REPEATER_FAN_FIRE_ANGLES[i])) * PEA_FLIGHT_SPEED;
+        aProjectile->mVelY = -sin(DEG_TO_RAD(REPEATER_FAN_FIRE_ANGLES[i])) * PEA_FLIGHT_SPEED;
     }
 }
 
@@ -4943,6 +4969,12 @@ Projectile* Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlan
         aProjectile->mVelZ = -8.0f;
         aProjectile->mCobTargetX = mTargetX - 40;
         aProjectile->mCobTargetRow = mBoard->PixelToGridYKeepOnBoard(mTargetX, mTargetY);
+    }
+
+    // +Gaga: 双发射手每打出一颗豌豆，都有 50% 概率再朝 ±45°、±60° 额外扇形射出四颗豌豆
+    if (mSeedType == SeedType::SEED_REPEATER && Sexy::Rand(100) < REPEATER_FAN_FIRE_CHANCE_PERCENT)
+    {
+        RepeaterFanFire(aOriginX, aOriginY, theRow);
     }
 
     return aProjectile;

@@ -289,6 +289,7 @@ public:
     void                    UpdateBlover();
     void                    UpdateCactus();
     void                    StarFruitFire();
+    void                    RepeaterFanFire(int theOriginX, int theOriginY, int theRow);
     void                    UpdateTanglekelp();
     Reanimation*            AttachBlinkAnim(Reanimation* theReanimBody);
     void                    UpdateReanimColor();

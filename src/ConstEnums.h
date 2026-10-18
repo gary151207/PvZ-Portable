@@ -796,7 +796,8 @@ enum ProjectileMotion : int32_t
     MOTION_BACKWARDS = 6,  // 水平向左
     MOTION_STAR = 7,  // 斜向运动
     MOTION_FLOAT_OVER = 8,  // 缓慢漂浮向右（无碰撞）
-    MOTION_HOMING = 9   // 追踪
+    MOTION_HOMING = 9,  // 追踪
+    MOTION_FAN = 10     // +Gaga: 斜向散射（双发射手的扇形豌豆），行号跟随高度但不偏离出膛行
 };
 enum ProjectileType : int32_t
 {

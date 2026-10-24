@@ -61,6 +61,9 @@ run-pvz.bat -nomodfont
   `kCoverageGamma`，默认 0.75）；调大更实、调小更细。
 - **缺字回退**：替换字体没有的码位（生僻字、特殊符号等）按连续片段回退到原版位图字体绘制，测量与绘制
   使用同一套回退规则。
+- **局内字幕按字符排版**：`MessageWidget`（「一大波僵尸即将来袭」这类逐字动画字幕）以 UTF-8 字符而不是
+  字节为单位建动画、排版和绘制。旧代码按字节遍历，一个汉字会被拆成 3 个非法 UTF-8 片段，字体把它们全部
+  丢弃，因此中文版这条字幕原本完全不可见。
 - **描边字体**：资源名含 `OUTLINE` 的字体（`FONT_CONTINUUMBOLD14OUTLINE`）用膨胀（3×3 最大值滤波）
   后的字形，保证 `MessageWidget`「先画黑描边、再画白字」的写法仍有描边。
 - **尺寸微调**：`src/SexyAppFramework/graphics/ModFont.cpp` 里的 `kFontSizeTable` 可以按资源名覆盖像素高，

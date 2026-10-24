@@ -229,6 +229,7 @@ CursorPreview::CursorPreview()
     mY = 0;
     mGridX = 0;
     mGridY = 0;
+    mDrawOffsetX = 0.0f;
     mVisible = false;
     mWidth = 80;
     mHeight = 80;
@@ -266,6 +267,13 @@ void CursorPreview::Update()
         {
             mX = mBoard->GridToPixelX(mGridX, mGridY);
             mY = mBoard->GridToPixelY(mGridX, mGridY);
+            //+Gaga: 可堆叠的小蘑菇预览落在下一个空槽位上，方便看清第 2、3 株会种到哪里
+            mDrawOffsetX = 0.0f;
+            int aStackSlot = mBoard->GetFreeStackPlantSlot(mGridX, mGridY, aSeedType);
+            if (aStackSlot >= 0)
+            {
+                mDrawOffsetX = static_cast<float>(Plant::StackPlantOffsetX(aStackSlot));
+            }
             mVisible = true;
             return;
         }
@@ -319,7 +327,7 @@ void CursorPreview::Draw(Graphics* g)
         else
         {
             aOffsetY = PlantDrawHeightOffset(mBoard, nullptr, aSeedType, mGridX, mGridY);
-            aOffsetX = 0.0f;
+            aOffsetX = mDrawOffsetX;
         }
 
         Plant::DrawSeedType(g, mBoard->mCursorObject->mType, mBoard->mCursorObject->mImitaterType, DrawVariation::VARIATION_NORMAL, aOffsetX, aOffsetY);
@@ -332,7 +340,10 @@ void CursorPreview::Draw(Graphics* g)
             if (y != mGridY && mBoard->CanPlantAt(mGridX, y, aSeedType) == PlantingReason::PLANTING_OK)
             {
                 float aOffsetY = 85.0f * (y - mGridY) + PlantDrawHeightOffset(mBoard, nullptr, aSeedType, mGridX, y);
-                Plant::DrawSeedType(g, mBoard->mCursorObject->mType, mBoard->mCursorObject->mImitaterType, DrawVariation::VARIATION_NORMAL, 0.0f, aOffsetY);
+                //+Gaga: 一列种植时，每一行的预览也落在该行自己的下一个空槽位上
+                int aStackSlot = mBoard->GetFreeStackPlantSlot(mGridX, y, aSeedType);
+                float aOffsetX = aStackSlot >= 0 ? static_cast<float>(Plant::StackPlantOffsetX(aStackSlot)) : 0.0f;
+                Plant::DrawSeedType(g, mBoard->mCursorObject->mType, mBoard->mCursorObject->mImitaterType, DrawVariation::VARIATION_NORMAL, aOffsetX, aOffsetY);
             }
         }
     }

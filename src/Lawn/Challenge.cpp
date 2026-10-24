@@ -52,6 +52,10 @@
 #include "widget/WidgetManager.h"
 #include "Widget/AchievementsScreen.h"
 
+// +Gaga: 锤僵尸小游戏的出怪倍数：每批僵尸的数量放大到原来的 8 倍。
+// 墓碑数量保持不变，因此同一座墓碑会被重复使用，直到凑够这一批的数量。
+static const int WHACK_A_ZOMBIE_SPAWN_MULTIPLIER = 8;
+
 int gZombieWaves[NUM_LEVELS] = {
 	4,  6,  8,  10, 8,  10, 20, 10, 20, 20,
 	10, 20, 10, 20, 10, 10, 20, 10, 20, 20,
@@ -2843,6 +2847,10 @@ void Challenge::WhackAZombieSpawning()
 			aZombieType = ZOMBIE_TRAFFIC_CONE;
 		}
 
+		// +Gaga: 僵尸数量放大到原来的 8 倍（最后一波的 20 只同样按 8 倍计算）。
+		// 放在确定僵尸类型之后，避免影响上面按原始数量做的类型判定。
+		aZombieCount *= WHACK_A_ZOMBIE_SPAWN_MULTIPLIER;
+
 		TodWeightedArray aGridPicks[MAX_GRAVE_STONES];
 		int aGridPicksCount = 0;
 
@@ -2861,32 +2869,48 @@ void Challenge::WhackAZombieSpawning()
 			}
 		}
 		float aMaxSpeed = TodAnimateCurve(1, 12, mBoard->mCurrentWave, 1, 3, CURVE_EASE_IN);
-		if (aZombieCount > aGridPicksCount)
-		{
-			aZombieCount = aGridPicksCount;
-		}
 
-		for (int i = 0; i < aZombieCount; i++)
+		// +Gaga: 墓碑不够用时同一座墓碑要反复使用。每一轮给每座墓碑各出一只僵尸
+		// （顺序随机），一轮放完再重新装满权重，直到凑够这一批的数量；
+		// 僵尸池已满时提前结束这一批。
+		int aSpawnedCount = 0;
+		while (aSpawnedCount < aZombieCount && aGridPicksCount > 0)
 		{
-			TodWeightedArray* aGrid = TodPickArrayItemFromWeightedArray(aGridPicks, aGridPicksCount);
-			GridItem* aGraveStone = reinterpret_cast<GridItem*>(aGrid->mItem);
-			aGrid->mWeight = 0;
-
-			if (aIsFinalWave)
+			for (int i = 0; i < aGridPicksCount; i++)
 			{
-				aZombieType = Rand(2) == 0 ? ZOMBIE_TRAFFIC_CONE : ZOMBIE_PAIL;
-				aMaxSpeed = 2;
+				aGridPicks[i].mWeight = 1;
 			}
 
-			Zombie* aZombie = mBoard->AddZombie(aZombieType, mBoard->mCurrentWave);
-			if (aZombie == nullptr)
-				break;
+			for (int i = 0; i < aGridPicksCount && aSpawnedCount < aZombieCount; i++)
+			{
+				TodWeightedArray* aGrid = TodPickArrayItemFromWeightedArray(aGridPicks, aGridPicksCount);
+				GridItem* aGraveStone = reinterpret_cast<GridItem*>(aGrid->mItem);
+				aGrid->mWeight = 0;
 
-			aZombie->RiseFromGrave(aGraveStone->mGridX, aGraveStone->mGridY);
-			aZombie->mPhaseCounter = 50;
-			aZombie->mVelX = RandRangeFloat(0.5f, aMaxSpeed);
-			aZombie->UpdateAnimSpeed();
+				if (aIsFinalWave)
+				{
+					aZombieType = Rand(2) == 0 ? ZOMBIE_TRAFFIC_CONE : ZOMBIE_PAIL;
+					aMaxSpeed = 2;
+				}
+
+				Zombie* aZombie = mBoard->AddZombie(aZombieType, mBoard->mCurrentWave);
+				if (aZombie == nullptr)
+				{
+					aSpawnedCount = aZombieCount;
+					break;
+				}
+
+				aZombie->RiseFromGrave(aGraveStone->mGridX, aGraveStone->mGridY);
+				aZombie->mPhaseCounter = 50;
+				aZombie->mVelX = RandRangeFloat(0.5f, aMaxSpeed);
+				aZombie->UpdateAnimSpeed();
+				aSpawnedCount++;
+			}
 		}
+
+		// 诊断输出：便于确认 8 倍出怪是否生效（budget 已是基础数量 × 倍数，spawned 为实际刷出数量）
+		TodTrace("[WhackAZombieSpawn] wave=%d multiplier=%d budget=%d spawned=%d",
+			mBoard->mCurrentWave, WHACK_A_ZOMBIE_SPAWN_MULTIPLIER, aZombieCount, aSpawnedCount);
 
 		int aStateCounterMin = TodAnimateCurve(1, 12, mBoard->mCurrentWave, 100, 30, CURVE_LINEAR);
 		int aStateCounterMax = TodAnimateCurve(1, 12, mBoard->mCurrentWave, 200, 60, CURVE_LINEAR);

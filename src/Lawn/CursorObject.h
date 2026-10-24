@@ -52,6 +52,7 @@ class CursorPreview : public GameObject
 public:
 	int32_t					mGridX;
 	int32_t					mGridY;
+	float					mDrawOffsetX;	//+Gaga: 可堆叠小蘑菇预览在格内的水平偏移
 
 public:
 	CursorPreview();

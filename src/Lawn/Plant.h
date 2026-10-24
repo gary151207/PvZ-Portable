@@ -27,6 +27,9 @@
 
 #define MAX_MAGNET_ITEMS 5
 
+//+Gaga: 小喷菇/阳光菇/海蘑菇在一格内最多可堆叠的株数
+#define MAX_STACK_PLANTS 3
+
 enum PlantSubClass : int32_t
 {
     SUBCLASS_NORMAL = 0,
@@ -187,8 +190,10 @@ public:
     int32_t                 mStartRow;
     ParticleSystemID        mParticleID;
     int32_t                 mShootingCounter;
-    int32_t                 mPeaBurstShots;                                     //+Gaga: 豌豆射手三连发还剩余几发待发射
-    int32_t                 mPeaBurstDelay;                                     //+Gaga: 豌豆射手三连发中距下一发的间隔帧数
+    int32_t                 mPeaBurstShots;                                     //+Gaga: 豌豆射手/小喷菇三连发还剩余几发待发射
+    int32_t                 mPeaBurstDelay;                                     //+Gaga: 豌豆射手/小喷菇三连发中距下一发的间隔帧数
+    int32_t                 mFumeSporeShots;                                    //+Gaga: 大喷菇额外孢子还剩余几发待发射
+    int32_t                 mFumeSporeDelay;                                    //+Gaga: 大喷菇额外孢子中距下一发的间隔帧数
     ReanimationID           mBodyReanimID;
     ReanimationID           mHeadReanimID;
     ReanimationID           mHeadReanimID2;
@@ -218,7 +223,7 @@ public:
 public:
     Plant();
 
-    void                    PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType);
+    void                    PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType, int theStackSlot = 0);
     void                    Update();
     void                    Animate();
     void                    Draw(Graphics* g);
@@ -238,6 +243,11 @@ public:
     static int              GetRefreshTime(SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
     static /*inline*/ bool  IsNocturnal(SeedType theSeedtype);
     static /*inline*/ bool  IsFungus(SeedType theSeedType);
+    //+Gaga: 小喷菇/阳光菇/海蘑菇属于可在一格内堆叠种植的小型蘑菇
+    static /*inline*/ bool  IsStackablePlant(SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
+    //+Gaga: 堆叠槽位（0..MAX_STACK_PLANTS-1）对应的水平偏移，以及偏移反推槽位
+    static int              StackPlantOffsetX(int theSlot);
+    static int              StackPlantSlotFromOffsetX(int theOffsetX);
     static /*inline*/ bool  IsAquatic(SeedType theSeedType);
     static /*inline*/ bool  IsFlying(SeedType theSeedtype);
     static /*inline*/ bool  IsUpgrade(SeedType theSeedtype);
@@ -278,6 +288,7 @@ public:
     void                    AnimateNuts();
     void                    SetSleeping(bool theIsAsleep);
     void                    UpdateShooting();
+    void                    FumeShroomSporeFire();
     void                    DrawShadow(Graphics* g, float theOffsetX, float theOffsetY);
     void                    UpdateScaredyShroom();
     int                     DistanceToClosestZombie();

@@ -43,12 +43,15 @@
 #include "../Sexy.TodLib/TodStringFile.h"
 #include "Widget/AchievementsScreen.h"
 
-//+Gaga: 豌豆射手每次开火时触发三连发的概率（百分比）
+//+Gaga: 豌豆射手与小喷菇共用的三连发概率（百分比），每次开火时判定一次
 static const int PEA_BURST_CHANCE_PERCENT = 20;
-//+Gaga: 三连发时每两发豌豆之间的间隔帧数，逻辑帧率为 100fps，10 帧即 0.1 秒
+//+Gaga: 三连发时每两发弹丸之间的间隔帧数，逻辑帧率为 100fps，10 帧即 0.1 秒。
+// 必须满足 2 * 间隔 < 小喷菇开火时的 mShootingCounter（29），否则第三发会被提前截断
 static const int PEA_BURST_INTERVAL_TICKS = 10;
 //+Gaga: 向日葵每次产出阳光时额外再产出一朵阳光的概率（百分比）
 static const int SUNFLOWER_EXTRA_SUN_CHANCE_PERCENT = 25;
+//+Gaga: 阳光菇每次产出阳光时额外再产出一朵阳光的概率（百分比），额外那朵的大小跟着长大程度走
+static const int SUNSHROOM_EXTRA_SUN_CHANCE_PERCENT = 25;
 //+Gaga: 土豆雷爆炸后不消失、重新入土的概率（百分比）
 static const int POTATO_MINE_REBURROW_CHANCE_PERCENT = 25;
 //+Gaga: 重新入土后再次武装所需帧数，与刚种下时的 1500 帧（15 秒）一致
@@ -65,12 +68,23 @@ static const int REPEATER_FAN_FIRE_CHANCE_PERCENT = 50;
 static const float REPEATER_FAN_FIRE_ANGLES[4] = { 45.0f, -45.0f, 60.0f, -60.0f };
 //+Gaga: 豌豆飞行的基础速度，与直行豌豆每帧 3.33 像素一致，斜射时按角度分解到两轴
 static const float PEA_FLIGHT_SPEED = 3.33f;
+//+Gaga: 大喷菇每喷一口烟，额外再喷出两发整行飞行的孢子的概率（百分比）
+static const int FUMESHROOM_SPORE_CHANCE_PERCENT = 25;
+//+Gaga: 额外孢子的发数，以及两发之间相隔的帧数（逻辑帧率 100fps，10 帧即 0.1 秒）
+static const int FUMESHROOM_SPORE_SHOTS = 2;
+static const int FUMESHROOM_SPORE_INTERVAL_TICKS = 10;
+//+Gaga: 额外孢子的出膛点（相对植物左上角的偏移，取大喷菇嘴部，与喷烟的烟雾位置一致）
+static const int FUMESHROOM_SPORE_OFFSET_X = 85;
+static const int FUMESHROOM_SPORE_OFFSET_Y = 31;
 //+Gaga: 大嘴花每次咬击发动「深渊巨口」的概率（百分比）
 static const int CHOMPER_ABYSS_MAW_CHANCE_PERCENT = 25;
 //+Gaga: 大嘴花咬不动巨人/僵王时的一次咬击伤害（原版硬编码 40）
 static const int CHOMPER_BITE_DAMAGE = 40;
 //+Gaga: 「深渊巨口」发动时嘴部零件的额外放大倍率（叠加在原动画自带的缩放上）
 static const float CHOMPER_ABYSS_MAW_MOUTH_SCALE = 1.5f;
+//+Gaga: 小喷菇/阳光菇/海蘑菇每个堆叠槽位相对格子左上角的水平偏移（像素）：
+// 第 1 株居中（与原版一致），第 2 株靠左，第 3 株靠右，让同格三株不会完全重叠
+static const int STACK_PLANT_OFFSET_X[MAX_STACK_PLANTS] = { 0, -20, 20 };
 
 PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_PEASHOOTER,        nullptr, ReanimationType::REANIM_PEASHOOTER,    0,  100,    750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "PEASHOOTER" },
@@ -133,7 +147,7 @@ Plant::Plant()
 }
 
 // GOTY @Patoke: 0x461483
-void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType)
+void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType, int theStackSlot)
 {
     mPlantCol = theGridX;
     mRow = theGridY;
@@ -141,6 +155,9 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     {
         mX = mBoard->GridToPixelX(theGridX, theGridY);
         mY = mBoard->GridToPixelY(theGridX, theGridY);
+        //+Gaga: 同一格里的第 2、3 株小蘑菇各自左右错开，避免完全重叠。
+        // 贴图、阴影、睡眠气泡、孢子出膛点、阳光生成点都以 mX/mY 为基准，改 mX 即可整体错开
+        mX += StackPlantOffsetX(theStackSlot);
     }
     mAnimCounter = 0;
     mAnimPing = true;
@@ -148,6 +165,8 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mShootingCounter = 0;
     mPeaBurstShots = 0;
     mPeaBurstDelay = 0;
+    mFumeSporeShots = 0;
+    mFumeSporeDelay = 0;
     mShakeOffsetX = 0.0f;
     mShakeOffsetY = 0.0f;
     mFrameLength = RandRangeInt(12, 18);
@@ -984,6 +1003,21 @@ void Plant::RepeaterFanFire(int theOriginX, int theOriginY, int theRow)
     }
 }
 
+void Plant::FumeShroomSporeFire()
+{
+    // +Gaga: 大喷菇的额外孢子，出膛点取嘴部，飞法与胆小菇的孢子完全一致：
+    // 默认直行（每帧 3.33 像素、不设生命上限），沿整行一直飞到撞上僵尸或飞出草坪
+    int aOriginX = mX + FUMESHROOM_SPORE_OFFSET_X;
+    int aOriginY = mY + FUMESHROOM_SPORE_OFFSET_Y;
+
+    int aRenderPosition = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_LAWN_MOWER, mRow, 1);
+    mApp->AddTodParticle(aOriginX, aOriginY + 13, aRenderPosition, ParticleEffect::PARTICLE_PUFFSHROOM_MUZZLE);
+    mApp->PlayFoley(FoleyType::FOLEY_PUFF);
+
+    Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, mRow, ProjectileType::PROJECTILE_PUFF);
+    aProjectile->mDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
+}
+
 void Plant::UpdateShooter()
 {
     mLaunchCounter--;
@@ -1017,8 +1051,9 @@ void Plant::UpdateShooter()
         }
         else
         {
-            // +Gaga: 豌豆射手有 20% 概率排入两发后续豌豆凑成三连发，首发由下面照常打出
-            if (mSeedType == SeedType::SEED_PEASHOOTER && Sexy::Rand(100) < PEA_BURST_CHANCE_PERCENT)
+            // +Gaga: 豌豆射手与小喷菇有 20% 概率排入两发后续弹丸凑成三连发，首发由下面照常打出
+            if ((mSeedType == SeedType::SEED_PEASHOOTER || mSeedType == SeedType::SEED_PUFFSHROOM) &&
+                Sexy::Rand(100) < PEA_BURST_CHANCE_PERCENT)
             {
                 mPeaBurstShots = 2;
                 mPeaBurstDelay = PEA_BURST_INTERVAL_TICKS;
@@ -1089,13 +1124,14 @@ void Plant::UpdateProductionPlant()
 
         if (mSeedType == SeedType::SEED_SUNSHROOM)
         {
-            if (mState == PlantState::STATE_SUNSHROOM_SMALL)
+            // +Gaga: 小阳光菇产 15（COIN_SMALLSUN），长大后产 25（COIN_SUN）
+            CoinType aSunType = mState == PlantState::STATE_SUNSHROOM_SMALL ? CoinType::COIN_SMALLSUN : CoinType::COIN_SUN;
+            mBoard->AddCoin(mX, mY, aSunType, CoinMotion::COIN_MOTION_FROM_PLANT);
+
+            // +Gaga: 25% 概率在这一朵之外再额外产出一朵，大小同样按长大程度取（小 15 / 大 25）
+            if (Sexy::Rand(100) < SUNSHROOM_EXTRA_SUN_CHANCE_PERCENT)
             {
-                mBoard->AddCoin(mX, mY, CoinType::COIN_SMALLSUN, CoinMotion::COIN_MOTION_FROM_PLANT);
-            }
-            else
-            {
-                mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+                mBoard->AddCoin(mX, mY, aSunType, CoinMotion::COIN_MOTION_FROM_PLANT);
             }
         }
         else if (mSeedType == SeedType::SEED_SUNFLOWER)
@@ -3362,14 +3398,34 @@ void Plant::AnimatePumpkin()
 
 void Plant::UpdateShooting()
 {
-    if (NotOnGround() || mShootingCounter == 0)
+    if (NotOnGround())
+        return;
+
+    // +Gaga: 大喷菇额外孢子的排队发射。孢子比喷烟的伤害判定晚一点出膛，
+    // 所以要独立于 mShootingCounter 计时，喷烟动画收尾后照样把这两发孢子吐完
+    if (mFumeSporeShots > 0)
+    {
+        if (mFumeSporeDelay > 0)
+        {
+            mFumeSporeDelay--;
+        }
+
+        if (mFumeSporeDelay <= 0)
+        {
+            mFumeSporeDelay = FUMESHROOM_SPORE_INTERVAL_TICKS;
+            mFumeSporeShots--;
+            FumeShroomSporeFire();
+        }
+    }
+
+    if (mShootingCounter == 0)
         return;
 
     mShootingCounter--;
 
     if (mPeaBurstShots > 0)
     {
-        // +Gaga: 三连发的后续豌豆，每隔 PEA_BURST_INTERVAL_TICKS 帧吐出一发，共用第一次开火的射击动画
+        // +Gaga: 三连发的后续弹丸，每隔 PEA_BURST_INTERVAL_TICKS 帧吐出一发，共用第一次开火的射击动画
         if (mPeaBurstDelay > 0)
         {
             mPeaBurstDelay--;
@@ -3380,9 +3436,11 @@ void Plant::UpdateShooting()
             mPeaBurstDelay = PEA_BURST_INTERVAL_TICKS;
             mPeaBurstShots--;
 
-            // 后两发上下交错，让连发的每一发都分得清；豌豆碰撞按行判定，不受影响
+            // 后两发上下交错，让连发的每一发都分得清；豌豆碰撞按行判定，不受影响。
+            // 小喷菇的孢子不做纵向偏移：同高度出膛靠间隔就已经横向拉开，而孢子一旦低于地面投影
+            //（CheckForHighGround 里 mShadowY - mPosY < 0）就会在出膛瞬间自爆
             Projectile* aProjectile = Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
-            if (aProjectile && mPeaBurstShots < 2)
+            if (aProjectile && aProjectile->mProjectileType == ProjectileType::PROJECTILE_PEA && mPeaBurstShots < 2)
             {
                 aProjectile->mPosY += mPeaBurstShots == 1 ? -20.0f : 20.0f;
             }
@@ -3427,6 +3485,14 @@ void Plant::UpdateShooting()
     }
     else if (mShootingCounter == 1)
     {
+        // +Gaga: 大喷菇这一口喷烟（与下面 Fire 里的整行烟雾伤害同一帧）有 25% 概率
+        // 额外喷出两发孢子，孢子跟胆小菇的一样沿整行飞出去
+        if (mSeedType == SeedType::SEED_FUMESHROOM && Sexy::Rand(100) < FUMESHROOM_SPORE_CHANCE_PERCENT)
+        {
+            mFumeSporeShots = FUMESHROOM_SPORE_SHOTS;
+            mFumeSporeDelay = FUMESHROOM_SPORE_INTERVAL_TICKS;
+        }
+
         if (mSeedType == SeedType::SEED_THREEPEATER)
         {
             int rowAbove = mRow - 1;
@@ -5335,6 +5401,40 @@ bool Plant::IsAquatic(SeedType theSeedType)
 bool Plant::IsFlying(SeedType theSeedtype)
 {
     return theSeedtype == SeedType::SEED_INSTANT_COFFEE;
+}
+
+//+Gaga: 小喷菇、阳光菇、海蘑菇可以在一格内堆叠种植（模仿者复制体按被模仿的类型判断）
+bool Plant::IsStackablePlant(SeedType theSeedType, SeedType theImitaterType)
+{
+    if (theSeedType == SeedType::SEED_IMITATER)
+        theSeedType = theImitaterType;
+
+    return
+        theSeedType == SeedType::SEED_PUFFSHROOM ||
+        theSeedType == SeedType::SEED_SUNSHROOM ||
+        theSeedType == SeedType::SEED_SEASHROOM;
+}
+
+//+Gaga: 取某个堆叠槽位的水平偏移；槽位非法时按第 1 株（居中）处理
+int Plant::StackPlantOffsetX(int theSlot)
+{
+    if (theSlot < 0 || theSlot >= MAX_STACK_PLANTS)
+        return 0;
+
+    return STACK_PLANT_OFFSET_X[theSlot];
+}
+
+//+Gaga: 由植物相对格子左上角的水平偏移反推它占用的槽位（就近匹配），用于判断哪些槽位已被占用
+int Plant::StackPlantSlotFromOffsetX(int theOffsetX)
+{
+    int aBestSlot = 0;
+    for (int aSlot = 1; aSlot < MAX_STACK_PLANTS; aSlot++)
+    {
+        if (abs(theOffsetX - STACK_PLANT_OFFSET_X[aSlot]) < abs(theOffsetX - STACK_PLANT_OFFSET_X[aBestSlot]))
+            aBestSlot = aSlot;
+    }
+
+    return aBestSlot;
 }
 
 bool Plant::IsUpgrade(SeedType theSeedtype)

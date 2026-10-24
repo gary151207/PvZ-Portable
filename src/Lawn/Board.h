@@ -281,6 +281,11 @@ public:
 	void							RemoveCutsceneZombies();
 	void							SpawnZombiesFromGraves();
 	PlantingReason					CanPlantAt(int theGridX, int theGridY, SeedType theSeedType);
+	//+Gaga: 小喷菇/阳光菇/海蘑菇的一格多株（堆叠）相关判定
+	PlantingReason					CanPlantStackAt(int theGridX, int theGridY, SeedType theSeedType);
+	int								CountStackPlantsAt(int theGridX, int theGridY);
+	int								GetFreeStackPlantSlot(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
+	Plant*							GetNearestStackPlantAt(int theGridX, int theGridY, int theX);
 	virtual void					MouseMove(int x, int y);
 	virtual void					MouseDrag(int x, int y);
 	virtual void					MouseDown(int x, int y, int theClickCount);

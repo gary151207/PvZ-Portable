@@ -29,6 +29,56 @@
 #include "../Sexy.TodLib/Reanimator.h"
 #include "../Sexy.TodLib/TodStringFile.h"
 
+namespace
+{
+	// mLabel stores UTF-8, so one character can occupy up to four bytes. Everything
+	// that walks the label has to advance by characters instead of bytes: feeding a
+	// single byte of a multi-byte character to the font is an invalid UTF-8 fragment
+	// that both the bitmap font and the replacement font silently drop. That is why
+	// the reanimated "huge wave" banner used to show nothing at all in Chinese.
+	struct MessageLabelChar
+	{
+		size_t		mStart;
+		size_t		mLength;
+		char32_t	mChar;
+	};
+
+	// Splits theLabel into its UTF-8 characters, storing at most theMaxChars of them.
+	// Returns how many characters the label holds.
+	int SplitMessageLabel(const char* theLabel, MessageLabelChar* theChars, int theMaxChars)
+	{
+		if (theLabel == nullptr)
+			return 0;
+
+		std::string aLabel(theLabel);
+		int aCount = 0;
+		size_t anOffset = 0;
+		while (anOffset < aLabel.size() && aCount < theMaxChars)
+		{
+			size_t aCharStart = anOffset;
+			char32_t aChar = 0;
+			if (!UTF8DecodeNext(aLabel, anOffset, aChar))
+			{
+				// Not a decodable sequence: treat the byte as its own character, which
+				// keeps the animation slots lined up with the text.
+				aChar = static_cast<unsigned char>(aLabel[aCharStart]);
+				anOffset = aCharStart + 1;
+			}
+
+			theChars[aCount].mStart = aCharStart;
+			theChars[aCount].mLength = anOffset - aCharStart;
+			theChars[aCount].mChar = aChar;
+			aCount++;
+		}
+		return aCount;
+	}
+
+	std::string MessageLabelCharText(const char* theLabel, const MessageLabelChar& theChar)
+	{
+		return std::string(theLabel + theChar.mStart, theChar.mLength);
+	}
+}
+
 //(0x4081F1)
 MessageWidget::MessageWidget(LawnApp* theApp)
 {
@@ -150,7 +200,10 @@ void MessageWidget::LayoutReanimText()
 	int aCurLine = 0, aCurPos = 0;
 	_Font* aFont = GetFont();
 	int aLabelLen = strlen(mLabel);
-	mSlideOffTime = aLabelLen + 100;
+
+	MessageLabelChar aChars[MAX_MESSAGE_LENGTH];
+	int aCharCount = SplitMessageLabel(mLabel, aChars, MAX_MESSAGE_LENGTH);
+	mSlideOffTime = aCharCount + 100;
 
 	float aLineWidth[MAX_REANIM_LINES];
 	for (int aPos = 0; aPos <= aLabelLen; aPos++)
@@ -174,7 +227,8 @@ void MessageWidget::LayoutReanimText()
 	float aCurPosY = 0.0f;
 	float aCurPosX = -aLineWidth[0] * 0.5f;
 	// 以下遍历字幕中的所有文本，分别在适当的位置创建每一个文字的动画
-	for (int aPos = 0; aPos < aLabelLen; aPos++)
+	// 注意按 UTF-8 字符（而非字节）遍历，否则一个汉字的每个字节都会单独建动画
+	for (int aPos = 0; aPos < aCharCount; aPos++)
 	{
 		// 创建文字的动画
 		Reanimation* aReanimText = mApp->AddReanimation(aCurPosX, aCurPosY, 0, mReanimType);
@@ -182,8 +236,8 @@ void MessageWidget::LayoutReanimText()
 		aReanimText->PlayReanim("anim_enter", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 0.0f, 0.0f);
 		mTextReanimID[aPos] = mApp->ReanimationGetID(aReanimText);
 
-		aCurPosX += aFont->CharWidth(mLabel[aPos]);  // 坐标调整至下一个文字的位置
-		if (mLabel[aPos] == '\n')  // 换行处理
+		aCurPosX += aFont->CharWidth(aChars[aPos].mChar);  // 坐标调整至下一个文字的位置
+		if (aChars[aPos].mChar == '\n')  // 换行处理
 		{
 			aCurLine++;
 			TOD_ASSERT(aCurLine < MAX_REANIM_LINES);
@@ -213,9 +267,10 @@ void MessageWidget::Update()
 		}
 	}
 
-	int aLabelLen = strlen(mLabel);
+	MessageLabelChar aChars[MAX_MESSAGE_LENGTH];
+	int aCharCount = SplitMessageLabel(mLabel, aChars, MAX_MESSAGE_LENGTH);
 	// 以下遍历每个文字的动画，设置其动画速率并更新其动画
-	for (int aPos = 0; aPos < aLabelLen; aPos++)
+	for (int aPos = 0; aPos < aCharCount; aPos++)
 	{
 		Reanimation* aTextReanim = mApp->ReanimationTryToGet(mTextReanimID[aPos]);
 		if (aTextReanim == nullptr)
@@ -251,8 +306,9 @@ void MessageWidget::Update()
 
 void MessageWidget::DrawReanimatedText(Graphics* g, _Font* theFont, const Color& theColor, float thePosY)
 {
-	int aLabelLen = strlen(mLabel);
-	for (int aPos = 0; aPos < aLabelLen; aPos++)
+	MessageLabelChar aChars[MAX_MESSAGE_LENGTH];
+	int aCharCount = SplitMessageLabel(mLabel, aChars, MAX_MESSAGE_LENGTH);
+	for (int aPos = 0; aPos < aCharCount; aPos++)
 	{
 		Reanimation* aTextReanim = mApp->ReanimationTryToGet(mTextReanimID[aPos]);
 		if (aTextReanim == nullptr)
@@ -281,8 +337,7 @@ void MessageWidget::DrawReanimatedText(Graphics* g, _Font* theFont, const Color&
 
 		SexyMatrix3 aMatrix;
 		Reanimation::MatrixFromTransform(aTransform, aMatrix);
-		std::string aLetter;
-		aLetter.append(1, mLabel[aPos]);
+		std::string aLetter = MessageLabelCharText(mLabel, aChars[aPos]);
 		TodDrawStringMatrix(g, theFont, aMatrix, aLetter, aFinalColor);
 	}
 }

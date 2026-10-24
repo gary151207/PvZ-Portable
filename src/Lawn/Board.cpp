@@ -2101,13 +2101,17 @@ Plant* Board::NewPlant(int theGridX, int theGridY, SeedType theSeedType, SeedTyp
 {
 	Plant* aPlant = mPlants.DataArrayAlloc();
 	aPlant->mIsOnBoard = true;
-	aPlant->PlantInitialize(theGridX, theGridY, theSeedType, theImitaterType);
+	//+Gaga: 可堆叠的小蘑菇按格内空槽位摆放，槽位决定它的左右偏移；
+	// 槽位要在占住数组位置之后再算，此时新株还没写好行列与类型，不会被算进格内已有的株数
+	int aStackSlot = GetFreeStackPlantSlot(theGridX, theGridY, theSeedType, theImitaterType);
+	aPlant->PlantInitialize(theGridX, theGridY, theSeedType, theImitaterType, aStackSlot < 0 ? 0 : aStackSlot);
 	return aPlant;
 }
 
 void Board::DoPlantingEffects(int theGridX, int theGridY, Plant* thePlant)
 {
-	int aXPos = GridToPixelX(theGridX, theGridY) + 41;
+	//+Gaga: 可堆叠的小蘑菇在格内带偏移，种植烟雾跟着植物自己走
+	int aXPos = (thePlant ? thePlant->mX : GridToPixelX(theGridX, theGridY)) + 41;
 	int aYPos = GridToPixelY(theGridX, theGridY) + 74;
 	if (thePlant)
 	{
@@ -2282,8 +2286,23 @@ void Board::GetPlantsOnLawn(int theGridX, int theGridY, PlantsOnLawn* thePlantOn
 		}
 		else
 		{
-			TOD_ASSERT(!thePlantOnLawn->mNormalPlant);
-			thePlantOnLawn->mNormalPlant = aPlant;
+			//+Gaga: 一格内最多 3 株小蘑菇。这里只把最靠前（最右、最先被僵尸啃到）的一株记作常规植物，
+			// 其余株只参与堆叠判定；排在最前那株被吃掉后，下一株会自动顶上来
+			if (Plant::IsStackablePlant(aSeedType))
+			{
+				if (thePlantOnLawn->mNormalPlant == nullptr ||
+					(Plant::IsStackablePlant(thePlantOnLawn->mNormalPlant->mSeedType, thePlantOnLawn->mNormalPlant->mImitaterType) &&
+					 aPlant->mX > thePlantOnLawn->mNormalPlant->mX))
+				{
+					thePlantOnLawn->mNormalPlant = aPlant;
+				}
+			}
+			else
+			{
+				TOD_ASSERT(!thePlantOnLawn->mNormalPlant ||
+					Plant::IsStackablePlant(thePlantOnLawn->mNormalPlant->mSeedType, thePlantOnLawn->mNormalPlant->mImitaterType));
+				thePlantOnLawn->mNormalPlant = aPlant;
+			}
 		}
 	}
 }
@@ -2327,6 +2346,83 @@ Plant* Board::GetTopPlantAt(int theGridX, int theGridY, PlantPriority thePriorit
 	default:													TOD_ASSERT(false);
 	}
 	unreachable();
+}
+
+//+Gaga: 统计某一格内已经种下的、可堆叠的小蘑菇（小喷菇/阳光菇/海蘑菇）数量
+int Board::CountStackPlantsAt(int theGridX, int theGridY)
+{
+	int aCount = 0;
+	Plant* aPlant = nullptr;
+	while (IteratePlants(aPlant))
+	{
+		if (aPlant->mPlantCol == theGridX && aPlant->mRow == theGridY && !aPlant->NotOnGround() &&
+			Plant::IsStackablePlant(aPlant->mSeedType, aPlant->mImitaterType))
+		{
+			aCount++;
+		}
+	}
+
+	return aCount;
+}
+
+//+Gaga: 取下一个空闲的堆叠槽位（0..MAX_STACK_PLANTS-1）；该种子不可堆叠、或格内已满时返回 -1。
+// 槽位按每株相对格子左上角的 mX 偏移反推，因此中间那株被吃掉后新株会补进它空出来的位置，
+// 不会和既有的一株完全重叠。
+int Board::GetFreeStackPlantSlot(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType)
+{
+	if (!Plant::IsStackablePlant(theSeedType, theImitaterType))
+		return -1;
+	if (theGridX < 0 || theGridX >= MAX_GRID_SIZE_X || theGridY < 0 || theGridY >= MAX_GRID_SIZE_Y)
+		return -1;
+
+	int aBaseX = GridToPixelX(theGridX, theGridY);
+	bool aSlotUsed[MAX_STACK_PLANTS] = { false, false, false };
+
+	Plant* aPlant = nullptr;
+	while (IteratePlants(aPlant))
+	{
+		if (aPlant->mPlantCol != theGridX || aPlant->mRow != theGridY || aPlant->NotOnGround() ||
+			!Plant::IsStackablePlant(aPlant->mSeedType, aPlant->mImitaterType))
+		{
+			continue;
+		}
+
+		aSlotUsed[Plant::StackPlantSlotFromOffsetX(aPlant->mX - aBaseX)] = true;
+	}
+
+	for (int aSlot = 0; aSlot < MAX_STACK_PLANTS; aSlot++)
+	{
+		if (!aSlotUsed[aSlot])
+			return aSlot;
+	}
+
+	return -1;
+}
+
+//+Gaga: 取该格内离鼠标（theX）最近的一株可堆叠小蘑菇，供铲子等工具选中；没有则返回 nullptr
+Plant* Board::GetNearestStackPlantAt(int theGridX, int theGridY, int theX)
+{
+	Plant* aNearestPlant = nullptr;
+	int aNearestDistance = 0;
+
+	Plant* aPlant = nullptr;
+	while (IteratePlants(aPlant))
+	{
+		if (aPlant->mPlantCol != theGridX || aPlant->mRow != theGridY || aPlant->NotOnGround() ||
+			!Plant::IsStackablePlant(aPlant->mSeedType, aPlant->mImitaterType))
+		{
+			continue;
+		}
+
+		int aDistance = abs(aPlant->mX + 40 - theX);
+		if (aNearestPlant == nullptr || aDistance < aNearestDistance)
+		{
+			aNearestPlant = aPlant;
+			aNearestDistance = aDistance;
+		}
+	}
+
+	return aNearestPlant;
 }
 
 int Board::CountSunFlowers()
@@ -2781,6 +2877,75 @@ bool Board::IsIceAt(int theGridX, int theGridY)
 	return theGridX >= PixelToGridXKeepOnBoard(mIceMinX[theGridY] + 12, 0);
 }
 
+//+Gaga: 小喷菇/阳光菇/海蘑菇的堆叠种植判定。地形与底植规则沿用原版语义，
+// 额外只放宽「格内已有的常规植物必须是同一种可堆叠小蘑菇」与「最多 MAX_STACK_PLANTS 株」两条
+PlantingReason Board::CanPlantStackAt(int theGridX, int theGridY, SeedType theSeedType)
+{
+	// 墓碑上不能立足（与原版非飞行植物一致）
+	if (GetGraveStoneAt(theGridX, theGridY))
+	{
+		return PlantingReason::PLANTING_NOT_ON_GRAVE;
+	}
+	if (GetCraterAt(theGridX, theGridY))
+	{
+		return PlantingReason::PLANTING_NOT_ON_CRATER;
+	}
+	if (GetScaryPotAt(theGridX, theGridY) || IsIceAt(theGridX, theGridY))
+	{
+		return PlantingReason::PLANTING_NOT_HERE;
+	}
+
+	GridSquareType aGridSquare = mGridSquareType[theGridX][theGridY];
+	if (aGridSquare == GridSquareType::GRIDSQUARE_DIRT || aGridSquare == GridSquareType::GRIDSQUARE_NONE)
+	{
+		return PlantingReason::PLANTING_NOT_HERE;
+	}
+
+	Plant* aUnderPlant = GetTopPlantAt(theGridX, theGridY, PlantPriority::TOPPLANT_ONLY_UNDER_PLANT);
+	bool aHasLilypad = aUnderPlant && aUnderPlant->mSeedType == SeedType::SEED_LILYPAD;
+	bool aHasFlowerPot = aUnderPlant && aUnderPlant->mSeedType == SeedType::SEED_FLOWERPOT;
+
+	if (theSeedType == SeedType::SEED_SEASHROOM)
+	{
+		// 海蘑菇直接种在水里，不能种在睡莲上
+		if (!IsPoolSquare(theGridX, theGridY))
+		{
+			return PlantingReason::PLANTING_ONLY_IN_POOL;
+		}
+		if (aUnderPlant)
+		{
+			return PlantingReason::PLANTING_NOT_HERE;
+		}
+	}
+	else
+	{
+		// 小喷菇/阳光菇：水池里要种在睡莲上，屋顶上要种在花盆里（与原版一致）
+		if (IsPoolSquare(theGridX, theGridY) && !aHasLilypad)
+		{
+			return PlantingReason::PLANTING_NOT_ON_WATER;
+		}
+		if (StageHasRoof() && !aHasFlowerPot)
+		{
+			return PlantingReason::PLANTING_NEEDS_POT;
+		}
+	}
+
+	// 格内已有的常规植物必须也是可堆叠小蘑菇，否则沿用原版「这格已经种了东西」的判定
+	Plant* aNormalPlant = GetTopPlantAt(theGridX, theGridY, PlantPriority::TOPPLANT_ONLY_NORMAL_POSITION);
+	if (aNormalPlant && !Plant::IsStackablePlant(aNormalPlant->mSeedType, aNormalPlant->mImitaterType))
+	{
+		return PlantingReason::PLANTING_NOT_HERE;
+	}
+
+	// 已经堆满
+	if (GetFreeStackPlantSlot(theGridX, theGridY, theSeedType) < 0)
+	{
+		return PlantingReason::PLANTING_NOT_HERE;
+	}
+
+	return PlantingReason::PLANTING_OK;
+}
+
 PlantingReason Board::CanPlantAt(int theGridX, int theGridY, SeedType theSeedType)
 {
 	// 目标位置不在场地内，则返回“不能种在那里”
@@ -2810,6 +2975,12 @@ PlantingReason Board::CanPlantAt(int theGridX, int theGridY, SeedType theSeedTyp
 		}
 
 		return PlantingReason::PLANTING_OK;
+	}
+
+	//+Gaga: 小喷菇/阳光菇/海蘑菇可以在同一格内堆叠种植，最多 MAX_STACK_PLANTS 株
+	if (Plant::IsStackablePlant(theSeedType))
+	{
+		return CanPlantStackAt(theGridX, theGridY, theSeedType);
 	}
 
 	// 墓碑吞噬者只能种植在墓碑上
@@ -4345,6 +4516,12 @@ bool Board::MouseHitTestPlant(int x, int y, HitResult* theHitResult)
 	else
 	{
 		aPlant = GetTopPlantAt(aGridX, aGridY, PlantPriority::TOPPLANT_DIGGING_ORDER);
+		//+Gaga: 一格内有多株小蘑菇时，铲子等工具选中离鼠标最近的那一株（而不是固定最靠前的）
+		Plant* aNearestStackPlant = GetNearestStackPlantAt(aGridX, aGridY, x);
+		if (aNearestStackPlant)
+		{
+			aPlant = aNearestStackPlant;
+		}
 		if (aPlant && (aPlant->mSeedType == SeedType::SEED_LILYPAD || aPlant->mSeedType == SeedType::SEED_FLOWERPOT))
 		{
 			if (GetTopPlantAt(aGridX, aGridY, PlantPriority::TOPPLANT_ONLY_PUMPKIN))

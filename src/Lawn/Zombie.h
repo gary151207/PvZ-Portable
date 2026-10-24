@@ -195,6 +195,7 @@ public:
     void                            CheckIfPreyCaught();
     void                            EatZombie(Zombie* theZombie);
     void                            EatPlant(Plant* thePlant);
+    int                             GetEatDamage();
     void                            Update();
     void                            UpdateConeheadHealthRegen();
     void                            DieNoLoot();

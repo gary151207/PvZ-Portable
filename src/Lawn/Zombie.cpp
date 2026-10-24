@@ -47,6 +47,10 @@ static const int CONEHEAD_REGEN_INTERVAL_TICKS = 500;
 //+Gaga: 每次回血随机回复的点数区间（闭区间）
 static const int CONEHEAD_REGEN_HEAL_MIN = 5;
 static const int CONEHEAD_REGEN_HEAL_MAX = 15;
+//+Gaga: 读报僵尸失去报纸（暴怒）后，每口啃食伤害的倍率
+static const int NEWSPAPER_MAD_EAT_DAMAGE_FACTOR = 5;
+//+Gaga: 撑杆僵尸移速倍率（跑动与丢杆后的步行都按此倍率加速）
+static const float POLEVAULTER_SPEED_FACTOR = 2.0f;
 //+Gaga: 橄榄球僵尸冲锋时的移速倍率
 static const float FOOTBALL_CHARGE_SPEED_FACTOR = 2.0f;
 //+Gaga: 橄榄球僵尸碾压第一个植物后的休息帧数，逻辑帧率 100fps，100 帧即 1 秒
@@ -1194,6 +1198,13 @@ void Zombie::PickRandomSpeed()
         {
             mAnimTicksPerFrame = 15;
         }
+    }
+
+    //+Gaga: 撑杆僵尸移速翻倍。mVelX 同时驱动走路位移与动画速率（UpdateAnimSpeed 由 _ground 轨道的
+    //+Gaga: 位移反推 anim rate），所以腿脚和前进速度会一起变快，不会出现滑步
+    if (mZombieType == ZombieType::ZOMBIE_POLEVAULTER)
+    {
+        mVelX *= POLEVAULTER_SPEED_FACTOR;
     }
 
     UpdateAnimSpeed();
@@ -7027,6 +7038,17 @@ void Zombie::StartMindControlled()
     }
 }
 
+int Zombie::GetEatDamage()
+{
+    //+Gaga: 读报僵尸失去报纸（护盾已被打掉）后暴怒，啃食伤害提升到原来的 5 倍
+    if (mZombieType == ZombieType::ZOMBIE_NEWSPAPER && mShieldType != ShieldType::SHIELDTYPE_NEWSPAPER)
+    {
+        return DAMAGE_PER_EAT * NEWSPAPER_MAD_EAT_DAMAGE_FACTOR;
+    }
+
+    return DAMAGE_PER_EAT;
+}
+
 void Zombie::EatPlant(Plant* thePlant)
 {
     if (mZombiePhase == ZombiePhase::PHASE_DANCER_DANCING_IN)
@@ -7090,23 +7112,25 @@ void Zombie::EatPlant(Plant* thePlant)
     if (mChilledCounter > 0 && mZombieAge % 2 == 1)
         return;
 
+    int aEatDamage = GetEatDamage();
+
     if (mApp->IsIZombieLevel() && thePlant->mSeedType == SeedType::SEED_SUNFLOWER)
     {
         int aStageBeforeChew = thePlant->mPlantHealth / 40;
-        int aStageAfterChew = (thePlant->mPlantHealth - DAMAGE_PER_EAT) / 40;
-        if (aStageAfterChew < aStageBeforeChew || thePlant->mPlantHealth - DAMAGE_PER_EAT <= 0)  // 若本次啃食令植物血量下降了至少 1 个阶段
+        int aStageAfterChew = (thePlant->mPlantHealth - aEatDamage) / 40;
+        if (aStageAfterChew < aStageBeforeChew || thePlant->mPlantHealth - aEatDamage <= 0)  // 若本次啃食令植物血量下降了至少 1 个阶段
         {
             mBoard->AddCoin(thePlant->mX, thePlant->mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
         }
     }
 
-    thePlant->mPlantHealth -= DAMAGE_PER_EAT;
+    thePlant->mPlantHealth -= aEatDamage;
     thePlant->mRecentlyEatenCountdown = 50;
     if (mApp->IsIZombieLevel() && mJustGotShotCounter < -500)
     {
         if (thePlant->mSeedType == SeedType::SEED_WALLNUT || thePlant->mSeedType == SeedType::SEED_TALLNUT || thePlant->mSeedType == SeedType::SEED_PUMPKINSHELL)
         {
-            thePlant->mPlantHealth -= DAMAGE_PER_EAT;
+            thePlant->mPlantHealth -= aEatDamage;
         }
     }
 
@@ -7130,7 +7154,8 @@ void Zombie::EatPlant(Plant* thePlant)
 
 void Zombie::EatZombie(Zombie* theZombie)
 {
-    theZombie->TakeDamage(DAMAGE_PER_EAT, 9U);
+    //+Gaga: 啃食僵尸同样走 GetEatDamage，读报僵尸暴怒后互啃也是 5 倍伤害
+    theZombie->TakeDamage(GetEatDamage(), 9U);
     StartEating();
     if (theZombie->mBodyHealth <= 0)
     {
@@ -7979,14 +8004,23 @@ void Zombie::TakeDamage(int theDamage, unsigned int theDamageFlags)
 
     int aDamageRemaining = theDamage;
 
+    //+Gaga: 读报僵尸的报纸总是先承受伤害：投掷弹、背后射击与背面星果不再绕过报纸，
+    // 溅射/爆炸也不再与本体同时受伤；报纸吃满伤害后，只有溢出部分才落到本体
+    unsigned int aShieldDamageFlags = theDamageFlags;
+    if (mZombieType == ZombieType::ZOMBIE_NEWSPAPER)
+    {
+        SetBit(aShieldDamageFlags, static_cast<int>(DamageFlags::DAMAGE_BYPASSES_SHIELD), false);
+        SetBit(aShieldDamageFlags, static_cast<int>(DamageFlags::DAMAGE_HITS_SHIELD_AND_BODY), false);
+    }
+
     if (IsFlying())
     {
         aDamageRemaining = TakeFlyingDamage(aDamageRemaining, theDamageFlags);
     }
-    if (aDamageRemaining > 0 && mShieldType != ShieldType::SHIELDTYPE_NONE && !TestBit(theDamageFlags, static_cast<int>(DamageFlags::DAMAGE_BYPASSES_SHIELD)))
+    if (aDamageRemaining > 0 && mShieldType != ShieldType::SHIELDTYPE_NONE && !TestBit(aShieldDamageFlags, static_cast<int>(DamageFlags::DAMAGE_BYPASSES_SHIELD)))
     {
-        aDamageRemaining = TakeShieldDamage(aDamageRemaining, theDamageFlags);
-        if (TestBit(theDamageFlags, static_cast<int>(DamageFlags::DAMAGE_HITS_SHIELD_AND_BODY)))
+        aDamageRemaining = TakeShieldDamage(aDamageRemaining, aShieldDamageFlags);
+        if (TestBit(aShieldDamageFlags, static_cast<int>(DamageFlags::DAMAGE_HITS_SHIELD_AND_BODY)))
         {
             aDamageRemaining = theDamage;
         }

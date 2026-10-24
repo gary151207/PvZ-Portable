@@ -1337,7 +1337,10 @@ enum ZombiePhase : int32_t
     PHASE_SQUASH_PRE_LAUNCH,
     PHASE_SQUASH_RISING,
     PHASE_SQUASH_FALLING,
-    PHASE_SQUASH_DONE_FALLING
+    PHASE_SQUASH_DONE_FALLING,
+    //+Gaga: 追加在末尾，保持旧存档中已有 phase 的数值不变
+    PHASE_FOOTBALL_CHARGING,
+    PHASE_FOOTBALL_RESTING
 };
 enum ZombieType : int32_t
 {

@@ -47,6 +47,12 @@ static const int CONEHEAD_REGEN_INTERVAL_TICKS = 500;
 //+Gaga: 每次回血随机回复的点数区间（闭区间）
 static const int CONEHEAD_REGEN_HEAL_MIN = 5;
 static const int CONEHEAD_REGEN_HEAL_MAX = 15;
+//+Gaga: 橄榄球僵尸冲锋时的移速倍率
+static const float FOOTBALL_CHARGE_SPEED_FACTOR = 2.0f;
+//+Gaga: 橄榄球僵尸碾压第一个植物后的休息帧数，逻辑帧率 100fps，100 帧即 1 秒
+static const int FOOTBALL_CHARGE_REST_TICKS = 100;
+//+Gaga: 橄榄球僵尸休息时的待机动画速率
+static const float FOOTBALL_CHARGE_REST_ANIM_RATE = 12.0f;
 
 ZombieDefinition gZombieDefs[NUM_ZOMBIE_TYPES] = {
     { ZOMBIE_NORMAL,            REANIM_ZOMBIE,              1,      1,      1,      4000,   "ZOMBIE" },
@@ -825,6 +831,14 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
         mPhaseCounter = 200;
         mBodyHealth = 200;
         mSummonCounter = RandRangeInt(200, 400);
+    }
+
+    //+Gaga: 场上的橄榄球僵尸一律进入冲锋，移速翻倍；特殊模式与 UPSELL/INTRO 过场同样生效。
+    //+Gaga: 放在这里可以覆盖 Zombiquarium 上面设置的 DRIFT 阶段。
+    if (mZombieType == ZombieType::ZOMBIE_FOOTBALL && IsOnBoard())
+    {
+        mZombiePhase = ZombiePhase::PHASE_FOOTBALL_CHARGING;
+        mVelX *= FOOTBALL_CHARGE_SPEED_FACTOR;
     }
 
     if (mApp->IsLittleTroubleLevel() && (IsOnBoard() || theFromWave == Zombie::ZOMBIE_WAVE_CUTSCENE))
@@ -1658,6 +1672,32 @@ void Zombie::UpdateZombieNewspaper()
             StartWalkAnim(20);
             aBodyReanim->SetImageOverride("anim_head1", IMAGE_REANIM_ZOMBIE_PAPER_MADHEAD);
         }
+    }
+}
+
+//+Gaga: 橄榄球僵尸冲锋时直接碾压碰到的植物，碾到第一株后原地休息 1 秒，再恢复正常行走/啃食
+void Zombie::UpdateZombieFootball()
+{
+    if (mZombiePhase == ZombiePhase::PHASE_FOOTBALL_CHARGING)
+    {
+        if (CheckSquish(ZombieAttackType::ATTACKTYPE_DRIVE_OVER))
+        {
+            //+Gaga: 碾压可能触发土豆雷/樱桃炸弹等爆炸，若僵尸已被炸死就不要再切到休息状态
+            if (IsDeadOrDying())
+            {
+                return;
+            }
+
+            mZombiePhase = ZombiePhase::PHASE_FOOTBALL_RESTING;
+            mPhaseCounter = FOOTBALL_CHARGE_REST_TICKS;
+            mVelX = 0.0f;
+            PlayZombieReanim("anim_idle", ReanimLoopType::REANIM_LOOP, 20, FOOTBALL_CHARGE_REST_ANIM_RATE);
+        }
+    }
+    else if (mZombiePhase == ZombiePhase::PHASE_FOOTBALL_RESTING && mPhaseCounter == 0)
+    {
+        mZombiePhase = ZombiePhase::PHASE_ZOMBIE_NORMAL;
+        StartWalkAnim(20);
     }
 }
 
@@ -3855,7 +3895,8 @@ bool Zombie::ZombieNotWalking()
         mZombieType == ZombieType::ZOMBIE_BOSS ||
         mZombiePhase == ZombiePhase::PHASE_DANCER_RAISE_LEFT_1 ||
         mZombiePhase == ZombiePhase::PHASE_DANCER_WALK_TO_RAISE ||
-        mZombiePhase == ZombiePhase::PHASE_DANCER_RAISE_LEFT_2)
+        mZombiePhase == ZombiePhase::PHASE_DANCER_RAISE_LEFT_2 ||
+        mZombiePhase == ZombiePhase::PHASE_FOOTBALL_RESTING)
     {
         return true;
     }
@@ -4400,6 +4441,10 @@ void Zombie::UpdateActions()
         UpdateZombieChimney();
     }
 
+    if (mZombieType == ZombieType::ZOMBIE_FOOTBALL)
+    {
+        UpdateZombieFootball();
+    }
     if (mZombieType == ZombieType::ZOMBIE_POLEVAULTER)
     {
         UpdateZombiePolevaulter();
@@ -6504,8 +6549,9 @@ void Zombie::CatapultDeath(unsigned int theDamageFlags)
     }
 }
 
-void Zombie::CheckSquish(ZombieAttackType theAttackType)
+bool Zombie::CheckSquish(ZombieAttackType theAttackType)
 {
+    bool aSquished = false;
     Rect aAttackRect = GetZombieAttackRect();
 
     Plant* aPlant = nullptr;
@@ -6517,6 +6563,7 @@ void Zombie::CheckSquish(ZombieAttackType theAttackType)
             if (GetRectOverlap(aAttackRect, aPlantRect) >= 20 && CanTargetPlant(aPlant, theAttackType) && !aPlant->IsSpiky())
             {
                 SquishAllInSquare(aPlant->mPlantCol, aPlant->mRow, theAttackType);
+                aSquished = true;
                 break;
             }
         }
@@ -6528,8 +6575,11 @@ void Zombie::CheckSquish(ZombieAttackType theAttackType)
         if (aBrain)
         {
             mBoard->mChallenge->IZombieSquishBrain(aBrain);
+            aSquished = true;
         }
     }
+
+    return aSquished;
 }
 
 bool Zombie::IsImmobilizied()
@@ -6797,6 +6847,8 @@ void Zombie::CheckIfPreyCaught()
         mZombiePhase == ZombiePhase::PHASE_SNORKEL_INTO_POOL || 
         mZombiePhase == ZombiePhase::PHASE_SNORKEL_WALKING || 
         mZombiePhase == ZombiePhase::PHASE_LADDER_PLACING || 
+        mZombiePhase == ZombiePhase::PHASE_FOOTBALL_CHARGING ||
+        mZombiePhase == ZombiePhase::PHASE_FOOTBALL_RESTING ||
         mZombieHeight == ZombieHeight::HEIGHT_GETTING_BUNGEE_DROPPED || 
         mZombieHeight == ZombieHeight::HEIGHT_UP_LADDER || 
         mZombieHeight == ZombieHeight::HEIGHT_IN_TO_POOL || 

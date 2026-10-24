@@ -212,12 +212,13 @@ public:
     void                            BungeeLanding();
     bool                            EffectedByDamage(unsigned int theDamageRangeFlags);
     void                            PickRandomSpeed();
+    void                            UpdateZombieFootball();
     void                            UpdateZombiePolevaulter();
     void                            UpdateZombieDolphinRider();
     void                            PickBungeeZombieTarget(int theColumn);
     int                             CountBungeesTargetingSunFlowers();
     Plant*                          FindPlantTarget(ZombieAttackType theAttackType);
-    void                            CheckSquish(ZombieAttackType theAttackType);
+    bool                            CheckSquish(ZombieAttackType theAttackType);
     void                            RiseFromGrave(int theCol, int theRow);
     void                            UpdateZombieRiseFromGrave();
     void                            UpdateDamageStates(unsigned int theDamageFlags);

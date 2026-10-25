@@ -72,8 +72,10 @@
 bool gIsPartnerBuild = false; // GOTY @Patoke: 0x729659
 bool gSlowMo = false;
 bool gFastMo = false;
+bool gTimeStop = false;
 LawnApp* gLawnApp = nullptr;
 int gSlowMoCounter = 0;
+int gTimeStopCounter = 0;
 
 static bool HasUnshownAchievements(PlayerInfo* thePlayerInfo)
 {
@@ -333,6 +335,10 @@ void LawnApp::Shutdown()
 // GOTY @Patoke : 0x452640
 void LawnApp::KillBoard()
 {
+	// +Gaga: 离开关卡时结束时停，避免主菜单/结算界面被 1/10 减速
+	gTimeStop = false;
+	gTimeStopCounter = 0;
+
 	FinishModelessDialogs();
 	KillSeedChooserScreen();
 	if (mBoard)
@@ -1753,7 +1759,21 @@ void LawnApp::UpdateFrames()
 #endif
 
 	int aUpdateCount = 1;
-	if (gSlowMo)
+	// +Gaga: 时停——每 10 个更新周期只推进 1 次游戏逻辑，即全场 1/10 速度。
+	// 暂停时不做节流，避免选项对话框等 UI 动画一起变慢。
+	if (gTimeStop && mBoard != nullptr && !mBoard->mPaused)
+	{
+		++gTimeStopCounter;
+		if (gTimeStopCounter < 10)
+		{
+			aUpdateCount = 0;
+		}
+		else
+		{
+			gTimeStopCounter = 0;
+		}
+	}
+	else if (gSlowMo)
 	{
 		++gSlowMoCounter;
 		if (gSlowMoCounter < 4)
@@ -1796,12 +1816,25 @@ void LawnApp::ToggleSlowMo()
 	gSlowMoCounter = 0;
 	gSlowMo = !gSlowMo;
 	gFastMo = false;
+	gTimeStop = false;
+	gTimeStopCounter = 0;
 }
 
 void LawnApp::ToggleFastMo()
 {
 	gSlowMo = false;
 	gFastMo = !gFastMo;
+	gTimeStop = false;
+	gTimeStopCounter = 0;
+}
+
+void LawnApp::ToggleTimeStop()
+{
+	gTimeStopCounter = 0;
+	gTimeStop = !gTimeStop;
+	gSlowMo = false;
+	gSlowMoCounter = 0;
+	gFastMo = false;
 }
 
 void LawnApp::LoadGroup(const char* theGroupName, int theGroupAveMsToLoad)

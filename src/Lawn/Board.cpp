@@ -8226,6 +8226,14 @@ static void TodCrash()
 //0x41B950（原版中废弃）
 void Board::KeyChar(char theChar)
 {
+	// +Gaga: 3 键切换时停（全场 1/10 速度），普通构建也能使用。
+	// 智慧树模式仍用 3 设置挑战记录，保持原行为。
+	if (theChar == '3' && mApp->mGameMode != GameMode::GAMEMODE_TREE_OF_WISDOM)
+	{
+		mApp->ToggleTimeStop();
+		return;
+	}
+
 	if (!mApp->mDebugKeysEnabled)
 		return;
 

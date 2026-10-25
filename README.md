@@ -47,6 +47,7 @@ A **cross-platform** community-driven reimplementation of Plants vs. Zombies: Ga
   - Theoretically supports big-endian platforms, but untested due to lack of hardware
 - [x] **In-game settings page** — a **Settings** button in the bottom-right corner of the main menu opens a full-screen page (Challenge background) with 7 gameplay/egg-mode switches (mustache, super mower, future, piñata, dance, daisy, Sukhbir) that are saved to the per-user registry file and restored on the next launch
 - [x] **One-click adventure completion** — the button on the right of the settings page asks for a Yes/No confirmation and then does exactly what the built-in `u` cheat key does: unlock minigames/puzzle/survival, mark the adventure as finished, add 50000 coins and set every challenge record to 20
+- [x] **Time stop** — press `3` during a level to slow the whole battlefield (zombies, plants, sun, projectiles, seed recharges) to 1/10 speed; press `3` again to restore normal speed
 
 This project supports the following platforms (including but not limited to):
 

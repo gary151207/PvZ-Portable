@@ -1689,6 +1689,14 @@ void Zombie::UpdateZombieNewspaper()
 //+Gaga: 橄榄球僵尸冲锋时直接碾压碰到的植物，碾到第一株后原地休息 1 秒，再恢复正常行走/啃食
 void Zombie::UpdateZombieFootball()
 {
+    //+Gaga: 被魅惑的橄榄球僵尸是玩家这边的，冲锋不能替敌方碾压植物，直接按普通僵尸走路
+    if (mZombiePhase == ZombiePhase::PHASE_FOOTBALL_CHARGING && mMindControlled)
+    {
+        mZombiePhase = ZombiePhase::PHASE_ZOMBIE_NORMAL;
+        StartWalkAnim(20);
+        return;
+    }
+
     if (mZombiePhase == ZombiePhase::PHASE_FOOTBALL_CHARGING)
     {
         if (CheckSquish(ZombieAttackType::ATTACKTYPE_DRIVE_OVER))
@@ -4839,6 +4847,8 @@ void Zombie::AnimateChewSound()
 
             StartMindControlled();
             mApp->AddTodParticle(mPosX + 60.0f, mPosY + 40.0f, mRenderOrder + 1, ParticleEffect::PARTICLE_MIND_CONTROL);
+            //+Gaga: 魅惑菇魅惑僵尸的同时，再从本关出怪列表里召唤一只被魅惑的僵尸助战
+            mBoard->SummonCharmedZombie(this);
             TrySpawnLevelAward();
 
             mVelX = 0.17f;

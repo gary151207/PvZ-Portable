@@ -273,6 +273,10 @@ public:
 	void							RefreshSeedPacketFromCursor();
 	ZombieType						PickGraveRisingZombieType();
 	ZombieType						PickZombieType(int theZombiePoints, int theWaveIndex, ZombiePicker* theZombiePicker);
+	//+Gaga: 魅惑菇魅惑僵尸时额外召唤一只本关出怪列表中可被魅惑的僵尸
+	static bool						IsCharmableZombieType(ZombieType theZombieType);
+	ZombieType						PickCharmableZombieType();
+	void							SummonCharmedZombie(Zombie* theCharmedZombie);
 	int								PickRowForNewZombie(ZombieType theZombieType);
 	/*inline*/ Zombie*				AddZombie(ZombieType theZombieType, int theFromWave);
 	int								ZombieWaveSpawnBudget(int theBaseCount, int theSpawnedCount, int theMaxSpawned) const;

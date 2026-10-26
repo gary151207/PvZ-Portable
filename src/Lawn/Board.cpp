@@ -65,6 +65,12 @@ static const int CHERRY_BOMB_REFUND_CHANCE_PERCENT = 50;
 //+Gaga: 樱桃炸弹种下时返还的阳光数
 static const int CHERRY_BOMB_REFUND_SUN = 50;
 
+//+Gaga: 魅惑菇额外召唤的僵尸相对被魅惑僵尸的横向偏移。魅惑后的僵尸朝右反攻，
+//+Gaga: 所以召唤出来的那只出现在它右前方，两只僵尸一起往右打
+static const float HYPNOSHROOM_SUMMON_OFFSET_X = 60.0f;
+//+Gaga: 召唤位置的横向上限，别直接贴着出界线（mPosX > 850 的魅惑僵尸会被移除）
+static const float HYPNOSHROOM_SUMMON_MAX_X = 780.0f;
+
 // GOTY @Patoke: 0x40A3C0
 Board::Board(LawnApp* theApp)
 {
@@ -2830,6 +2836,100 @@ Zombie* Board::AddZombieInRow(ZombieType theZombieType, int theRow, int theFromW
 Zombie* Board::AddZombie(ZombieType theZombieType, int theFromWave)
 {
 	return AddZombieInRow(theZombieType, PickRowForNewZombie(theZombieType), theFromWave); 
+}
+
+//+Gaga: 判断某种僵尸能否被魅惑菇魅惑。会去啃植物的普通步行僵尸都算；跳/飞/钻地/开车/
+//+Gaga: 空投/投石这类本来就不吃植物的僵尸不算——它们既不会去吃魅惑菇，被魅惑后也只会
+//+Gaga: 顺着反方向径直走出屏幕，召唤出来没有意义
+bool Board::IsCharmableZombieType(ZombieType theZombieType)
+{
+	switch (theZombieType)
+	{
+	case ZombieType::ZOMBIE_ZAMBONI:
+	case ZombieType::ZOMBIE_BOBSLED:
+	case ZombieType::ZOMBIE_DOLPHIN_RIDER:
+	case ZombieType::ZOMBIE_BALLOON:
+	case ZombieType::ZOMBIE_DIGGER:
+	case ZombieType::ZOMBIE_POGO:
+	case ZombieType::ZOMBIE_YETI:
+	case ZombieType::ZOMBIE_BUNGEE:
+	case ZombieType::ZOMBIE_CATAPULT:
+	case ZombieType::ZOMBIE_BOSS:
+		return false;
+	default:
+		return true;
+	}
+}
+
+//+Gaga: 从本关出怪列表（mZombieAllowed）里按原版出怪权重抽一只可被魅惑的僵尸类型
+ZombieType Board::PickCharmableZombieType()
+{
+	TodWeightedArray aZombieWeightArray[ZombieType::NUM_ZOMBIE_TYPES];
+	int aPickCount = 0;
+	for (int aZombieType = ZombieType::ZOMBIE_NORMAL; aZombieType < ZombieType::NUM_ZOMBIE_TYPES; aZombieType++)
+	{
+		if (!mZombieAllowed[aZombieType] || !IsCharmableZombieType(static_cast<ZombieType>(aZombieType)))
+		{
+			continue;
+		}
+
+		int aWeight = GetZombieDefinition(static_cast<ZombieType>(aZombieType)).mPickWeight;
+		if (aWeight <= 0)
+		{
+			continue;
+		}
+
+		aZombieWeightArray[aPickCount].mItem = aZombieType;
+		aZombieWeightArray[aPickCount].mWeight = aWeight;
+		aPickCount++;
+	}
+
+	if (aPickCount == 0)
+	{
+		return ZombieType::ZOMBIE_INVALID;
+	}
+
+	return static_cast<ZombieType>(TodPickFromWeightedArray(aZombieWeightArray, aPickCount));
+}
+
+//+Gaga: 魅惑菇魅惑僵尸时额外召唤一只僵尸。它来自本关出怪列表，登场即处于被魅惑状态，
+//+Gaga: 与被魅惑的僵尸同一行、紧挨着出现，一起向右反攻其他僵尸
+void Board::SummonCharmedZombie(Zombie* theCharmedZombie)
+{
+	if (theCharmedZombie == nullptr || !theCharmedZombie->IsOnBoard())
+	{
+		return;
+	}
+
+	ZombieType aZombieType = PickCharmableZombieType();
+	if (aZombieType == ZombieType::ZOMBIE_INVALID)
+	{
+		return;
+	}
+
+	Zombie* aZombie = AddZombieInRow(aZombieType, theCharmedZombie->mRow, theCharmedZombie->mFromWave);
+	if (aZombie == nullptr)
+	{
+		return;
+	}
+
+	aZombie->mPosX = std::min(theCharmedZombie->mPosX + HYPNOSHROOM_SUMMON_OFFSET_X, HYPNOSHROOM_SUMMON_MAX_X);
+	aZombie->mPosY = theCharmedZombie->mPosY;
+	aZombie->mX = static_cast<int>(aZombie->mPosX);
+	aZombie->mY = static_cast<int>(aZombie->mPosY);
+
+	//+Gaga: 撑杆跳僵尸登场时还握着杆。被魅惑的它不会去攻击植物，却会对着身前的植物
+	//+Gaga: 反复起跳（每次都弹回左边），所以直接让它以「已经撑过杆」的状态出场
+	if (aZombieType == ZombieType::ZOMBIE_POLEVAULTER)
+	{
+		aZombie->mZombiePhase = ZombiePhase::PHASE_POLEVAULTER_POST_VAULT;
+		aZombie->mHasObject = false;
+		aZombie->mZombieAttackRect = Rect(50, 0, 20, 115);
+		aZombie->StartWalkAnim(0);
+	}
+
+	aZombie->StartMindControlled();
+	mApp->AddTodParticle(aZombie->mPosX + 60.0f, aZombie->mPosY + 40.0f, aZombie->mRenderOrder + 1, ParticleEffect::PARTICLE_MIND_CONTROL);
 }
 
 void Board::RemoveAllZombies()

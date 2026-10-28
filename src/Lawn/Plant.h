@@ -234,6 +234,7 @@ public:
     void                    Die();
     void                    UpdateProductionPlant();
     void                    UpdateShooter();
+    void                    ResetLaunchCounter();
     bool                    FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY);
     void                    LaunchThreepeater();
     static Image*           GetImage(SeedType theSeedType);

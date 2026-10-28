@@ -85,6 +85,10 @@ static const float CHOMPER_ABYSS_MAW_MOUTH_SCALE = 1.5f;
 //+Gaga: 小喷菇/阳光菇/海蘑菇每个堆叠槽位相对格子左上角的水平偏移（像素）：
 // 第 1 株居中（与原版一致），第 2 株靠左，第 3 株靠右，让同格三株不会完全重叠
 static const int STACK_PLANT_OFFSET_X[MAX_STACK_PLANTS] = { 0, -20, 20 };
+//+Gaga: 胆小菇每打出一枪，自己的攻击间隔就缩短 0.1 秒（逻辑帧率 100fps，即 10 帧）
+static const int SCAREDYSHROOM_ATTACK_SPEEDUP_TICKS = 10;
+//+Gaga: 胆小菇攻击间隔的下限：0.5 秒（50 帧），加速到这里就不再继续缩短
+static const int SCAREDYSHROOM_MIN_LAUNCH_RATE_TICKS = 50;
 
 PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_PEASHOOTER,        nullptr, ReanimationType::REANIM_PEASHOOTER,    0,  100,    750,    PlantSubClass::SUBCLASS_SHOOTER,    150,    "PEASHOOTER" },
@@ -1018,12 +1022,21 @@ void Plant::FumeShroomSporeFire()
     aProjectile->mDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
 }
 
+void Plant::ResetLaunchCounter()
+{
+    mLaunchCounter = mLaunchRate - Sexy::Rand(15);
+
+    // +Gaga: 胆小菇加速到 0.5 秒下限后，连这最多 0.15 秒的随机抖动也不允许把间隔压到下限以下
+    if (mSeedType == SeedType::SEED_SCAREDYSHROOM && mLaunchCounter < SCAREDYSHROOM_MIN_LAUNCH_RATE_TICKS)
+        mLaunchCounter = SCAREDYSHROOM_MIN_LAUNCH_RATE_TICKS;
+}
+
 void Plant::UpdateShooter()
 {
     mLaunchCounter--;
     if (mLaunchCounter <= 0)
     {
-        mLaunchCounter = mLaunchRate - Sexy::Rand(15);
+        ResetLaunchCounter();
 
         if (mSeedType == SeedType::SEED_THREEPEATER)
         {
@@ -1063,6 +1076,14 @@ void Plant::UpdateShooter()
             {
                 // 这一帧前面没有目标，首发没打出去，后续两发也一并取消
                 mPeaBurstShots = 0;
+            }
+            else if (mSeedType == SeedType::SEED_SCAREDYSHROOM)
+            {
+                // +Gaga: 胆小菇每打出一枪，自己的攻击间隔缩短 0.1 秒，最低 0.5 秒。
+                // 倒计时随即按新的攻击间隔重排，让这一枪之后立刻变快；
+                // mLaunchRate 本身会被存档同步，所以读档后积累的加速进度不会丢
+                mLaunchRate = std::max(SCAREDYSHROOM_MIN_LAUNCH_RATE_TICKS, mLaunchRate - SCAREDYSHROOM_ATTACK_SPEEDUP_TICKS);
+                ResetLaunchCounter();
             }
         }
     }

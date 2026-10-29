@@ -24,6 +24,7 @@
 #include "Cutscene.h"
 #include "ZenGarden.h"
 #include "Challenge.h"
+#include "Versus.h" // +Gaga
 #include "../LawnApp.h"
 #include "SeedPacket.h"
 #include "CursorObject.h"
@@ -79,6 +80,13 @@ void Coin::CoinInitialize(int theX, int theY, CoinType theCoinType, CoinMotion t
         aSunReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
         aSunReanim->mAnimRate = 6.0f;
         AttachReanim(mAttachmentID, aSunReanim, aPosX, aPosY);
+    }
+    else if (IsBrain())
+    {
+        mWidth = 50;
+        mHeight = 50;
+        mPosX -= 10.0f;
+        mPosY -= 10.0f;
     }
     else if (mType == CoinType::COIN_SILVER)
     {
@@ -435,6 +443,11 @@ bool Coin::IsSun()
     return mType == CoinType::COIN_SUN || mType == CoinType::COIN_SMALLSUN || mType == CoinType::COIN_LARGESUN;
 }
 
+bool Coin::IsBrain()
+{
+    return mType == CoinType::COIN_BRAIN;
+}
+
 bool Coin::IsPresentWithAdvice()
 {
     return mType == CoinType::COIN_PRESENT_MINIGAMES || mType == CoinType::COIN_PRESENT_PUZZLE_MODE || mType == CoinType::COIN_PRESENT_SURVIVAL_MODE;
@@ -449,6 +462,10 @@ void Coin::ScoreCoin()
     {
         int aSunValue = GetSunValue();
         mBoard->AddSunMoney(aSunValue);
+    }
+    else if (IsBrain())
+    {
+        mBoard->AddBrainLight(VERSUS_BRAIN_VALUE);
     }
     else if (IsMoney())
     {
@@ -623,6 +640,11 @@ void Coin::UpdateCollected()
         aDestX = 15;
         aDestY = 0;
     }
+    else if (IsBrain())
+    {
+        aDestX = 15;
+        aDestY = 0;
+    }
     else if (IsMoney())
     {
         aDestX = 39;
@@ -749,6 +771,12 @@ void Coin::Update()
         return;
     }
 
+    // +Gaga: 联机对战里阳光和脑光都自动收集
+    if (mBoard != nullptr && mBoard->mVersus != nullptr && (IsSun() || IsBrain()) && !mIsBeingCollected && mCoinAge >= 30)
+    {
+        Collect();
+    }
+
     if (mFadeCount != 0)
     {
         UpdateFade();
@@ -785,7 +813,7 @@ void Coin::Update()
 
 Color Coin::GetColor()
 {
-    if ((IsSun() || IsMoney()) && mIsBeingCollected)
+    if ((IsSun() || IsBrain() || IsMoney()) && mIsBeingCollected)
     {
         float aAlpha = ClampFloat(mCollectionDistance * 0.035f, 0.35f, 1.0f) * 255.0f;
         return Color(255, 255, 255, aAlpha);
@@ -813,6 +841,14 @@ SeedType Coin::GetFinalSeedPacketType()
 void Coin::Draw(Graphics* g)
 {
     g->SetColor(GetColor());
+    if (IsBrain())
+    {
+        if (IMAGE_BRAIN)
+        {
+            TodDrawImageScaledF(g, IMAGE_BRAIN, mPosX, mPosY, 0.6f * mScale, 0.6f * mScale);
+        }
+        return;
+    }
     if (mType == CoinType::COIN_DIAMOND)
     {
         g->SetColorizeImages(true);

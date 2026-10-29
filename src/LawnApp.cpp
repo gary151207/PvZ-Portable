@@ -61,6 +61,8 @@
 #include "Lawn/Widget/ChallengeScreen.h"
 #include "Lawn/Widget/NewOptionsDialog.h"
 #include "Lawn/Widget/SettingsScreen.h" // +Gaga
+#include "Lawn/Widget/VersusScreen.h"   // +Gaga
+#include "Lawn/Versus.h"                // +Gaga
 #include "Lawn/Widget/SeedChooserScreen.h"
 #include "widget/WidgetManager.h"
 #include "misc/ResourceManager.h"
@@ -114,6 +116,14 @@ LawnApp::LawnApp()
 	mGameSelector = nullptr;
 	mChallengeScreen = nullptr;
 	mSeedChooserScreen = nullptr;
+	mVersusSession = nullptr; // +Gaga
+	mVersusScreen = nullptr;  // +Gaga
+	mPendingVersusScreenDelete = nullptr; // +Gaga
+	mPendingBackToMain = false;           // +Gaga
+	mAutoVersusMode = 0;                  // +Gaga
+	mAutoVersusStarted = false;           // +Gaga
+	mAutoVersusZombiePlaced = false;      // +Gaga
+	mAutoVersusPlantPlaced = false;       // +Gaga
 	mAwardScreen = nullptr;
 	mCreditScreen = nullptr;
 	mTitleScreen = nullptr;
@@ -266,6 +276,22 @@ LawnApp::~LawnApp()
 		mWidgetManager->RemoveWidget(mSeedChooserScreen);
 		delete mSeedChooserScreen;
 	}
+	if (mVersusScreen)
+	{
+		mWidgetManager->RemoveWidget(mVersusScreen);
+		delete mVersusScreen;
+		mVersusScreen = nullptr;
+	}
+	if (mPendingVersusScreenDelete)
+	{
+		delete mPendingVersusScreenDelete;
+		mPendingVersusScreenDelete = nullptr;
+	}
+	if (mVersusSession)
+	{
+		delete mVersusSession;
+		mVersusSession = nullptr;
+	}
 	if (mAwardScreen)
 	{
 		mWidgetManager->RemoveWidget(mAwardScreen);
@@ -372,6 +398,9 @@ void LawnApp::KillBoard()
 bool LawnApp::CanPauseNow()
 {
 	if (mBoard == nullptr)  // 不在关卡内
+		return false;
+
+	if (IsVersusLevel())  // +Gaga: 对战中不能单方面暂停
 		return false;
 
 	if (mSeedChooserScreen && mSeedChooserScreen->mMouseVisible)  // 处于选卡界面
@@ -692,6 +721,62 @@ bool LawnApp::KillSettingsScreen()
 	return true;
 }
 
+// +Gaga: 本地联机对战大厅
+void LawnApp::ShowVersusScreen()
+{
+	if (mVersusScreen != nullptr)
+		return;
+
+	if (mVersusSession == nullptr)
+	{
+		mVersusSession = new VersusSession();
+		if (mPlayerInfo != nullptr)
+			mVersusSession->SetLocalPlayerName(mPlayerInfo->mName);
+	}
+
+	mVersusScreen = new VersusScreen(this);
+	mVersusScreen->Resize(0, 0, mWidth, mHeight);
+	mWidgetManager->AddWidget(mVersusScreen);
+	mWidgetManager->BringToFront(mVersusScreen);
+	mWidgetManager->SetFocus(mVersusScreen);
+}
+
+bool LawnApp::KillVersusScreen()
+{
+	if (mVersusScreen == nullptr)
+		return false;
+
+	mWidgetManager->RemoveWidget(mVersusScreen);
+	// +Gaga: 可能从 VersusScreen::Update 内部调用，不能立刻 delete this，延迟到主循环安全点。
+	mPendingVersusScreenDelete = mVersusScreen;
+	mVersusScreen = nullptr;
+	return true;
+}
+
+void LawnApp::StartVersusMatch(const VersusMatchConfig& theConfig)
+{
+	if (mVersusSession == nullptr)
+		return;
+
+	// 对战不复用普通关卡流程：不选卡、不过场、不读写关卡存档。
+	KillSeedChooserScreen();
+	KillVersusScreen();
+	KillGameSelector();
+	mGameMode = GameMode::GAMEMODE_CHALLENGE_VERSUS;
+	mAppRandSeed = static_cast<int>(theConfig.mSeed);
+	Sexy::SRand(theConfig.mSeed); // +Gaga: 两端从同一随机状态开始初始棋盘
+	mBoardResult = BoardResult::BOARDRESULT_NONE;
+
+	MakeNewBoard();
+	mBoard->InitLevel();
+	mGameScene = GameScenes::SCENE_PLAYING;
+	mBoard->StartLevel();
+	mBoard->mCutScene->mPreloaded = true;
+	mBoard->mMenuButton->mBtnNoDraw = false;
+	mWidgetManager->SetFocus(mBoard);
+	mVersusSession->SendLoaded();
+}
+
 // +Gaga: 「一键通关冒险模式」，与内置作弊键 'u' 完全一致
 void LawnApp::CompleteAdventureMode()
 {
@@ -763,6 +848,12 @@ void LawnApp::DoBackToMain()
 	mSoundSystem->CancelPausedFoley();
 	WriteCurrentUserConfig();
 	KillNewOptionsDialog();
+	KillVersusScreen(); // +Gaga: 离开对战时关闭大厅/连接
+	if (mVersusSession)
+	{
+		delete mVersusSession;
+		mVersusSession = nullptr;
+	}
 	KillBoard();
 	ShowGameSelector();
 }
@@ -1471,6 +1562,19 @@ void LawnApp::HandleCmdLineParam(const std::string& theParamName, const std::str
 		{
 			mBoard->mZombieSpawnMultiplier = aMultiplier;
 		}
+	}
+	else if (theParamName == "-versus")
+	{
+		mAutoVersusMode = 1;
+	}
+	else if (theParamName == "-versus-host")
+	{
+		mAutoVersusMode = 2;
+	}
+	else if (theParamName == "-versus-join")
+	{
+		mAutoVersusMode = 3;
+		mAutoVersusAddress = theParamValue.empty() ? "127.0.0.1" : theParamValue;
 	}
 	else if (theParamName == "-modfont")
 	{
@@ -2299,6 +2403,11 @@ bool LawnApp::IsSquirrelLevel()
 	return mBoard && mGameMode == GameMode::GAMEMODE_CHALLENGE_SQUIRREL;
 }
 
+bool LawnApp::IsVersusLevel()
+{
+	return mGameMode == GameMode::GAMEMODE_CHALLENGE_VERSUS;
+}
+
 bool LawnApp::IsIZombieLevel()
 {
 	if (mBoard == nullptr)
@@ -2441,8 +2550,94 @@ PottedPlant* LawnApp::GetPottedPlantByIndex(int thePottedPlantIndex)
 	return &mPlayerInfo->mPottedPlant[thePottedPlantIndex];
 }
 
+void LawnApp::RequestBackToMain()
+{
+	mPendingBackToMain = true;
+}
+
 bool LawnApp::UpdateAppStep(bool* updated)
 {
+	if (mPendingBackToMain)
+	{
+		mPendingBackToMain = false;
+		DoBackToMain();
+		return SexyAppBase::UpdateAppStep(updated);
+	}
+
+	// +Gaga: 延迟删除已在 Update 中请求关闭的联机界面
+	if (mPendingVersusScreenDelete != nullptr)
+	{
+		VersusScreen* aScreen = mPendingVersusScreenDelete;
+		mPendingVersusScreenDelete = nullptr;
+		delete aScreen;
+	}
+
+	// +Gaga: 联机调试入口（仅命令行显式指定时生效）
+	if (mAutoVersusMode != 0 && mLoadingThreadCompleted && mTitleScreen != nullptr)
+	{
+		LoadingCompleted();
+	}
+	if (mAutoVersusMode != 0 && mLoadingThreadCompleted && mGameSelector != nullptr)
+	{
+		if (!mAutoVersusStarted)
+		{
+			mAutoVersusStarted = true;
+			ShowVersusScreen();
+			if (mAutoVersusMode == 2)
+			{
+				mVersusSession->StartHost();
+			}
+			else if (mAutoVersusMode == 3)
+			{
+				mVersusSession->StartJoin(mAutoVersusAddress);
+			}
+		}
+		else if (mAutoVersusMode != 1 && mVersusSession != nullptr && mVersusSession->GetPhase() == VersusSession::Phase::Lobby)
+		{
+			if (mVersusSession->GetLocalSide() == VersusProtocol::SIDE_NONE)
+			{
+				mVersusSession->SendSide(mAutoVersusMode == 2 ? VersusProtocol::SIDE_PLANT : VersusProtocol::SIDE_ZOMBIE);
+			}
+			if (!mVersusSession->IsLocalReady() && mVersusSession->AreSidesReady())
+			{
+				int aPlantSeeds[6] = { SEED_PEASHOOTER, SEED_SUNFLOWER, SEED_WALLNUT, SEED_SNOWPEA, SEED_CHOMPER, SEED_REPEATER };
+				int aPlantImit[6] = { -1, -1, -1, -1, -1, -1 };
+				int aZombieSeeds[6] = { SEED_ZOMBIE_NORMAL, SEED_ZOMBIE_TRAFFIC_CONE, SEED_ZOMBIE_PAIL, SEED_ZOMBIE_NEWSPAPER, SEED_ZOMBIE_CATAPULT, SEED_ZOMBIE_REDEYE_GARGANTUAR };
+				int aNoZombie[6] = { -1, -1, -1, -1, -1, -1 };
+				if (mVersusSession->GetLocalSide() == VersusProtocol::SIDE_PLANT)
+					mVersusSession->SetLocalLoadout(aPlantSeeds, aPlantImit, aNoZombie);
+				else
+					mVersusSession->SetLocalLoadout(aNoZombie, aNoZombie, aZombieSeeds);
+				mVersusSession->SendPick(true);
+			}
+			if (mAutoVersusMode == 2 && mVersusSession->CanStartMatch())
+			{
+				mVersusSession->StartMatch();
+			}
+		}
+
+	}
+
+	// 调试：主机自动种一棵豌豆射手，验证植物命令
+	if (mAutoVersusMode == 2 && !mAutoVersusPlantPlaced && mBoard != nullptr && mBoard->mVersus != nullptr &&
+		mVersusSession != nullptr && mVersusSession->IsGo() && mBoard->mVersus->GetLocalSide() == VersusProtocol::SIDE_PLANT)
+	{
+		mAutoVersusPlantPlaced = true;
+		mBoard->mVersus->MouseDown(110, 40, 1);
+		mBoard->mVersus->MouseDown(mBoard->GridToPixelX(1, 0) + 40, mBoard->GridToPixelY(1, 0) + 60, 1);
+	}
+
+	// 调试：客机自动放一只普通僵尸，用来验证命令同步/突破判定
+	if (mAutoVersusMode == 3 && !mAutoVersusZombiePlaced && mBoard != nullptr && mBoard->mVersus != nullptr &&
+		mVersusSession != nullptr && mVersusSession->IsGo() && mBoard->mVersus->GetLocalSide() == VersusProtocol::SIDE_ZOMBIE)
+	{
+		mAutoVersusZombiePlaced = true;
+		mBoard->mVersus->MouseDown(110, 40, 1);
+		int aGridX = 8;
+		int aGridY = 0;
+		mBoard->mVersus->MouseDown(mBoard->GridToPixelX(aGridX, aGridY) + 40, mBoard->GridToPixelY(aGridX, aGridY) + 60, 1);
+	}
+
 	if (mCloseRequest)
 	{
 		Shutdown();

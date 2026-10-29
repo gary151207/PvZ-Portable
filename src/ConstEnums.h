@@ -213,6 +213,8 @@ enum CoinType : int32_t
     COIN_PRESENT_MINIGAMES,
     COIN_PRESENT_PUZZLE_MODE,
     COIN_PRESENT_SURVIVAL_MODE,
+    // +Gaga: 联机对战僵尸方的脑光币
+    COIN_BRAIN,
 };
 enum CrazyDaveState : int32_t
 {
@@ -319,6 +321,7 @@ enum Dialogs : int32_t
     DIALOG_IMITATER,                            // 49：模仿者对话
     DIALOG_PURCHASE_PACKET_SLOT,                // 50：升级卡槽的格子数量
     DIALOG_SETTINGS,                            // 51：设置页（主菜单右下角「设置」按钮，+Gaga）
+    DIALOG_VERSUS,                              // 52：本地联机对战大厅（+Gaga）
     NUM_DIALOGS
 };
 enum DebugTextMode : int32_t
@@ -450,6 +453,8 @@ enum GameMode : int32_t
     GAMEMODE_PUZZLE_I_ZOMBIE_ENDLESS,
     GAMEMODE_UPSELL,
     GAMEMODE_INTRO,
+    // +Gaga: 本地联机对战。追加在末尾，避免移动已有模式在存档/挑战记录中的数值。
+    GAMEMODE_CHALLENGE_VERSUS,
     NUM_GAME_MODES
 };
 enum GameObjectType : int32_t
@@ -1111,6 +1116,16 @@ enum SeedType : int32_t
     SEED_ZOMBIE_DANCER,
     SEED_ZOMBIE_GARGANTUAR,
     SEED_ZOMBIE_IMP,
+    // +Gaga: 联机对战额外僵尸卡（追加到枚举末尾，不改变已有僵尸卡数值）
+    SEED_ZOMBIE_NEWSPAPER,
+    SEED_ZOMBIE_DUCKY_TUBE,
+    SEED_ZOMBIE_SNORKEL,
+    SEED_ZOMBIE_BOBSLED,
+    SEED_ZOMBIE_DOLPHIN_RIDER,
+    SEED_ZOMBIE_JACK_IN_THE_BOX,
+    SEED_ZOMBIE_YETI,
+    SEED_ZOMBIE_CATAPULT,
+    SEED_ZOMBIE_REDEYE_GARGANTUAR,
     NUM_SEEDS_IN_CHOOSER = 49,
     SEED_NONE = -1
 };

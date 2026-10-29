@@ -5318,6 +5318,16 @@ int Plant::GetCost(SeedType theSeedType, SeedType theImitaterType)
     case SeedType::SEED_ZOMBIE_DANCER:              return 350;
     case SeedType::SEED_ZOMBIE_GARGANTUAR:          return 300;
     case SeedType::SEED_ZOMBIE_IMP:                 return 50;
+    // +Gaga: 联机对战额外僵尸卡，按有效生命/速度/特殊能力定价
+    case SeedType::SEED_ZOMBIE_NEWSPAPER:           return 100;
+    case SeedType::SEED_ZOMBIE_DUCKY_TUBE:          return 75;
+    case SeedType::SEED_ZOMBIE_SNORKEL:             return 100;
+    case SeedType::SEED_ZOMBIE_BOBSLED:             return 250;
+    case SeedType::SEED_ZOMBIE_DOLPHIN_RIDER:       return 150;
+    case SeedType::SEED_ZOMBIE_JACK_IN_THE_BOX:     return 125;
+    case SeedType::SEED_ZOMBIE_YETI:                return 200;
+    case SeedType::SEED_ZOMBIE_CATAPULT:            return 200;
+    case SeedType::SEED_ZOMBIE_REDEYE_GARGANTUAR:   return 400;
     default:
     {
         if (theSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE)
@@ -5337,6 +5347,15 @@ int Plant::GetCost(SeedType theSeedType, SeedType theImitaterType)
 // GOTY @Patoke: 0x46B6C0
 std::string Plant::GetNameString(SeedType theSeedType, SeedType theImitaterType)
 {
+    //+Gaga: 新增的僵尸卡也走这里取名字，避免访问 NUM_SEED_TYPES 之外的植物定义
+    if (Challenge::IsZombieSeedType(theSeedType))
+    {
+        ZombieType aZombieType = Challenge::IZombieSeedTypeToZombieType(theSeedType);
+        const ZombieDefinition& aZombieDef = GetZombieDefinition(aZombieType);
+        std::string aZombieName = StrFormat("[%s]", aZombieDef.mZombieName);
+        return TodStringTranslate(aZombieName);
+    }
+
     const PlantDefinition& aPlantDef = GetPlantDefinition(theSeedType);
     std::string aName = StrFormat("[%s]", aPlantDef.mPlantName);
     std::string aTranslatedName = TodStringTranslate(aName);

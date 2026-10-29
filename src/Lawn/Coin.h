@@ -81,6 +81,7 @@ public:
     Color                   GetColor();
     /*inline*/ bool         IsMoney();
     /*inline*/ bool         IsSun();
+    /*inline*/ bool         IsBrain(); // +Gaga
     float                   GetSunScale();
     inline bool             IsOnGround() { return false; }
     SeedType                GetFinalSeedPacketType();

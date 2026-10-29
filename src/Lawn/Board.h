@@ -58,6 +58,7 @@ class SeedBank;
 class ToolTipWidget;
 class CutScene;
 class Challenge;
+class Versus; // +Gaga
 class Reanimation;
 class DataSync;
 class TodParticleSystem;
@@ -139,6 +140,8 @@ public:
 	CursorPreview*					mCursorPreview;
 	MessageWidget*					mAdvice;
 	SeedBank*						mSeedBank;
+	SeedBank*						mZombieSeedBank;				// +Gaga: 联机对战僵尸方 6 格卡槽
+	Versus*							mVersus;						// +Gaga: 联机对战状态
 	GameButton*						mMenuButton;
 	GameButton*						mStoreButton;
 	bool							mIgnoreMouseUp;
@@ -176,6 +179,7 @@ public:
 	int32_t							mPrevMouseX;
 	int32_t							mPrevMouseY;
 	int32_t							mSunMoney;
+	int32_t							mZombieBrain;					// +Gaga: 联机对战僵尸方脑光
 	int32_t							mNumWaves;
 	uint32_t						mMainCounter;
 	uint32_t						mEffectCounter;
@@ -310,6 +314,10 @@ public:
 	/*inline*/ void					AddSunMoney(int theAmount);
 	bool							TakeSunMoney(int theAmount);
 	/*inline*/ bool					CanTakeSunMoney(int theAmount);
+	// +Gaga: 联机对战僵尸方脑光
+	/*inline*/ void					AddBrainLight(int theAmount);
+	bool							TakeBrainLight(int theAmount);
+	/*inline*/ bool					CanTakeBrainLight(int theAmount);
 	/*inline*/ void					Pause(bool thePause);
 	inline bool						MakeEasyZombieType() { /* 未发现 */return false; }
 	void							TryToSaveGame();

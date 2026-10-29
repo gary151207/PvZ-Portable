@@ -49,6 +49,9 @@ class StoreScreen;
 class AlmanacDialog;
 class TypingCheck;
 class SettingsScreen; // +Gaga
+class VersusSession;  // +Gaga
+class VersusScreen;   // +Gaga
+struct VersusMatchConfig;
 
 namespace Sexy
 {
@@ -93,6 +96,15 @@ public:
 	TitleScreen*					mTitleScreen;
 	GameSelector*					mGameSelector;
 	SeedChooserScreen*				mSeedChooserScreen;
+	VersusSession*					mVersusSession;					// +Gaga: 本地联机对战的连接/大厅状态
+	VersusScreen*					mVersusScreen;					// +Gaga: 本地联机对战大厅/选卡界面
+	VersusScreen*					mPendingVersusScreenDelete;		// +Gaga: 延迟到安全时机删除
+	bool							mPendingBackToMain;				// +Gaga: 在安全时机执行 DoBackToMain
+	int								mAutoVersusMode;					// +Gaga: 联机调试入口（0=关，1=只开界面，2=主机，3=客机）
+	std::string						mAutoVersusAddress;
+	bool							mAutoVersusStarted;
+	bool							mAutoVersusZombiePlaced;
+	bool							mAutoVersusPlantPlaced;
 	AwardScreen*					mAwardScreen;
 	CreditScreen*					mCreditScreen;
 	ChallengeScreen*				mChallengeScreen;
@@ -326,6 +338,7 @@ public:
 	static /*inline*/ bool			IsEndlessScaryPotter(GameMode theGameMode);
 	/*inline*/ bool					IsSquirrelLevel();
 	/*inline*/ bool					IsIZombieLevel();
+	/*inline*/ bool					IsVersusLevel();					// +Gaga
 	/*inline*/ bool					CanShowZenGarden();
 	static std::string				GetMoneyString(int theAmount);
 	bool							AdvanceCrazyDaveText();
@@ -353,6 +366,11 @@ public:
 	// +Gaga: 主菜单设置页与一键通关冒险模式
 	void							ShowSettingsScreen();
 	bool							KillSettingsScreen();
+	// +Gaga: 本地联机对战
+	void							ShowVersusScreen();
+	bool							KillVersusScreen();
+	void							StartVersusMatch(const VersusMatchConfig& theConfig);
+	void							RequestBackToMain();
 	bool							GetCheatMode(GagaCheatMode theMode);
 	bool							SetCheatMode(GagaCheatMode theMode, bool theEnable);
 	void							CompleteAdventureMode();

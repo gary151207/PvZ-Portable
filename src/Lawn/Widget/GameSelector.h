@@ -65,7 +65,8 @@ private:
         GameSelector_AchievementsBack = 112,
         GameSelector_Achievements = 113,
         GameSelector_QuickPlay = 114,
-        GameSelector_Settings = 115 // @Gaga: 右下角设置按钮
+        GameSelector_Settings = 115, // @Gaga: 右下角设置按钮
+        GameSelector_Versus = 116    // @Gaga: 本地联机对战
     };
 
 public:
@@ -85,6 +86,7 @@ public:
     NewLawnButton*              mAchievementsButton;        //+GOTY @Patoke: 0xC4
     NewLawnButton*              mQuickPlayButton;           //+GOTY @Patoke: 0xC8
     LawnStoneButton*            mSettingsButton;            //+Gaga: 右下角「设置」按钮
+    LawnStoneButton*            mVersusButton;               //+Gaga: 本地联机对战按钮
     Widget*                     mOverlayWidget;
     bool                        mStartingGame;
     int                         mStartingGameCounter;

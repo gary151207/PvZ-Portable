@@ -195,6 +195,12 @@ GameSelector::GameSelector(LawnApp* theApp)
 	mSettingsButton->mBtnNoDraw = true;
 	mSettingsButton->mMouseVisible = false;
 
+	// +Gaga: 本地联机对战入口，放在设置按钮正上方
+	mVersusButton = MakeButton(GameSelector::GameSelector_Versus, this, "联机对战");
+	mVersusButton->Resize(0, 0, 120, 33);
+	mVersusButton->mBtnNoDraw = true;
+	mVersusButton->mMouseVisible = false;
+
 	mZenGardenButton = MakeNewButton(
 		GameSelector::GameSelector_ZenGarden, 
 		this, 
@@ -408,6 +414,8 @@ GameSelector::~GameSelector()
 		delete mQuickPlayButton;
 	if (mSettingsButton) // +Gaga
 		delete mSettingsButton;
+	if (mVersusButton) // +Gaga
+		delete mVersusButton;
 
 	delete mToolTip;
 }
@@ -896,6 +904,7 @@ void GameSelector::Update()
 			mZombatarButton->mBtnNoDraw = false; // @Patoke: new widgets
 			mAchievementsButton->mBtnNoDraw = false;
 			mSettingsButton->mBtnNoDraw = false; // +Gaga
+			mVersusButton->mBtnNoDraw = false;   // +Gaga
 			mAdventureButton->mMouseVisible = true;
 			mMinigameButton->mMouseVisible = true;
 			mPuzzleButton->mMouseVisible = true;
@@ -910,6 +919,7 @@ void GameSelector::Update()
 			mZombatarButton->mMouseVisible = true; // @Patoke: new widgets
 			mAchievementsButton->mMouseVisible = true;
 			mSettingsButton->mMouseVisible = true; // +Gaga
+			mVersusButton->mMouseVisible = true;   // +Gaga
 
 			if (mApp->mPlayerInfo == nullptr)
 			{
@@ -1012,6 +1022,9 @@ void GameSelector::Update()
 	mSettingsButton->mX = mApp->mWidth - 132 + mX;
 	mSettingsButton->mY = mApp->mHeight - 53 + mY;
 	mSettingsButton->MarkDirty();
+	mVersusButton->mX = mApp->mWidth - 132 + mX;
+	mVersusButton->mY = mApp->mHeight - 95 + mY;
+	mVersusButton->MarkDirty();
 	aSelectorReanim->SetImageOverride("woodsign2", (mChangeUserButton->mIsOver || mChangeUserButton->mIsDown) ? Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN2_PRESS : nullptr);
 	aSelectorReanim->SetImageOverride("woodsign3", (mZombatarButton->mIsOver || mZombatarButton->mIsDown) ? Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN3_PRESS : nullptr);
 }
@@ -1049,6 +1062,7 @@ void GameSelector::AddedToManager(WidgetManager* theWidgetManager)
 	theWidgetManager->AddWidget(mAchievementsButton);
 	theWidgetManager->AddWidget(mAchievementsWidget);
 	theWidgetManager->AddWidget(mSettingsButton); // +Gaga
+	theWidgetManager->AddWidget(mVersusButton);   // +Gaga
 	//theWidgetManager->AddWidget(mQuickPlayButton);
 }
 
@@ -1073,6 +1087,7 @@ void GameSelector::RemovedFromManager(WidgetManager* theWidgetManager)
 	theWidgetManager->RemoveWidget(mAchievementsButton);
 	theWidgetManager->RemoveWidget(mAchievementsWidget);
 	theWidgetManager->RemoveWidget(mSettingsButton); // +Gaga
+	theWidgetManager->RemoveWidget(mVersusButton);   // +Gaga
 	//theWidgetManager->RemoveWidget(mQuickPlayButton);
 }
 
@@ -1094,6 +1109,7 @@ void GameSelector::OrderInManagerChanged()
 	mWidgetManager->PutInfront(mZombatarButton, this); // @Patoke: z order for new widgets
 	mWidgetManager->PutInfront(mAchievementsButton, this);
 	mWidgetManager->PutInfront(mSettingsButton, this); // +Gaga
+	mWidgetManager->PutInfront(mVersusButton, this);   // +Gaga
 	//mWidgetManager->PutInfront(mQuickPlayButton, this);
 }
 
@@ -1258,6 +1274,7 @@ void GameSelector::ClickedAdventure()
 	mZombatarButton->SetDisabled(true); // @Patoke: added new widgets
 	mAchievementsButton->SetDisabled(true);
 	mSettingsButton->SetDisabled(true); // +Gaga
+	mVersusButton->SetDisabled(true);   // +Gaga
 
 	Reanimation* aHandReanim = mApp->AddReanimation(-70.0f, 10.0f, 0, ReanimationType::REANIM_ZOMBIE_HAND);
 	aHandReanim->mLoopType = ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD;
@@ -1367,6 +1384,9 @@ void GameSelector::ButtonDepress(int theId)
 		break;
 	case GameSelector::GameSelector_Settings: // +Gaga: 打开设置页
 		mApp->ShowSettingsScreen();
+		break;
+	case GameSelector::GameSelector_Versus: // +Gaga: 打开本地联机对战
+		mApp->ShowVersusScreen();
 		break;
 	}
 }

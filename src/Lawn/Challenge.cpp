@@ -28,6 +28,7 @@
 #include "ZenGarden.h"
 #include "LawnMower.h"
 #include "Challenge.h"
+#include "Versus.h" // +Gaga
 #include "SeedPacket.h"
 #include "Projectile.h"
 #include "../LawnApp.h"
@@ -430,6 +431,8 @@ void Challenge::InitLevel()
 
 void Challenge::StartLevel()
 {
+	if (mApp->IsVersusLevel()) // +Gaga: 对战由 Versus 自己初始化
+		return;
 	if (mApp->IsWhackAZombieLevel())
 	{
 		mBoard->mCursorObject->mCursorType = CURSOR_TYPE_HAMMER;
@@ -2445,6 +2448,17 @@ PlantingReason Challenge::CanPlantAt(int theGridX, int theGridY, SeedType theSee
 	{
 		return theGridX > 2 ? PLANTING_NOT_PASSED_LINE : PLANTING_OK;
 	}
+	else if (mApp->IsVersusLevel()) // +Gaga: 僵尸投放规则
+	{
+		if (IsZombieSeedType(theSeedType))
+		{
+			if (theSeedType == SEED_ZOMBIE_BUNGEE)
+			{
+				return PLANTING_OK;
+			}
+			return theGridX >= VERSUS_ZOMBIE_MIN_COL ? PLANTING_OK : PLANTING_NOT_HERE;
+		}
+	}
 	else if (mApp->IsIZombieLevel())
 	{
 		int aLimit = 6;
@@ -4280,6 +4294,16 @@ ZombieType Challenge::IZombieSeedTypeToZombieType(SeedType theSeedType)
 	case SEED_ZOMBIE_DANCER:		return ZOMBIE_DANCER;
 	case SEED_ZOMBIE_GARGANTUAR:	return ZOMBIE_GARGANTUAR;
 	case SEED_ZOMBIE_IMP:			return ZOMBIE_IMP;
+	// +Gaga: 联机对战额外僵尸卡
+	case SEED_ZOMBIE_NEWSPAPER:		return ZOMBIE_NEWSPAPER;
+	case SEED_ZOMBIE_DUCKY_TUBE:		return ZOMBIE_DUCKY_TUBE;
+	case SEED_ZOMBIE_SNORKEL:		return ZOMBIE_SNORKEL;
+	case SEED_ZOMBIE_BOBSLED:		return ZOMBIE_BOBSLED;
+	case SEED_ZOMBIE_DOLPHIN_RIDER:		return ZOMBIE_DOLPHIN_RIDER;
+	case SEED_ZOMBIE_JACK_IN_THE_BOX:	return ZOMBIE_JACK_IN_THE_BOX;
+	case SEED_ZOMBIE_YETI:			return ZOMBIE_YETI;
+	case SEED_ZOMBIE_CATAPULT:		return ZOMBIE_CATAPULT;
+	case SEED_ZOMBIE_REDEYE_GARGANTUAR:	return ZOMBIE_REDEYE_GARGANTUAR;
 	default:						TOD_ASSERT(false);
 	}
 
@@ -4751,7 +4775,17 @@ int Challenge::IsZombieSeedType(SeedType theSeedType)
 		theSeedType == SEED_ZOMBIE_POGO ||
 		theSeedType == SEED_ZOMBIE_DANCER ||
 		theSeedType == SEED_ZOMBIE_GARGANTUAR ||
-		theSeedType == SEED_ZOMBIE_IMP;
+		theSeedType == SEED_ZOMBIE_IMP ||
+		// +Gaga: 联机对战额外僵尸卡
+		theSeedType == SEED_ZOMBIE_NEWSPAPER ||
+		theSeedType == SEED_ZOMBIE_DUCKY_TUBE ||
+		theSeedType == SEED_ZOMBIE_SNORKEL ||
+		theSeedType == SEED_ZOMBIE_BOBSLED ||
+		theSeedType == SEED_ZOMBIE_DOLPHIN_RIDER ||
+		theSeedType == SEED_ZOMBIE_JACK_IN_THE_BOX ||
+		theSeedType == SEED_ZOMBIE_YETI ||
+		theSeedType == SEED_ZOMBIE_CATAPULT ||
+		theSeedType == SEED_ZOMBIE_REDEYE_GARGANTUAR;
 }
 
 // GOTY @Patoke: 0x42E280

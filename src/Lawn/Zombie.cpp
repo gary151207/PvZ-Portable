@@ -7175,6 +7175,8 @@ void Zombie::EatZombie(Zombie* theZombie)
 
 bool Zombie::TrySpawnLevelAward()
 {
+    if (mApp->IsVersusLevel()) // +Gaga: 联机对战不生成关卡奖杯
+        return false;
     if (!IsOnBoard() || mBoard->HasLevelAwardDropped() || mBoard->mLevelComplete || mDroppedLoot)
     {
         return false;
@@ -7316,6 +7318,9 @@ bool Zombie::TrySpawnLevelAward()
 void Zombie::DropLoot()
 {
     if (!IsOnBoard())
+        return;
+
+    if (mApp->IsVersusLevel()) // +Gaga: 联机对战不掉奖杯/金币
         return;
 
     AlmanacPlayerDefeatedZombie(mZombieType);

@@ -337,6 +337,21 @@ mv ~/.local/io.github.wszqkzqk/PvZPortable/userdata/game1_13.v4 ~/.local/io.gith
 python scripts/pvzp-v4-converter.py import level.yaml ~/.local/io.github.wszqkzqk/PvZPortable/userdata/game1_13.v4
 ```
 
+## 本地联机对战（LAN Versus）
+
+主菜单右下角的「联机对战」提供局域网 1v1 对战（两台电脑/两个窗口，本地网络）。
+
+- 一台电脑点「创建房间」，另一台输入主机 IP（默认端口 `27315`）点「加入房间」。
+- 双方各自选择「植物方」或「僵尸方」；同一阵营先选先得，房主可重置选边。
+- 双方各选 6 张卡。植物方可选全部 49 种植物；僵尸方可在 I, Zombie 的 15 张僵尸卡之外，额外使用读报、鸭子泳圈、潜水、雪橇车、海豚骑士、小丑、雪人、投石车、红眼巨人等卡（按强度定价）。
+- 僵尸方由场上 6 座墓碑每 10 秒产出脑光；阳光和脑光都会自动收集。
+- 地图固定为白天泳池 6 行；小推车禁用。僵尸突破任意一行房屋即僵尸方胜；植物坚持 180 秒即植物方胜。
+- 对战不写关卡存档、不写挑战记录、不发奖杯/金币。
+- 需要双方使用相同协议版本和平台；WASM/Switch/3DS 暂不支持联机。
+- Windows 首次创建房间时如弹出防火墙提示，请允许专用网络访问。
+
+> 说明：双方卡组会通过协议传给对方用于同步模拟，但界面只显示自己的卡槽；这是局域网熟人局，不含反作弊/加密。
+
 ## Contributing
 
 When contributing please follow the following guides:

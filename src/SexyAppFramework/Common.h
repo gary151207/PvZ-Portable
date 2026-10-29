@@ -125,12 +125,18 @@ const ulong SEXY_RAND_MAX = 0x7FFFFFFF;
 extern bool			gDebug;
 
 #define printf(...) Sexy::PrintF(__VA_ARGS__)
+
+class MTRand;
+
 void				PrintF(const char *text, ...);
 
 int					Rand();
 int					Rand(int range);
 float				Rand(float range);
 void				SRand(ulong theSeed);
+// +Gaga: 联机对战需要把模拟随机数与 UI 随机数隔离开
+MTRand				GetRandState();
+void				SetRandState(const MTRand& theState);
 extern std::string	VFormat(const char* fmt, va_list argPtr);
 extern std::string	StrFormat(const char* fmt ...);
 std::string			GetAppDataFolder();

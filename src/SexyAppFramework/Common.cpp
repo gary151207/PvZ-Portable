@@ -94,6 +94,16 @@ void Sexy::SRand(ulong theSeed)
 	gMTRand.SRand(theSeed);
 }
 
+Sexy::MTRand Sexy::GetRandState()
+{
+	return gMTRand;
+}
+
+void Sexy::SetRandState(const Sexy::MTRand& theState)
+{
+	gMTRand = theState;
+}
+
 std::string Sexy::GetAppDataFolder()
 {
 	return PathToU8(Sexy::gAppDataFolder);

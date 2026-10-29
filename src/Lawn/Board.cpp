@@ -24,6 +24,7 @@
 #include <SDL.h>
 #include "ZenGarden.h"
 #include "BoardInclude.h"
+#include "Versus.h" // +Gaga
 #include "System/Music.h"
 #include "System/SaveGame.h"
 #include "Widget/LawnDialog.h"
@@ -99,6 +100,9 @@ Board::Board(LawnApp* theApp)
 	mCursorObject = new CursorObject();
 	mCursorPreview = new CursorPreview();
 	mSeedBank = new SeedBank();
+	mZombieSeedBank = nullptr; // +Gaga
+	mVersus = nullptr;         // +Gaga
+	mZombieBrain = 0;          // +Gaga
 	mCutScene = new CutScene();
 	mSpecialGraveStoneX = -1;
 	mSpecialGraveStoneY = -1;
@@ -240,6 +244,13 @@ Board::Board(LawnApp* theApp)
 		mStoreButton->mBtnNoDraw = true;
 		mStoreButton->SetLabel("[GET_FULL_VERSION_BUTTON]");
 	}
+
+	// +Gaga: 联机对战需要第二套卡槽和独立状态
+	if (mApp->IsVersusLevel() && mApp->mVersusSession != nullptr)
+	{
+		mZombieSeedBank = new SeedBank();
+		mVersus = new Versus(this, mApp->mVersusSession, mApp->mVersusSession->GetConfig());
+	}
 }
 
 Board::~Board()
@@ -248,6 +259,10 @@ Board::~Board()
 	delete mCursorObject;
 	delete mCursorPreview;
 	delete mSeedBank;
+	if (mZombieSeedBank) // +Gaga
+		delete mZombieSeedBank;
+	if (mVersus)         // +Gaga
+		delete mVersus;
 	if (mMenuButton)
 	{
 		delete mMenuButton;
@@ -839,6 +854,10 @@ void Board::PickZombieWaves()
 
 int Board::GetLevelRandSeed()
 {
+	if (mApp->IsVersusLevel()) // +Gaga: 两端必须使用同一随机种子
+	{
+		return static_cast<int>(mBoardRandSeed);
+	}
 	int aRndSeed = mApp->mPlayerInfo->mId + mBoardRandSeed;
 	if (mApp->IsAdventureMode())
 	{
@@ -1049,6 +1068,10 @@ void Board::PickBackground()
 		mBackground = BackgroundType::BACKGROUND_TREEOFWISDOM;
 		break;
 
+	case GameMode::GAMEMODE_CHALLENGE_VERSUS: // +Gaga: 联机对战固定白天泳池 6 行
+		mBackground = BackgroundType::BACKGROUND_3_POOL;
+		break;
+
 	default:
 		TOD_ASSERT(false);
 		break;
@@ -1254,6 +1277,16 @@ bool Board::IsZombieWaveDistributionOk()
 void Board::InitZombieWaves()
 {
 	memset(mZombieAllowed, false, sizeof(mZombieAllowed));
+	if (mApp->IsVersusLevel()) // +Gaga: 对战没有自动出怪波次
+	{
+		mNumWaves = 0;
+		mCurrentWave = 0;
+		mTotalSpawnedWaves = 0;
+		mZombieCountDown = 0x7FFFFFFF;
+		mZombieCountDownStart = mZombieCountDown;
+		mProgressMeterWidth = 0;
+		return;
+	}
 	if (mApp->IsAdventureMode())
 	{
 		InitZombieWavesForLevel(mLevel);
@@ -1457,6 +1490,14 @@ void Board::InitLevel()
 	}
 	// 初始化字幕播放记录
 	memset(mHelpDisplayed, 0, sizeof(mHelpDisplayed));
+	// +Gaga: 联机对战使用两套 6 格卡槽，不走普通关卡初始化
+	if (mApp->IsVersusLevel() && mVersus != nullptr)
+	{
+		mVersus->InitLevel();
+		MarkAllDirty();
+		return;
+	}
+
 	// 初始化卡槽及卡牌
 	mSeedBank->mNumPackets = GetNumSeedsInBank();
 	mSeedBank->UpdateWidth();
@@ -1679,6 +1720,7 @@ void Board::InitLawnMowers()
 	if (aGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || aGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST ||
 		aGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN || aGameMode == GameMode::GAMEMODE_TREE_OF_WISDOM ||
 		aGameMode == GameMode::GAMEMODE_CHALLENGE_LAST_STAND || aGameMode == GameMode::GAMEMODE_CHALLENGE_ZOMBIQUARIUM ||
+		aGameMode == GameMode::GAMEMODE_CHALLENGE_VERSUS ||
 		mApp->IsSquirrelLevel() || mApp->IsIZombieLevel() || (StageHasRoof() && !mApp->mPlayerInfo->mPurchases[StoreItem::STORE_ITEM_ROOF_CLEANER]))
 		return;
 
@@ -1697,6 +1739,9 @@ void Board::InitLawnMowers()
 
 bool Board::ChooseSeedsOnCurrentLevel()
 {
+	if (mApp->IsVersusLevel()) // +Gaga: 卡组在大厅里选
+		return false;
+
 	if (mApp->IsChallengeWithoutSeedBank() || HasConveyorBeltSeedBank())
 		return false;
 
@@ -3383,12 +3428,22 @@ void Board::UpdateCursor()
 void Board::MouseMove(int x, int y)
 {
 	Widget::MouseMove(x, y);
+	if (mVersus != nullptr) // +Gaga
+	{
+		mVersus->MouseMove(x, y);
+		return;
+	}
 	mChallenge->MouseMove(x, y);
 }
 
 void Board::MouseDrag(int x, int y)
 {
 	Widget::MouseDrag(x, y);
+	if (mVersus != nullptr) // +Gaga
+	{
+		mVersus->MouseMove(x, y);
+		return;
+	}
 	mChallenge->MouseMove(x, y);
 }
 
@@ -4904,8 +4959,11 @@ void Board::PickUpTool(GameObjectType theObjectType)
 
 void Board::MouseDown(int x, int y, int theClickCount)
 {
-	UpdateMousePosition();
+	if (mVersus == nullptr) // +Gaga: 对战光标由 Versus 自己维护，不能让 MouseHitTest 清掉手持卡
+		UpdateMousePosition();
 	Widget::MouseDown(x, y, theClickCount);
+	if (mVersus != nullptr && mVersus->MouseDown(x, y, theClickCount)) // +Gaga
+		return;
 	mIgnoreMouseUp = !CanInteractWithBoardButtons();
 	if (mTimeStopCounter > 0)
 		return;
@@ -5126,6 +5184,11 @@ bool Board::CanInteractWithBoardButtons()
 void Board::MouseUp(int x, int y, int theClickCount)
 {
 	Widget::MouseUp(x, y, theClickCount);
+	if (mVersus != nullptr)
+	{
+		mVersus->MouseUp(x, y, theClickCount);
+		return;
+	}
 	if (mIgnoreMouseUp)
 	{
 		mIgnoreMouseUp = false;
@@ -5574,8 +5637,11 @@ void Board::UpdateGameObjects()
 		aLawnMower->Update();
 	}
 
-	mCursorPreview->Update();
-	mCursorObject->Update();
+	if (mVersus == nullptr) // +Gaga: 光标是本地 UI，不能进入锁步模拟
+	{
+		mCursorPreview->Update();
+		mCursorObject->Update();
+	}
 
 	for (int i = 0; i < mSeedBank->mNumPackets; i++)
 	{
@@ -5637,6 +5703,12 @@ void Board::ZombiesWon(Zombie* theZombie)
 {
 	if (mApp->mGameScene == GameScenes::SCENE_ZOMBIES_WON)
 		return;
+
+	if (mVersus != nullptr) // +Gaga: 对战里突破即僵尸方胜利，不播原版进家过场
+	{
+		mVersus->OnZombieReachedHouse(theZombie);
+		return;
+	}
 
 	ClearAdvice(AdviceType::ADVICE_NONE);
 	mApp->mBoardResult = BoardResult::BOARDRESULT_LOST;
@@ -5819,7 +5891,7 @@ void Board::NextWaveComing()
 
 void Board::UpdateZombieSpawning()
 {
-	if (mApp->mGameMode == GameMode::GAMEMODE_UPSELL || mApp->mGameMode == GameMode::GAMEMODE_INTRO)
+	if (mApp->mGameMode == GameMode::GAMEMODE_UPSELL || mApp->mGameMode == GameMode::GAMEMODE_INTRO || mApp->IsVersusLevel())
 		return;
 
 	if (mFinalWaveSoundCounter > 0)
@@ -6291,7 +6363,8 @@ void Board::Update()
 	MarkDirty();
 
 	mCutScene->Update();
-	UpdateMousePosition();
+	if (mVersus == nullptr)
+		UpdateMousePosition();
 	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN)
 	{
 		mApp->mZenGarden->ZenGardenUpdate();
@@ -6372,12 +6445,39 @@ void Board::Update()
 		mPoolSparklyParticleID = mApp->ParticleGetID(aPoolParticle);
 	}
 
+	// +Gaga: 联机对战先同步双方输入帧，未就绪时只刷新本地 UI
+	if (mVersus != nullptr)
+	{
+		mCursorPreview->Update();
+		mCursorObject->Update();
+		mVersus->PumpNetwork();
+		if (!mVersus->CanStepSimulation())
+		{
+			mPrevMouseX = mApp->mWidgetManager->mLastMouseX;
+			mPrevMouseY = mApp->mWidgetManager->mLastMouseY;
+			return;
+		}
+		mVersus->BeginSimRng();
+		mVersus->ApplyCommandsForTick(mMainCounter + 1);
+	}
+
 	UpdateGridItems();
 	UpdateFwoosh();
 	UpdateGame();
 	UpdateFog();
-	mChallenge->Update();
-	UpdateLevelEndSequence();
+	if (mVersus != nullptr)
+	{
+		mVersus->Update();
+		mVersus->EndSimRng();
+	}
+	else
+	{
+		mChallenge->Update();
+	}
+	if (mVersus == nullptr)
+	{
+		UpdateLevelEndSequence();
+	}
 	mPrevMouseX = mApp->mWidgetManager->mLastMouseX;
 	mPrevMouseY = mApp->mWidgetManager->mLastMouseY;
 }
@@ -7077,6 +7177,8 @@ void Board::DrawGameObjects(Graphics* g)
 
 bool Board::HasProgressMeter()
 {
+	if (mApp->IsVersusLevel()) // +Gaga: 用倒计时代替波次进度
+		return false;
 	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || 
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST || 
 		mApp->IsFinalBossLevel() || 
@@ -7468,6 +7570,9 @@ void Board::DrawZenButtons(Graphics* g)
 
 void Board::DrawShovel(Graphics* g)
 {
+	if (mVersus != nullptr && mVersus->GetLocalSide() == VersusProtocol::SIDE_ZOMBIE) // +Gaga: 僵尸方没有铲子
+		return;
+
 	if (mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN && mApp->mGameMode != GameMode::GAMEMODE_TREE_OF_WISDOM)
 	{
 		if (mShowShovel)
@@ -7826,7 +7931,11 @@ void Board::DrawUIBottom(Graphics* g)
 
 	if (mApp->mGameScene != GameScenes::SCENE_ZOMBIES_WON)
 	{
-		if (mSeedBank->BeginDraw(g))
+		if (mVersus != nullptr) // +Gaga: 只画本地一方的卡槽
+		{
+			mVersus->DrawHUD(g);
+		}
+		else if (mSeedBank->BeginDraw(g))
 		{
 			mSeedBank->Draw(g);
 			mSeedBank->EndDraw(g);
@@ -8085,6 +8194,10 @@ void Board::DrawUITop(Graphics* g)
 	}
 
 	mToolTip->Draw(g);
+	if (mVersus != nullptr) // +Gaga: 等待/结果遮罩
+	{
+		mVersus->DrawOverlay(g);
+	}
 	DrawDebugText(g);
 	DrawDebugObjectRects(g);
 }
@@ -8281,6 +8394,23 @@ void Board::DoTypingCheck(KeyCode theKey)
 
 void Board::KeyDown(KeyCode theKey)
 {
+	if (mVersus != nullptr) // +Gaga: 对战中禁用作弊键/暂停，仅处理取消与退出
+	{
+		if (theKey == KeyCode::KEYCODE_ESCAPE)
+		{
+			if (mCursorObject->mCursorType != CursorType::CURSOR_TYPE_NORMAL)
+			{
+				ClearCursor();
+			}
+			else if (mApp->LawnMessageBox(Dialogs::DIALOG_MESSAGE, "退出对战", "确定要退出本局对战吗？\n对手将获得胜利。", "[DIALOG_BUTTON_YES]", "[DIALOG_BUTTON_NO]", Dialog::BUTTONS_YES_NO) == Dialog::ID_YES)
+			{
+				mVersus->EndMatch(mVersus->GetLocalSide() == VersusProtocol::SIDE_PLANT ? VersusProtocol::RESULT_ZOMBIE_WIN : VersusProtocol::RESULT_PLANT_WIN, true);
+				mApp->RequestBackToMain();
+			}
+		}
+		return;
+	}
+
 	DoTypingCheck(theKey);
 
 	if (mApp->mGameScene == GameScenes::SCENE_LEVEL_INTRO && 
@@ -8326,6 +8456,11 @@ static void TodCrash()
 //0x41B950（原版中废弃）
 void Board::KeyChar(char theChar)
 {
+	if (mVersus != nullptr) // +Gaga: 对战中不允许时停/作弊键
+	{
+		return;
+	}
+
 	// +Gaga: 3 键切换时停（全场 1/10 速度），普通构建也能使用。
 	// 智慧树模式仍用 3 设置挑战记录，保持原行为。
 	if (theChar == '3' && mApp->mGameMode != GameMode::GAMEMODE_TREE_OF_WISDOM)
@@ -9151,6 +9286,32 @@ bool Board::CanTakeSunMoney(int theAmount)
 	return theAmount <= mSunMoney + CountSunBeingCollected();
 }
 
+// +Gaga: 联机对战僵尸方资源
+void Board::AddBrainLight(int theAmount)
+{
+	mZombieBrain += theAmount;
+	if (mZombieBrain > 9990)
+	{
+		mZombieBrain = 9990;
+	}
+}
+
+bool Board::TakeBrainLight(int theAmount)
+{
+	if (CanTakeBrainLight(theAmount))
+	{
+		mZombieBrain -= theAmount;
+		return true;
+	}
+	mApp->PlaySample(Sexy::SOUND_BUZZER);
+	return false;
+}
+
+bool Board::CanTakeBrainLight(int theAmount)
+{
+	return theAmount <= mZombieBrain;
+}
+
 void Board::ProcessDeleteQueue()
 {
 	{
@@ -9233,6 +9394,10 @@ bool Board::HasConveyorBeltSeedBank()
 
 int Board::GetNumSeedsInBank()
 {
+	if (mApp->IsVersusLevel()) // +Gaga: 双方各 6 格
+	{
+		return 6;
+	}
 	if (mApp->IsScaryPotterLevel())
 	{
 		return 1;
@@ -9305,6 +9470,8 @@ bool Board::StageIsNight()
 
 bool Board::StageHasGraveStones()
 {
+	if (mApp->IsVersusLevel()) // +Gaga: 资源墓碑由 Versus 单独放置
+		return false;
 	if (mApp->IsWallnutBowlingLevel() ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_POGO_PARTY ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED ||
@@ -9335,6 +9502,8 @@ bool Board::StageHas6Rows()
 
 bool Board::StageHasZombieWalkInFromRight()
 {
+	if (mApp->IsVersusLevel()) // +Gaga: 僵尸由玩家直接投放
+		return false;
 	if (mApp->IsWhackAZombieLevel() ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ICE ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN ||
@@ -9993,6 +10162,8 @@ void Board::DropLootPiece(int thePosX, int thePosY, int theDropFactor)
 
 bool Board::CanDropLoot()
 {
+	if (mApp->IsVersusLevel()) // +Gaga: 对战不掉金币/掉落物
+		return false;
 	return !mCutScene->ShouldRunUpsellBoard() && (!mApp->IsFirstTimeAdventureMode() || mLevel >= 11);
 }
 

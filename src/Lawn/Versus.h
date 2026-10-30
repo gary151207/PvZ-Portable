@@ -47,7 +47,7 @@ constexpr int VERSUS_BRAIN_INTERVAL = 1000;
 constexpr int VERSUS_GRAVE_ROWS = 6;
 constexpr int VERSUS_GRAVE_COL = 8;
 constexpr int VERSUS_GRAVE_RESPAWN = 3000;
-constexpr int VERSUS_ZOMBIE_MIN_COL = 4;
+constexpr int VERSUS_ZOMBIE_MIN_COL = 8; // 仅最右一列（第 9 列）
 constexpr int VERSUS_DEFAULT_INPUT_DELAY = 4;
 constexpr int VERSUS_MAX_INPUT_DELAY = 10;
 

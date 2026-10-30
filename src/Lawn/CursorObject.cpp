@@ -20,6 +20,7 @@
  */
 
 #include "Board.h"
+#include "Challenge.h"
 #include "Cutscene.h"
 #include "ZenGarden.h"
 #include "../LawnApp.h"
@@ -193,7 +194,7 @@ void CursorObject::Draw(Graphics* g)
             aOffsetY += 30.0f;
         }
         aOffsetY -= 15.0f;
-        if (mApp->IsIZombieLevel() || mApp->IsVersusLevel()) // +Gaga
+        if (mApp->IsIZombieLevel() || (mApp->IsVersusLevel() && Challenge::IsZombieSeedType(mType))) // +Gaga
         {
             aOffsetX -= 55.0f;
             aOffsetY -= 70.0f;
@@ -313,7 +314,7 @@ void CursorPreview::Draw(Graphics* g)
     else
     {
         float aOffsetX, aOffsetY;
-        if (mApp->IsIZombieLevel() || mApp->IsVersusLevel()) // +Gaga
+        if (mApp->IsIZombieLevel() || (mApp->IsVersusLevel() && Challenge::IsZombieSeedType(aSeedType))) // +Gaga
         {
             float aHeight = PlantDrawHeightOffset(mBoard, nullptr, aSeedType, mGridX, mGridY);
             if (aSeedType == SeedType::SEED_ZOMBIE_GARGANTUAR)

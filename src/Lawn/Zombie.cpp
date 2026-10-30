@@ -1832,7 +1832,8 @@ void Zombie::UpdateZombieDolphinRider()
     bool aBackwards = IsWalkingBackwards();
     if (mZombiePhase == ZombiePhase::PHASE_DOLPHIN_WALKING && !aBackwards)
     {
-        if (mX > 700 && mX <= 720)
+        int aGridX = mBoard->PixelToGridXKeepOnBoard(static_cast<int>(mX) + 75, static_cast<int>(mY));
+        if (mX <= 720 && mBoard->IsPoolSquare(aGridX, mRow))
         {
             mZombiePhase = ZombiePhase::PHASE_DOLPHIN_INTO_POOL;
             PlayZombieReanim("anim_jumpinpool", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 16.0f);
@@ -1950,7 +1951,8 @@ void Zombie::UpdateZombieSnorkel()
     bool aBackwards = IsWalkingBackwards();
     if (mZombiePhase == ZombiePhase::PHASE_SNORKEL_WALKING && !aBackwards)
     {
-        if (mX > 700 && mX <= 720)
+        int aGridX = mBoard->PixelToGridXKeepOnBoard(static_cast<int>(mX) + 75, static_cast<int>(mY));
+        if (mX <= 720 && mBoard->IsPoolSquare(aGridX, mRow))
         {
             mVelX = 0.2f;
             mZombiePhase = ZombiePhase::PHASE_SNORKEL_INTO_POOL;

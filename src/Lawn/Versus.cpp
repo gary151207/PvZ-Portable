@@ -40,7 +40,7 @@
 
 #include <cstring>
 
-// +Gaga: 联机对战僵尸卡池。前 15 张沿用 I, Zombie 价格，后 9 张按强度定价。
+// +Gaga: 联机对战僵尸卡池。前 15 张沿用 I, Zombie 价格，后 8 张按强度定价。
 const VersusZombieCard gVersusZombieCards[] =
 {
 	{ SEED_ZOMBIE_NORMAL,            ZOMBIE_NORMAL,            50,  "普通僵尸",     false },
@@ -51,7 +51,6 @@ const VersusZombieCard gVersusZombieCards[] =
 	{ SEED_ZOMBIE_SCREEN_DOOR,       ZOMBIE_DOOR,              100, "铁门僵尸",     false },
 	{ SEED_ZOMBIE_FOOTBALL,          ZOMBIE_FOOTBALL,          175, "橄榄球僵尸",   false },
 	{ SEED_ZOMBIE_DANCER,            ZOMBIE_DANCER,            350, "舞王僵尸",     false },
-	{ SEED_ZOMBIE_DUCKY_TUBE,        ZOMBIE_DUCKY_TUBE,        75,  "鸭子泳圈僵尸", false },
 	{ SEED_ZOMBIE_SNORKEL,           ZOMBIE_SNORKEL,           100, "潜水僵尸",     true  },
 	{ SEED_ZOMBIE_BOBSLED,           ZOMBIE_BOBSLED,           250, "雪橇车僵尸",   false },
 	{ SEED_ZOMBIE_DOLPHIN_RIDER,     ZOMBIE_DOLPHIN_RIDER,     150, "海豚骑士僵尸", true  },

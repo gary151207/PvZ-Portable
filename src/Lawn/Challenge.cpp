@@ -2448,15 +2448,25 @@ PlantingReason Challenge::CanPlantAt(int theGridX, int theGridY, SeedType theSee
 	{
 		return theGridX > 2 ? PLANTING_NOT_PASSED_LINE : PLANTING_OK;
 	}
-	else if (mApp->IsVersusLevel()) // +Gaga: 僵尸投放规则
+	else if (mApp->IsVersusLevel()) // +Gaga: 僵尸只能放在最右列，且水中只允许会游泳的僵尸
 	{
 		if (IsZombieSeedType(theSeedType))
 		{
-			if (theSeedType == SEED_ZOMBIE_BUNGEE)
+			if (theGridX != VERSUS_ZOMBIE_MIN_COL)
 			{
-				return PLANTING_OK;
+				return PLANTING_NOT_HERE;
 			}
-			return theGridX >= VERSUS_ZOMBIE_MIN_COL ? PLANTING_OK : PLANTING_NOT_HERE;
+
+			if (mBoard->IsPoolSquare(theGridX, theGridY))
+			{
+				ZombieType aZombieType = IZombieSeedTypeToZombieType(theSeedType);
+				if (!Zombie::ZombieTypeCanGoInPool(aZombieType))
+				{
+					return PLANTING_NOT_HERE;
+				}
+			}
+
+			return PLANTING_OK;
 		}
 	}
 	else if (mApp->IsIZombieLevel())

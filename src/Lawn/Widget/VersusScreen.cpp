@@ -324,6 +324,10 @@ void VersusScreen::DrawCardGrid(Graphics* g, bool theZombie)
 			? static_cast<SeedType>(gVersusZombieCards[i].mSeedType)
 			: static_cast<SeedType>(i);
 		int aCost = theZombie ? gVersusZombieCards[i].mCost : Plant::GetCost(aSeed, SeedType::SEED_NONE);
+		if (!theZombie)
+		{
+			aCost = aCost > 25 ? aCost - 25 : 0; // 选卡界面还没进入对战模式，单独显示折扣价
+		}
 		bool aSelected = false;
 		int aCountSelected = theZombie ? mZombieCount : mPlantCount;
 		for (int j = 0; j < aCountSelected; j++)

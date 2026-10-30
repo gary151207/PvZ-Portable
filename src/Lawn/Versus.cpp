@@ -132,6 +132,10 @@ Versus::Versus(Board* theBoard, VersusSession* theSession, const VersusMatchConf
 		mGraveCounter[i] = 300 + i * 120;
 		mGraveRespawnCounter[i] = 0;
 	}
+	for (int i = 0; i < VersusProtocol::CARD_SLOTS; i++)
+	{
+		mZombieCooldown[i] = 0;
+	}
 }
 
 Versus::~Versus()
@@ -142,6 +146,10 @@ void Versus::InitLevel()
 {
 	mBoard->mSunMoney = mConfig.mStartSun;
 	mBoard->mZombieBrain = mConfig.mStartBrain;
+	for (int i = 0; i < VersusProtocol::CARD_SLOTS; i++)
+	{
+		mZombieCooldown[i] = 0;
+	}
 	mBoard->mSodPosition = 1000;
 	mBoard->mNumWaves = 0;
 	mBoard->mCurrentWave = 0;
@@ -458,12 +466,12 @@ bool Versus::ApplyZombieCommand(const VersusProtocol::Command& theCommand)
 	int aGridX = theCommand.mGridX;
 	int aGridY = theCommand.mGridY;
 	SeedType aCheckSeed = (aSeed == SeedType::SEED_IMITATER && theCommand.mImitaterType >= 0) ? static_cast<SeedType>(theCommand.mImitaterType) : aSeed;
-		if (mBoard->CanPlantAt(aGridX, aGridY, aCheckSeed) != PlantingReason::PLANTING_OK)
+	if (mBoard->CanPlantAt(aGridX, aGridY, aCheckSeed) != PlantingReason::PLANTING_OK)
 	{
 		return false;
 	}
 	int aPacketIndex = FindPacketIndex(mBoard, mBoard->mZombieSeedBank, aSeed, SeedType::SEED_NONE);
-	if (aPacketIndex < 0)
+	if (aPacketIndex < 0 || mZombieCooldown[aPacketIndex] > 0)
 	{
 		return false;
 	}
@@ -475,6 +483,7 @@ bool Versus::ApplyZombieCommand(const VersusProtocol::Command& theCommand)
 	ZombieType aZombieType = Challenge::IZombieSeedTypeToZombieType(aSeed);
 	mBoard->mChallenge->IZombiePlaceZombie(aZombieType, aGridX, aGridY);
 	mBoard->mZombieSeedBank->mSeedPackets[aPacketIndex].mTimesUsed++;
+	mZombieCooldown[aPacketIndex] = VERSUS_ZOMBIE_COOLDOWN_TICKS;
 	return true;
 }
 
@@ -502,6 +511,14 @@ void Versus::Update()
 		mEnded = true;
 		mResult = mSession->GetResult();
 		return;
+	}
+
+	for (int i = 0; i < VersusProtocol::CARD_SLOTS; i++)
+	{
+		if (mZombieCooldown[i] > 0)
+		{
+			mZombieCooldown[i]--;
+		}
 	}
 
 	UpdateGraves();
@@ -576,6 +593,7 @@ uint32_t Versus::ComputeChecksum() const
 		for (int i = 0; i < mBoard->mZombieSeedBank->mNumPackets; i++)
 		{
 			aHash = HashInt(aHash, mBoard->mZombieSeedBank->mSeedPackets[i].mPacketType);
+			aHash = HashInt(aHash, mZombieCooldown[i]);
 		}
 	}
 
@@ -721,7 +739,8 @@ bool Versus::MouseDown(int theX, int theY, int theClickCount)
 		{
 			SeedPacket* aPacket = (SeedPacket*)aHit.mObject;
 			int aCost = Plant::GetCost(aPacket->mPacketType, SeedType::SEED_NONE);
-			if (mBoard->CanTakeBrainLight(aCost))
+			bool aCoolingDown = aPacket->mIndex >= 0 && aPacket->mIndex < VersusProtocol::CARD_SLOTS && mZombieCooldown[aPacket->mIndex] > 0;
+			if (!aCoolingDown && mBoard->CanTakeBrainLight(aCost))
 			{
 				mBoard->mCursorObject->mType = aPacket->mPacketType;
 				mBoard->mCursorObject->mImitaterType = SeedType::SEED_NONE;
@@ -839,19 +858,26 @@ void Versus::DrawHUD(Sexy::Graphics* g)
 				continue;
 			}
 			int aCost = Plant::GetCost(aPacket.mPacketType, SeedType::SEED_NONE);
-			int aGrayness = mBoard->CanTakeBrainLight(aCost) ? 255 : 128;
+			int aCooldown = mZombieCooldown[i];
+			bool aCoolingDown = aCooldown > 0;
+			int aGrayness = (!aCoolingDown && mBoard->CanTakeBrainLight(aCost)) ? 255 : 128;
 			g->SetColor(Color::White);
 			TodDrawImageCelScaledF(g, Sexy::IMAGE_SEEDS, static_cast<float>(aPacket.mX), 8.0f, 2, 0, g->mScaleX, g->mScaleY);
+			g->SetColor(Color::White);
+			SeedPacketDrawSeed(g, static_cast<float>(aPacket.mX), 8.0f, aPacket.mPacketType, SeedType::SEED_NONE, 4.0f, 8.0f, 0.22f);
 			if (aGrayness != 255)
 			{
-				g->SetColor(Color(0, 0, 0, 90));
+				g->SetColor(Color(0, 0, 0, 110));
 				g->FillRect(aPacket.mX, 8, 50, 70);
 			}
 			g->SetColor(Color::White);
-			SeedPacketDrawSeed(g, static_cast<float>(aPacket.mX), 8.0f, aPacket.mPacketType, SeedType::SEED_NONE, 4.0f, 8.0f, 0.22f);
-			g->SetColor(Color::White);
 			std::string aCostText = std::to_string(aCost);
 			TodDrawString(g, aCostText, aPacket.mX + 25, 73, Sexy::FONT_CONTINUUMBOLD14, Color(255, 170, 230), DS_ALIGN_CENTER);
+			if (aCoolingDown)
+			{
+				std::string aCooldownText = StrFormat("%.1fs", aCooldown / 100.0f);
+				TodDrawString(g, aCooldownText, aPacket.mX + 25, 44, Sexy::FONT_CONTINUUMBOLD14, Color(255, 240, 150), DS_ALIGN_CENTER);
+			}
 		}
 		// 僵尸卡槽图自带阳光图标，先用木板色盖住，再画脑光图标
 		g->SetColor(Color(96, 50, 24));

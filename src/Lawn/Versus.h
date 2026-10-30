@@ -48,6 +48,7 @@ constexpr int VERSUS_GRAVE_ROWS = 6;
 constexpr int VERSUS_GRAVE_COL = 8;
 constexpr int VERSUS_GRAVE_RESPAWN = 3000;
 constexpr int VERSUS_ZOMBIE_MIN_COL = 8; // 仅最右一列（第 9 列）
+constexpr int VERSUS_ZOMBIE_COOLDOWN_TICKS = 750; // 僵尸卡统一 7.5 秒冷却
 constexpr int VERSUS_DEFAULT_INPUT_DELAY = 4;
 constexpr int VERSUS_MAX_INPUT_DELAY = 10;
 
@@ -232,6 +233,7 @@ private:
 	uint8_t mResult;
 	int mGraveCounter[VERSUS_GRAVE_ROWS];
 	int mGraveRespawnCounter[VERSUS_GRAVE_ROWS];
+	int mZombieCooldown[VersusProtocol::CARD_SLOTS]; // 每张僵尸卡剩余冷却 tick
 	int mBrainProduced;
 	Sexy::MTRand mSimRand;
 	Sexy::MTRand mSavedUiRand;

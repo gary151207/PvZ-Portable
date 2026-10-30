@@ -5273,6 +5273,9 @@ PlantDefinition& GetPlantDefinition(SeedType theSeedType)
 
 int Plant::GetCost(SeedType theSeedType, SeedType theImitaterType)
 {
+    // +Gaga: 联机对战植物方全卡 -25 阳光，0 阳光卡不变；僵尸卡不参与
+    int aVersusDiscount = (gLawnApp->IsVersusLevel() && !Challenge::IsZombieSeedType(theSeedType)) ? 25 : 0;
+
     if (gLawnApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED || gLawnApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_BEGHOULED_TWIST)
     {
         if (theSeedType == SeedType::SEED_REPEATER)
@@ -5333,12 +5336,14 @@ int Plant::GetCost(SeedType theSeedType, SeedType theImitaterType)
         if (theSeedType == SeedType::SEED_IMITATER && theImitaterType != SeedType::SEED_NONE)
         {
             const PlantDefinition& aPlantDef = GetPlantDefinition(theImitaterType);
-            return aPlantDef.mSeedCost;
+            int aCost = aPlantDef.mSeedCost;
+            return aVersusDiscount > 0 ? (aCost > aVersusDiscount ? aCost - aVersusDiscount : 0) : aCost;
         }
         else
         {
             const PlantDefinition& aPlantDef = GetPlantDefinition(theSeedType);
-            return aPlantDef.mSeedCost;
+            int aCost = aPlantDef.mSeedCost;
+            return aVersusDiscount > 0 ? (aCost > aVersusDiscount ? aCost - aVersusDiscount : 0) : aCost;
         }
     }
     }

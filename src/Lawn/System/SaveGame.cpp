@@ -1560,7 +1560,8 @@ enum BoardBaseFieldId : uint32_t
 	BOARD_FIELD_COINS_COLLECTED,
 	BOARD_FIELD_DIAMONDS_COLLECTED,
 	BOARD_FIELD_POTTED_PLANTS_COLLECTED,
-	BOARD_FIELD_CHOCOLATE_COLLECTED
+	BOARD_FIELD_CHOCOLATE_COLLECTED,
+	BOARD_FIELD_ZOMBIE_SPAWN_PAUSE_COUNTER
 };
 
 static void SyncBoardBasePortable(PortableSaveContext& theContext, Board* theBoard)
@@ -1644,6 +1645,7 @@ static void SyncBoardBasePortable(PortableSaveContext& theContext, Board* theBoa
 			case BOARD_FIELD_PROGRESS_METER_WIDTH: ApplyFieldWithSync(aFieldData, aFieldSize, [&](PortableSaveContext& c){ c.SyncInt32(theBoard->mProgressMeterWidth); }); break;
 			case BOARD_FIELD_FLAG_RAISE_COUNTER: ApplyFieldWithSync(aFieldData, aFieldSize, [&](PortableSaveContext& c){ c.SyncInt32(theBoard->mFlagRaiseCounter); }); break;
 			case BOARD_FIELD_ICE_TRAP_COUNTER: ApplyFieldWithSync(aFieldData, aFieldSize, [&](PortableSaveContext& c){ c.SyncInt32(theBoard->mIceTrapCounter); }); break;
+			case BOARD_FIELD_ZOMBIE_SPAWN_PAUSE_COUNTER: ApplyFieldWithSync(aFieldData, aFieldSize, [&](PortableSaveContext& c){ c.SyncInt32(theBoard->mZombieSpawnPauseCounter); }); break;
 			case BOARD_FIELD_BOARD_RAND_SEED: ApplyFieldWithSync(aFieldData, aFieldSize, [&](PortableSaveContext& c){ c.SyncInt32(theBoard->mBoardRandSeed); }); break;
 			case BOARD_FIELD_POOL_SPARKLY_PARTICLE_ID: ApplyFieldWithSync(aFieldData, aFieldSize, [&](PortableSaveContext& c){ SyncEnumU32(c, theBoard->mPoolSparklyParticleID); }); break;
 			case BOARD_FIELD_FWOOSH_ID: ApplyFieldWithSync(aFieldData, aFieldSize, [&](PortableSaveContext& c){ SyncEnumU32Array(c, &theBoard->mFwooshID[0][0], MAX_GRID_SIZE_Y * 12); }); break;
@@ -1796,6 +1798,7 @@ static void SyncBoardBasePortable(PortableSaveContext& theContext, Board* theBoa
 		AppendFieldWithSync(aBlob, BOARD_FIELD_DIAMONDS_COLLECTED, [&](PortableSaveContext& c){ c.SyncUInt32(theBoard->mDiamondsCollected); });
 		AppendFieldWithSync(aBlob, BOARD_FIELD_POTTED_PLANTS_COLLECTED, [&](PortableSaveContext& c){ c.SyncUInt32(theBoard->mPottedPlantsCollected); });
 		AppendFieldWithSync(aBlob, BOARD_FIELD_CHOCOLATE_COLLECTED, [&](PortableSaveContext& c){ c.SyncUInt32(theBoard->mChocolateCollected); });
+		AppendFieldWithSync(aBlob, BOARD_FIELD_ZOMBIE_SPAWN_PAUSE_COUNTER, [&](PortableSaveContext& c){ c.SyncInt32(theBoard->mZombieSpawnPauseCounter); });
 		WriteTLVBlob(theContext, aBlob);
 	}
 }

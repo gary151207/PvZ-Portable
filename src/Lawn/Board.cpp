@@ -150,6 +150,7 @@ Board::Board(LawnApp* theApp)
 	mDrawCount = 0;
 	mRiseFromGraveCounter = 0;
 	mFinalWaveSoundCounter = 0;
+	mZombieSpawnPauseCounter = 0;
 	mKilledYeti = false;
 	mTriggeredLawnMowers = 0;
 	mPlayTimeActiveLevel = 0;
@@ -1277,6 +1278,7 @@ bool Board::IsZombieWaveDistributionOk()
 void Board::InitZombieWaves()
 {
 	memset(mZombieAllowed, false, sizeof(mZombieAllowed));
+	mZombieSpawnPauseCounter = 0;
 	if (mApp->IsVersusLevel()) // +Gaga: 对战没有自动出怪波次
 	{
 		mNumWaves = 0;
@@ -5894,6 +5896,15 @@ void Board::UpdateZombieSpawning()
 	if (mApp->mGameMode == GameMode::GAMEMODE_UPSELL || mApp->mGameMode == GameMode::GAMEMODE_INTRO || mApp->IsVersusLevel())
 		return;
 
+	// +Gaga: 寒冰菇冻结全场时暂停出怪 10 秒。暂停走的是波次机制本身——波次倒计时、
+	// 大波预警、墓碑冒兵全部一起扣住，恢复后从原处接着走，因此下一波整体顺延 10 秒，
+	// 进度条也停在原处。撞上时点再放一颗只把暂停刷新回 10 秒，不叠加。
+	if (mZombieSpawnPauseCounter > 0)
+	{
+		mZombieSpawnPauseCounter--;
+		return;
+	}
+
 	if (mFinalWaveSoundCounter > 0)
 	{
 		mFinalWaveSoundCounter--;
@@ -6089,6 +6100,11 @@ void Board::UpdateProgressMeter()
 	}
 	else if (mCurrentWave != 0)
 	{
+		// +Gaga: 寒冰菇暂停出怪期间，进度条停在原处。否则冻结中的僵尸被打掉会让
+		// 血量比例上升，进度条照样往前爬。
+		if (mZombieSpawnPauseCounter > 0)
+			return;
+
 		// 更新旗帜升起倒计时
 		if (mFlagRaiseCounter > 0)
 			mFlagRaiseCounter--;
@@ -7633,6 +7649,11 @@ void Board::DrawDebugText(Graphics* g)
 		if (mHugeWaveCountDown > 0)
 		{
 			aText += StrFormat("HugeWaveCountDown: %d\n", mHugeWaveCountDown);
+		}
+
+		if (mZombieSpawnPauseCounter > 0) // +Gaga: 寒冰菇暂停出怪剩余时间
+		{
+			aText += StrFormat("SpawnPause: %d\n", mZombieSpawnPauseCounter);
 		}
 
 		Zombie* aBossZombie = GetBossZombie();

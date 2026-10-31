@@ -4632,6 +4632,12 @@ void Plant::DoSpecial()
     {
         mApp->PlayFoley(FoleyType::FOLEY_FROZEN);
         IceZombies();
+        // +Gaga: 寒冰菇额外暂停自动出怪 10 秒（持续时间内再放一颗只是刷新，不叠加）。
+        // 联机对战由僵尸方手动投放僵尸、本就没有自动出怪，因此不受影响。
+        if (!mApp->IsVersusLevel())
+        {
+            mBoard->mZombieSpawnPauseCounter = ICE_SHROOM_SPAWN_PAUSE_COUNTDOWN;
+        }
         mApp->AddTodParticle(aPosX, aPosY, static_cast<int>(RenderLayer::RENDER_LAYER_TOP), ParticleEffect::PARTICLE_ICE_TRAP);
 
         Die();

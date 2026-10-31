@@ -61,6 +61,8 @@ constexpr const int ZOMBIE_COUNTDOWN = 2500;
 constexpr const int ZOMBIE_COUNTDOWN_RANGE = 600;
 constexpr const int ZOMBIE_COUNTDOWN_BEFORE_FLAG = 4500;
 constexpr const int ZOMBIE_COUNTDOWN_BEFORE_REPICK = 5499;
+// +Gaga: 寒冰菇冻结全场时，同时暂停自动出怪 10 秒（100 cs/秒）
+constexpr const int ICE_SHROOM_SPAWN_PAUSE_COUNTDOWN = 1000;
 constexpr const int ZOMBIE_COUNTDOWN_MIN = 400;
 constexpr const int FOG_BLOW_RETURN_TIME = 2000;
 constexpr const int SUN_COUNTDOWN = 425;

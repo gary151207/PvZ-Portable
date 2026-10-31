@@ -197,6 +197,7 @@ public:
 	int32_t							mZombieCountDown;
 	int32_t							mZombieCountDownStart;
 	int32_t							mZombieSpawnMultiplier;
+	int32_t							mZombieSpawnPauseCounter;		// +Gaga: 寒冰菇暂停出怪的剩余帧数（同时冻结波次倒计时）
 	int32_t							mHugeWaveCountDown;
 	bool							mHelpDisplayed[NUM_ADVICE_TYPES];
 	AdviceType						mHelpIndex;

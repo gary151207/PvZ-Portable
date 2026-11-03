@@ -130,7 +130,8 @@ public:
     int32_t                         mPhaseCounter;
     int32_t                         mFromWave;
     bool                            mDroppedLoot;
-
+    // +Gaga: 被窝瓜压死。压死时留下标记，掉落判定据此跳过概率、必定掉一枚金币
+    bool                            mKilledBySquash;
     int32_t                         mZombieFade;
     bool                            mFlatTires;
     int32_t                         mUseLadderCol;

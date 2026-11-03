@@ -1545,7 +1545,17 @@ void Plant::DoSquashDamage()
             Rect aZombieRect = aZombie->GetZombieRect();
             if (GetRectOverlap(aAttackRect, aZombieRect) > (aZombie->mZombieType == ZombieType::ZOMBIE_FOOTBALL ? -20 : 0))
             {
+                // +Gaga: 被窝瓜压死的僵尸一定会掉钱。先给僵尸打上标记，这一下压不死就把标记撤掉
+                bool aWasDying = aZombie->IsDeadOrDying();
+                if (!aWasDying)
+                {
+                    aZombie->mKilledBySquash = true;
+                }
                 aZombie->TakeDamage(1800, 18U);
+                if (!aWasDying && !aZombie->IsDeadOrDying())
+                {
+                    aZombie->mKilledBySquash = false;
+                }
             }
         }
     }

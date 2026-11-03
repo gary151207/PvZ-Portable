@@ -167,6 +167,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
     mPhaseCounter = 0;
     mHitUmbrella = false;
     mDroppedLoot = false;
+    mKilledBySquash = false;
     mRelatedZombieID = ZombieID::ZOMBIEID_NULL;
     mZombieRect = Rect(36, 0, 42, 115);
     mZombieAttackRect = Rect(50, 0, 20, 115);
@@ -7344,8 +7345,9 @@ void Zombie::DropLoot()
 
     mDroppedLoot = true;
     int aZombieValue = GetZombieDefinition(mZombieType).mZombieValue;
-    if (mApp->IsLittleTroubleLevel() && Rand(4) != 0)
-
+    // +Gaga: 被窝瓜压死的僵尸无视“小僵尸关 3/4 不掉落”的概率，一定会走到掉落结算
+    bool aLittleTroubleMiss = mApp->IsLittleTroubleLevel() && Rand(4) != 0;
+    if (aLittleTroubleMiss && !mKilledBySquash)
     {
         return;
     }
@@ -7365,7 +7367,12 @@ void Zombie::DropLoot()
         mBoard->AddCoin(aCenterX - 40, aCenterY, CoinType::COIN_DIAMOND, CoinMotion::COIN_MOTION_COIN);
         mBoard->AddCoin(aCenterX - 50, aCenterY, CoinType::COIN_DIAMOND, CoinMotion::COIN_MOTION_COIN);
     }
-
+    else if (mKilledBySquash)
+    {
+        // +Gaga: 被窝瓜压死的僵尸必定掉一枚金币（原版这里只是按 1/30000 之类的概率掷骰）
+        mApp->PlayFoley(FoleyType::FOLEY_SPAWN_SUN);
+        mBoard->AddCoin(aCenterX - 40, aCenterY, CoinType::COIN_GOLD, CoinMotion::COIN_MOTION_COIN);
+    }
     else
     {
         mBoard->DropLootPiece(aCenterX, aCenterY, aZombieValue);

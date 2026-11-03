@@ -556,6 +556,11 @@ static void SyncGameObjectPortable(PortableSaveContext& theContext, GameObject& 
 }
 
 static constexpr const uint32_t PORTABLE_FIELD_TAIL = 100U;
+//+Gaga: 僵尸跟随者存档。旧版尾部字段固定 4 个 ID，保持不变以兼容旧存档/转换工具；
+//+Gaga: 舞王僵尸多出来的 4 个伴舞僵尸 ID 放在新增字段里，旧版读档时该字段缺失，多出的伴舞会被重新召唤
+static constexpr const size_t SAVED_FOLLOWER_COUNT = 4U;
+static constexpr const uint32_t PORTABLE_FIELD_EXTRA_FOLLOWERS = 101U;
+static constexpr const size_t EXTRA_FOLLOWER_COUNT = MAX_ZOMBIE_FOLLOWERS - SAVED_FOLLOWER_COUNT;
 
 template <typename T>
 static void ResetItemForRead(T& theItem)
@@ -844,7 +849,7 @@ static void SyncZombieTailPortable(PortableSaveContext& theContext, Zombie& theZ
 	theContext.SyncInt32(theZombie.mFlyingMaxHealth);
 	theContext.SyncBool(theZombie.mDead);
 	SyncEnumU32(theContext, theZombie.mRelatedZombieID);
-	SyncEnumU32Array(theContext, &theZombie.mFollowerZombieID[0], MAX_ZOMBIE_FOLLOWERS);
+	SyncEnumU32Array(theContext, &theZombie.mFollowerZombieID[0], SAVED_FOLLOWER_COUNT);
 	theContext.SyncBool(theZombie.mPlayingSong);
 	theContext.SyncInt32(theZombie.mParticleOffsetX);
 	theContext.SyncInt32(theZombie.mParticleOffsetY);
@@ -1810,6 +1815,10 @@ static void SyncZombiesPortable(PortableSaveContext& theContext, Board* theBoard
 		{
 			WriteGameObjectField(aOut, 1U, theZombie);
 			AppendFieldWithSync(aOut, PORTABLE_FIELD_TAIL, [&](PortableSaveContext& c){ SyncZombieTailPortable(c, theZombie); });
+			AppendFieldWithSync(aOut, PORTABLE_FIELD_EXTRA_FOLLOWERS, [&](PortableSaveContext& c)
+			{
+				SyncEnumU32Array(c, &theZombie.mFollowerZombieID[SAVED_FOLLOWER_COUNT], EXTRA_FOLLOWER_COUNT);
+			});
 		},
 		[&](uint32_t aFieldId, const unsigned char* aData, size_t aSize, Zombie& theZombie)
 		{
@@ -1818,6 +1827,10 @@ static void SyncZombiesPortable(PortableSaveContext& theContext, Board* theBoard
 			case 1U: ReadGameObjectField(aData, aSize, theZombie); break;
 			case 2U: ReadPodTailField(aData, aSize, theZombie, &Zombie::mZombieType); break; // legacy
 			case PORTABLE_FIELD_TAIL: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ SyncZombieTailPortable(c, theZombie); }); break;
+			case PORTABLE_FIELD_EXTRA_FOLLOWERS: ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c)
+			{
+				SyncEnumU32Array(c, &theZombie.mFollowerZombieID[SAVED_FOLLOWER_COUNT], EXTRA_FOLLOWER_COUNT);
+			}); break;
 			default: break;
 			}
 		});

@@ -63,6 +63,16 @@ constexpr const int ZOMBIE_COUNTDOWN_BEFORE_FLAG = 4500;
 constexpr const int ZOMBIE_COUNTDOWN_BEFORE_REPICK = 5499;
 // +Gaga: 寒冰菇冻结全场时，同时暂停自动出怪 10 秒（100 cs/秒）
 constexpr const int ICE_SHROOM_SPAWN_PAUSE_COUNTDOWN = 1000;
+// +Gaga: 毁灭菇爆炸后留在原地的辐射区。存在时间随机 3~5 秒（逻辑帧率 100fps，即 300~500 帧），
+// 半径 1.5 格（横向 1.5*80 像素，纵向 1.5 个行高），每 0.5 秒（50 帧）对范围内的僵尸造成 20 点伤害
+constexpr const int DOOMSHROOM_RADIATION_MIN_DURATION = 300;
+constexpr const int DOOMSHROOM_RADIATION_MAX_DURATION = 500;
+constexpr const float DOOMSHROOM_RADIATION_RADIUS_CELLS = 1.5f;
+constexpr const int DOOMSHROOM_RADIATION_DAMAGE_INTERVAL = 50;
+constexpr const int DOOMSHROOM_RADIATION_DAMAGE = 20;
+// +Gaga: 辐射区的伤害判定范围与毁灭菇爆炸一致：能伤到地面、空中、潜水、雪橇、离地、
+// 垂死、地下的所有僵尸（对应 Plant::GetDamageRangeFlags 里毁灭菇的 127）
+constexpr const unsigned int DOOMSHROOM_RADIATION_DAMAGE_FLAGS = 127;
 constexpr const int ZOMBIE_COUNTDOWN_MIN = 400;
 constexpr const int FOG_BLOW_RETURN_TIME = 2000;
 constexpr const int SUN_COUNTDOWN = 425;

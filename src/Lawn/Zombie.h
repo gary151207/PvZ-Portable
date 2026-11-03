@@ -26,9 +26,9 @@
 #include "GameObject.h"
 #include "../GameConstants.h"
 
-#define MAX_ZOMBIE_FOLLOWERS 4
+#define MAX_ZOMBIE_FOLLOWERS 8    //+Gaga: 原版 4，舞王僵尸一次最多带 8 个伴舞僵尸
 #define NUM_BOBSLED_FOLLOWERS 3
-#define NUM_BACKUP_DANCERS 4
+#define NUM_BACKUP_DANCERS 8    //+Gaga: 舞王僵尸一次召唤 8 个伴舞僵尸（四方向 + 四角）
 #define NUM_BOSS_BUNGEES 3
 
 constexpr const int ZOMBIE_START_RANDOM_OFFSET = 40;
@@ -130,6 +130,7 @@ public:
     int32_t                         mPhaseCounter;
     int32_t                         mFromWave;
     bool                            mDroppedLoot;
+
     int32_t                         mZombieFade;
     bool                            mFlatTires;
     int32_t                         mUseLadderCol;

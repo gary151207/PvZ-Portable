@@ -2818,6 +2818,25 @@ void Zombie::UpdateZombieDigger()
     }
 }
 
+//+Gaga: 8 个伴舞僵尸相对舞王僵尸的站位偏移：前 4 个是上、下、左、右，后 4 个是四个斜角
+struct BackupDancerPosition
+{
+    int mRowOffset;
+    int mPosXOffset;
+};
+
+static const BackupDancerPosition gBackupDancerPositions[NUM_BACKUP_DANCERS] =
+{
+    { -1,    0 },   // 上
+    {  1,    0 },   // 下
+    {  0, -100 },   // 左
+    {  0,  100 },   // 右
+    { -1, -100 },   // 左上
+    { -1,  100 },   // 右上
+    {  1, -100 },   // 左下
+    {  1,  100 },   // 右下
+};
+
 ZombieID Zombie::SummonBackupDancer(int theRow, int thePosX)
 {
     if (!mBoard->RowCanHaveZombieType(theRow, ZombieType::ZOMBIE_BACKUP_DANCER))
@@ -2864,15 +2883,9 @@ void Zombie::SummonBackupDancers()
     {
         if (mBoard->ZombieTryToGet(mFollowerZombieID[i]) == nullptr)
         {
-            int aRow = 0, aPosX = 0;
-            switch (i)
-            {
-            case 0:     aRow = mRow - 1;    aPosX = mPosX;          break;
-            case 1:     aRow = mRow + 1;    aPosX = mPosX;          break;
-            case 2:     aRow = mRow;        aPosX = mPosX - 100;    break;
-            case 3:     aRow = mRow;        aPosX = mPosX + 100;    break;
-            default:    TOD_ASSERT(false);                               break;
-            }
+            const BackupDancerPosition& aPosition = gBackupDancerPositions[i];
+            int aRow = mRow + aPosition.mRowOffset;
+            int aPosX = static_cast<int>(mPosX) + aPosition.mPosXOffset;
 
             mFollowerZombieID[i] = SummonBackupDancer(aRow, aPosX);
         }
@@ -2886,15 +2899,9 @@ bool Zombie::NeedsMoreBackupDancers()
     {
         if (mBoard->ZombieTryToGet(mFollowerZombieID[i]) == nullptr)
         {
-            if (i == 0 && !mBoard->RowCanHaveZombieType(mRow - 1, ZombieType::ZOMBIE_BACKUP_DANCER))
-            {
+            int aRow = mRow + gBackupDancerPositions[i].mRowOffset;
+            if (!mBoard->RowCanHaveZombieType(aRow, ZombieType::ZOMBIE_BACKUP_DANCER))
                 continue;
-            }
-
-            if (i == 1 && !mBoard->RowCanHaveZombieType(mRow + 1, ZombieType::ZOMBIE_BACKUP_DANCER))
-            {
-                continue;
-            }
 
             return true;
         }
@@ -7338,6 +7345,7 @@ void Zombie::DropLoot()
     mDroppedLoot = true;
     int aZombieValue = GetZombieDefinition(mZombieType).mZombieValue;
     if (mApp->IsLittleTroubleLevel() && Rand(4) != 0)
+
     {
         return;
     }
@@ -7357,6 +7365,7 @@ void Zombie::DropLoot()
         mBoard->AddCoin(aCenterX - 40, aCenterY, CoinType::COIN_DIAMOND, CoinMotion::COIN_MOTION_COIN);
         mBoard->AddCoin(aCenterX - 50, aCenterY, CoinType::COIN_DIAMOND, CoinMotion::COIN_MOTION_COIN);
     }
+
     else
     {
         mBoard->DropLootPiece(aCenterX, aCenterY, aZombieValue);

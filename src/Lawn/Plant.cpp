@@ -4597,6 +4597,8 @@ void Plant::DoSpecial()
 
         mApp->AddTodParticle(aPosX, aPosY, static_cast<int>(RenderLayer::RENDER_LAYER_TOP), ParticleEffect::PARTICLE_DOOM);
         mBoard->AddACrater(mPlantCol, mRow)->mGridItemCounter = 18000;
+        // +Gaga: 爆炸后在原地留下一片 3~5 秒的辐射区（半径 1.5 格，每 0.5 秒 20 点伤害）
+        mBoard->AddDoomRadiationZone(mPlantCol, mRow);
         mBoard->ShakeBoard(3, -4);
 
         Die();

@@ -1025,7 +1025,8 @@ enum RenderObjectType : int32_t
     RENDER_ITEM_SCREEN_FADE,
     RENDER_ITEM_BOSS_PART,
     RENDER_ITEM_GRID_ITEM,
-    RENDER_ITEM_GRID_ITEM_OVERLAY
+    RENDER_ITEM_GRID_ITEM_OVERLAY,
+    RENDER_ITEM_DOOM_RADIATION        // +Gaga: 毁灭菇爆炸后留在地面的辐射区
 };
 enum ScaryPotType : int32_t
 {

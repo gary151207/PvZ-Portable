@@ -151,6 +151,7 @@ Board::Board(LawnApp* theApp)
 	mRiseFromGraveCounter = 0;
 	mFinalWaveSoundCounter = 0;
 	mZombieSpawnPauseCounter = 0;
+	ClearDoomRadiationZones(); // +Gaga
 	mKilledYeti = false;
 	mTriggeredLawnMowers = 0;
 	mPlayTimeActiveLevel = 0;
@@ -1486,6 +1487,8 @@ void Board::InitLevel()
 	}
 	// 初始化阳光掉落
 	mNumSunsFallen = 0;
+	// +Gaga: 换关时清掉上一关残留的毁灭菇辐射区
+	ClearDoomRadiationZones();
 	if (!StageIsNight())
 	{
 		mSunCountDown = RandRangeInt(425, 700);
@@ -5576,7 +5579,8 @@ void Board::SpawnZombieWave()
 				ZombieType aZombieType = mZombiesInWave[mCurrentWave][i];
 				if (aZombieType == ZombieType::ZOMBIE_BOBSLED && !CanAddBobSled())
 				{
-					for (int aFollower = 0; aFollower < MAX_ZOMBIE_FOLLOWERS && aSpawnedCount < aBudget; aFollower++)
+					// +Gaga: 雪橇僵尸小队固定是 1 只领队 + 3 只乘员，不能用伴舞僵尸扩充后的跟随者上限
+					for (int aFollower = 0; aFollower <= NUM_BOBSLED_FOLLOWERS && aSpawnedCount < aBudget; aFollower++)
 					{
 						AddZombie(ZombieType::ZOMBIE_NORMAL, mCurrentWave);  // 生成 4 只普通僵尸以代替雪橇僵尸小队
 						aSpawnedCount++;
@@ -6084,6 +6088,128 @@ void Board::UpdateIce()
 	}
 }
 
+// +Gaga: 辐射区的判定范围是一个以爆炸格为中心的椭圆：纵向按“相差几行”折算成像素距离，
+// 所以正好覆盖爆炸格所在行与上下各一行；横向用僵尸碰撞框离圆心最近的水平距离。
+// 两轴归一化后落在单位圆内即视为处于辐射区。
+static bool DoomRadiationIntersectsZombie(const DoomRadiationZone& theZone, const Rect& theZombieRect, int theZombieRow, bool theZombieIsBoss)
+{
+	if (theZone.mRadiusX <= 0 || theZone.mRadiusY <= 0)
+	{
+		return false;
+	}
+
+	// 僵王博士横跨整行，按与爆炸格同行处理
+	int aRowDist = theZombieIsBoss ? 0 : theZombieRow - theZone.mRow;
+	float aNormY = static_cast<float>(aRowDist * theZone.mRowHeight) / theZone.mRadiusY;
+	if (aNormY > 1.0f || aNormY < -1.0f)
+	{
+		return false;
+	}
+
+	float aDeltaX = 0.0f;
+	if (theZombieRect.mX > theZone.mX)
+	{
+		aDeltaX = static_cast<float>(theZombieRect.mX - theZone.mX);
+	}
+	else if (theZombieRect.mX + theZombieRect.mWidth < theZone.mX)
+	{
+		aDeltaX = static_cast<float>(theZone.mX - (theZombieRect.mX + theZombieRect.mWidth));
+	}
+
+	float aNormX = aDeltaX / theZone.mRadiusX;
+	return aNormX * aNormX + aNormY * aNormY <= 1.0f;
+}
+
+void Board::ClearDoomRadiationZones()
+{
+	for (int i = 0; i < MAX_DOOM_RADIATION_ZONES; i++)
+	{
+		memset(&mDoomRadiationZones[i], 0, sizeof(DoomRadiationZone));
+	}
+}
+
+// +Gaga: 毁灭菇爆炸后，在它所在的格子留下一片辐射区
+void Board::AddDoomRadiationZone(int theGridX, int theGridY)
+{
+	TOD_ASSERT(theGridX >= 0 && theGridX < MAX_GRID_SIZE_X);
+	TOD_ASSERT(theGridY >= 0 && theGridY < MAX_GRID_SIZE_Y);
+
+	// 水中、屋顶的行距是 85 像素，白天与夜晚的草地是 100 像素
+	int aRowHeight = (StageHasPool() || StageHasRoof()) ? 85 : 100;
+
+	DoomRadiationZone* aZone = nullptr;
+	for (int i = 0; i < MAX_DOOM_RADIATION_ZONES; i++)
+	{
+		if (!mDoomRadiationZones[i].mActive)
+		{
+			aZone = &mDoomRadiationZones[i];
+			break;
+		}
+	}
+
+	// 槽位用满时顶掉剩余时间最短的那片，保证刚炸开的这颗总能看到效果
+	if (aZone == nullptr)
+	{
+		aZone = &mDoomRadiationZones[0];
+		for (int i = 1; i < MAX_DOOM_RADIATION_ZONES; i++)
+		{
+			if (mDoomRadiationZones[i].mTimer < aZone->mTimer)
+			{
+				aZone = &mDoomRadiationZones[i];
+			}
+		}
+	}
+
+	aZone->mActive = true;
+	aZone->mX = GridToPixelX(theGridX, theGridY) + 40;			// 格子中心
+	aZone->mY = GridToPixelY(theGridX, theGridY) + aRowHeight / 2;
+	aZone->mRow = theGridY;
+	aZone->mRadiusX = static_cast<int>(DOOMSHROOM_RADIATION_RADIUS_CELLS * 80.0f);
+	aZone->mRadiusY = static_cast<int>(DOOMSHROOM_RADIATION_RADIUS_CELLS * aRowHeight);
+	aZone->mRowHeight = aRowHeight;
+	aZone->mDuration = RandRangeInt(DOOMSHROOM_RADIATION_MIN_DURATION, DOOMSHROOM_RADIATION_MAX_DURATION);
+	aZone->mTimer = aZone->mDuration;
+	aZone->mDamageTimer = DOOMSHROOM_RADIATION_DAMAGE_INTERVAL;
+}
+
+void Board::UpdateDoomRadiationZones()
+{
+	for (int i = 0; i < MAX_DOOM_RADIATION_ZONES; i++)
+	{
+		DoomRadiationZone& aZone = mDoomRadiationZones[i];
+		if (!aZone.mActive)
+		{
+			continue;
+		}
+
+		aZone.mTimer--;
+		aZone.mDamageTimer--;
+		if (aZone.mDamageTimer <= 0)
+		{
+			aZone.mDamageTimer = DOOMSHROOM_RADIATION_DAMAGE_INTERVAL;
+
+			Zombie* aZombie = nullptr;
+			while (IterateZombies(aZombie))
+			{
+				if (!aZombie->EffectedByDamage(DOOMSHROOM_RADIATION_DAMAGE_FLAGS))
+				{
+					continue;
+				}
+
+				if (DoomRadiationIntersectsZombie(aZone, aZombie->GetZombieRect(), aZombie->mRow, aZombie->mZombieType == ZombieType::ZOMBIE_BOSS))
+				{
+					aZombie->TakeDamage(DOOMSHROOM_RADIATION_DAMAGE, 0U);
+				}
+			}
+		}
+
+		if (aZone.mTimer <= 0)
+		{
+			aZone.mActive = false;
+		}
+	}
+}
+
 void Board::UpdateProgressMeter()
 {
 	if (mApp->IsFinalBossLevel())
@@ -6336,6 +6462,7 @@ void Board::UpdateGame()
 	UpdateSunSpawning();
 	UpdateZombieSpawning();
 	UpdateIce();
+	UpdateDoomRadiationZones(); // +Gaga: 毁灭菇留下的辐射区
 	if (mIceTrapCounter > 0)
 	{
 		mIceTrapCounter--;
@@ -6553,6 +6680,55 @@ void Board::DrawIce(Graphics* g, int theGridY)
 		g->DrawImage(Sexy::IMAGE_ICE, aRepeatDstRect, aRepeatSrcRect);
 	}
 	g->DrawImage(Sexy::IMAGE_ICE_CAP, mIceMinX[theGridY], aPosY);
+	g->SetColorizeImages(false);
+}
+
+// +Gaga: 把一层柔边圆形光斑（IMAGE_REANIM_COINGLOW）拉伸成椭圆铺在指定位置
+static void DrawDoomRadiationGlow(Graphics* g, Image* theImage, int theCenterX, int theCenterY, int theWidth, int theHeight, const Color& theColor)
+{
+	g->SetColor(theColor);
+	Rect aDestRect(theCenterX - theWidth / 2, theCenterY - theHeight / 2, theWidth, theHeight);
+	g->DrawImage(theImage, aDestRect, Rect(0, 0, theImage->GetWidth(), theImage->GetHeight()));
+}
+
+// +Gaga: 辐射区的画面：暗红薄雾 + 亮红光晕 + 橙红内圈 + 白色热点，用叠加模式叠成一片
+// 发光的红色辐射区（普通混合的绿色在草地和夜色里几乎看不见）。亮度随时间呼吸，
+// 并在每一次伤害结算的瞬间亮一下
+void Board::DrawDoomRadiationZone(Graphics* g, const DoomRadiationZone& theZone)
+{
+	if (!theZone.mActive)
+	{
+		return;
+	}
+
+	int aAge = theZone.mDuration - theZone.mTimer;
+	// 刚炸开时 15 帧渐显，最后 60 帧渐隐
+	float aFade = std::min(1.0f, aAge / 15.0f);
+	aFade = std::min(aFade, theZone.mTimer / 60.0f);
+	if (aFade <= 0.0f)
+	{
+		return;
+	}
+
+	float aPulse = 0.90f + 0.10f * sin(aAge * 0.16f);
+	int aSinceDamage = DOOMSHROOM_RADIATION_DAMAGE_INTERVAL - theZone.mDamageTimer;
+	if (aSinceDamage < 8)
+	{
+		aPulse += 0.2f * (1.0f - aSinceDamage / 8.0f);
+	}
+
+	int anAlpha = ClampInt(static_cast<int>(255.0f * aFade * aPulse), 0, 255);
+	Image* aGlowImage = Sexy::IMAGE_REANIM_COINGLOW;
+	int aWidth = theZone.mRadiusX * 2;
+	int aHeight = theZone.mRadiusY * 2;
+
+	g->SetColorizeImages(true);
+	g->SetDrawMode(Graphics::DRAWMODE_ADDITIVE);
+	DrawDoomRadiationGlow(g, aGlowImage, theZone.mX, theZone.mY, aWidth, aHeight, Color(175, 22, 12, anAlpha * 85 / 100));
+	DrawDoomRadiationGlow(g, aGlowImage, theZone.mX, theZone.mY, aWidth * 4 / 5, aHeight * 4 / 5, Color(255, 45, 20, anAlpha * 90 / 100));
+	DrawDoomRadiationGlow(g, aGlowImage, theZone.mX, theZone.mY, aWidth / 2, aHeight / 2, Color(255, 115, 50, anAlpha));
+	DrawDoomRadiationGlow(g, aGlowImage, theZone.mX, theZone.mY, aWidth / 4, aHeight / 4, Color(255, 195, 125, anAlpha));
+	g->SetDrawMode(Graphics::DRAWMODE_NORMAL);
 	g->SetColorizeImages(false);
 }
 
@@ -6937,6 +7113,18 @@ void Board::DrawGameObjects(Graphics* g)
 			aRenderItemCount++;
 		}
 	}
+	// +Gaga: 毁灭菇留下的辐射区画在地面层：盖住草地、在弹坑与僵尸影子之下
+	for (int i = 0; i < MAX_DOOM_RADIATION_ZONES; i++)
+	{
+		if (mDoomRadiationZones[i].mActive)
+		{
+			RenderItem& aRenderItem = aRenderList[aRenderItemCount];
+			aRenderItem.mRenderObjectType = RenderObjectType::RENDER_ITEM_DOOM_RADIATION;
+			aRenderItem.mBoardGridY = i;
+			aRenderItem.mZPos = MakeRenderOrder(RenderLayer::RENDER_LAYER_GROUND, mDoomRadiationZones[i].mRow, 0);
+			aRenderItemCount++;
+		}
+	}
 	{
 		int aZPos;
 		if (mTimeStopCounter > 0)
@@ -7134,6 +7322,10 @@ void Board::DrawGameObjects(Graphics* g)
 
 		case RenderObjectType::RENDER_ITEM_ICE:
 			DrawIce(g, aRenderItem.mBoardGridY);
+			break;
+
+		case RenderObjectType::RENDER_ITEM_DOOM_RADIATION:
+			DrawDoomRadiationZone(g, mDoomRadiationZones[aRenderItem.mBoardGridY]);
 			break;
 
 		case RenderObjectType::RENDER_ITEM_PARTICLE:

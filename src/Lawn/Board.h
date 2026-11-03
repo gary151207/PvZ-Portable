@@ -48,6 +48,8 @@ using namespace Sexy;
 #define MAX_POOL_GRID_SIZE 10
 #define MAX_RENDER_ITEMS 2048
 #define PROGRESS_METER_COUNTER 150
+// +Gaga: 同时存在的毁灭菇辐射区片数上限（同格反复种毁灭菇时，顶掉剩余时间最短的那片）
+#define MAX_DOOM_RADIATION_ZONES 8
 
 class LawnApp;
 class CursorObject;
@@ -126,6 +128,22 @@ struct BungeeDropGrid
 	int								mGridArrayCount;
 };
 
+// +Gaga: 毁灭菇爆炸后留在原地的辐射区。以爆炸格中心为圆心，横向半径 1.5 格、纵向半径 1.5 行，
+// 存在 3~5 秒，每 0.5 秒对范围内的僵尸结算一次伤害
+struct DoomRadiationZone
+{
+	bool							mActive;
+	int								mX;					// 圆心横坐标（爆炸所在格的中心）
+	int								mY;					// 圆心纵坐标
+	int								mRow;				// 所在行，决定绘制层次
+	int								mRadiusX;			// 横向半径（像素）
+	int								mRadiusY;			// 纵向半径（像素，按舞台行高换算）
+	int								mRowHeight;			// 该舞台的行高（像素），用于把行距换算成纵向距离
+	int								mDuration;			// 总存在帧数
+	int								mTimer;				// 剩余存在帧数
+	int								mDamageTimer;		// 距离下一次伤害结算的帧数
+};
+
 class Board : public Widget, public ButtonListener
 {
 public:
@@ -198,6 +216,7 @@ public:
 	int32_t							mZombieCountDownStart;
 	int32_t							mZombieSpawnMultiplier;
 	int32_t							mZombieSpawnPauseCounter;		// +Gaga: 寒冰菇暂停出怪的剩余帧数（同时冻结波次倒计时）
+	DoomRadiationZone				mDoomRadiationZones[MAX_DOOM_RADIATION_ZONES];	// +Gaga: 毁灭菇留下的辐射区
 	int32_t							mHugeWaveCountDown;
 	bool							mHelpDisplayed[NUM_ADVICE_TYPES];
 	AdviceType						mHelpIndex;
@@ -370,6 +389,11 @@ public:
 	void							DrawFadeOut(Graphics* g);
 	void							DrawIce(Graphics* g, int theGridY);
 	bool							IsIceAt(int theGridX, int theGridY);
+	// +Gaga: 毁灭菇爆炸后留在原地的辐射区（3~5 秒，半径 1.5 格，每 0.5 秒 20 点伤害）
+	void							AddDoomRadiationZone(int theGridX, int theGridY);
+	void							UpdateDoomRadiationZones();
+	void							ClearDoomRadiationZones();
+	void							DrawDoomRadiationZone(Graphics* g, const DoomRadiationZone& theZone);
 	/*inline*/ ZombieID				ZombieGetID(Zombie* theZombie);
 	/*inline*/ Zombie*				ZombieGet(ZombieID theZombieID);
 	/*inline*/ Zombie*				ZombieTryToGet(ZombieID theZombieID);

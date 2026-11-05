@@ -194,6 +194,7 @@ public:
     int32_t                 mPeaBurstDelay;                                     //+Gaga: 豌豆射手/小喷菇三连发中距下一发的间隔帧数
     int32_t                 mFumeSporeShots;                                    //+Gaga: 大喷菇额外孢子还剩余几发待发射
     int32_t                 mFumeSporeDelay;                                    //+Gaga: 大喷菇额外孢子中距下一发的间隔帧数
+    int32_t                 mTanglekelpDraggedCount;                            //+Gaga: 缠绕水草已经拖下水的僵尸数，拖满 3 只后才消失
     ReanimationID           mBodyReanimID;
     ReanimationID           mHeadReanimID;
     ReanimationID           mHeadReanimID2;

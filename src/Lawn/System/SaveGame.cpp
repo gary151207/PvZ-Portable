@@ -923,6 +923,8 @@ static void SyncPlantTailPortable(PortableSaveContext& theContext, Plant& thePla
 	theContext.SyncBool(thePlant.mIsAsleep);
 	theContext.SyncBool(thePlant.mIsOnBoard);
 	theContext.SyncBool(thePlant.mHighlighted);
+	//+Gaga: 缠绕水草已经拖下水的僵尸数。追加在尾部，旧存档读到这里会按 0 处理
+	theContext.SyncInt32(thePlant.mTanglekelpDraggedCount);
 }
 
 static void SyncProjectileTailPortable(PortableSaveContext& theContext, Projectile& theProjectile)

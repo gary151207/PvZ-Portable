@@ -82,6 +82,10 @@ static const int CHOMPER_ABYSS_MAW_CHANCE_PERCENT = 25;
 static const int CHOMPER_BITE_DAMAGE = 40;
 //+Gaga: 「深渊巨口」发动时嘴部零件的额外放大倍率（叠加在原动画自带的缩放上）
 static const float CHOMPER_ABYSS_MAW_MOUTH_SCALE = 1.5f;
+//+Gaga: 缠绕水草一共能把几只僵尸拖下水（原版拖 1 只后自己就消失）
+static const int TANGLEKELP_MAX_DRAGS = 3;
+//+Gaga: 拖完一只后重新找下一只目标前的水面停顿帧数（逻辑帧率 100fps，30 帧即 0.3 秒）
+static const int TANGLEKELP_REARM_DELAY_TICKS = 30;
 //+Gaga: 小喷菇/阳光菇/海蘑菇每个堆叠槽位相对格子左上角的水平偏移（像素）：
 // 第 1 株居中（与原版一致），第 2 株靠左，第 3 株靠右，让同格三株不会完全重叠
 static const int STACK_PLANT_OFFSET_X[MAX_STACK_PLANTS] = { 0, -20, 20 };
@@ -171,6 +175,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
     mPeaBurstDelay = 0;
     mFumeSporeShots = 0;
     mFumeSporeDelay = 0;
+    mTanglekelpDraggedCount = 0;
     mShakeOffsetX = 0.0f;
     mShakeOffsetY = 0.0f;
     mFrameLength = RandRangeInt(12, 18);
@@ -1328,6 +1333,19 @@ void Plant::UpdateTanglekelp()
 {
     if (mState != PlantState::STATE_TANGLEKELP_GRABBING)
     {
+        //+Gaga: 拖够 TANGLEKELP_MAX_DRAGS 只之后才消失。这里兜底，免得读档等异常情况下留下永远抓不到人的空壳
+        if (mTanglekelpDraggedCount >= TANGLEKELP_MAX_DRAGS)
+        {
+            Die();
+            return;
+        }
+
+        //+Gaga: 刚拖完一只要在水面停顿一下，别在同一帧里接着抓下一只
+        if (mStateCountdown > 0)
+        {
+            return;
+        }
+
         Zombie* aZombie = FindTargetZombie(mRow, PlantWeapon::WEAPON_PRIMARY);
         if (aZombie)
         {
@@ -1368,6 +1386,8 @@ void Plant::UpdateTanglekelp()
             {
                 aZombie->DragUnder();
                 aZombie->PoolSplash(false);
+                //+Gaga: 这一只已经拖下水，占掉一次；满 3 只后水草才消失
+                mTanglekelpDraggedCount++;
             }
         }
 
@@ -1383,12 +1403,23 @@ void Plant::UpdateTanglekelp()
 
         if (mStateCountdown == 0)
         {
-            Die();
-
             Zombie* aZombie = mBoard->ZombieTryToGet(mTargetZombieID);
             if (aZombie)
             {
                 aZombie->DieWithLoot();
+            }
+
+            mTargetZombieID = ZombieID::ZOMBIEID_NULL;
+
+            if (mTanglekelpDraggedCount >= TANGLEKELP_MAX_DRAGS)
+            {
+                Die();
+            }
+            else
+            {
+                //+Gaga: 还没拖够 3 只，回到待机姿态继续等下一只僵尸，水面停顿一会儿再重新找目标
+                mState = PlantState::STATE_NOTREADY;
+                mStateCountdown = TANGLEKELP_REARM_DELAY_TICKS;
             }
         }
     }

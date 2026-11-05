@@ -52,6 +52,7 @@ A **cross-platform** community-driven reimplementation of Plants vs. Zombies: Ga
 - [x] **Doom-shroom radiation** — after a Doom-shroom explodes it leaves a glowing radiation zone on its tile for a random 3~5 seconds. The zone reaches 1.5 tiles around its centre (about three lanes) and burns every zombie inside for 20 damage every 0.5 seconds, flashing brighter on each damage tick
 - [x] **Squash always pays** — every zombie crushed by a Squash drops money on the spot instead of going through the usual drop roll: it leaves a gold coin, the Yeti still keeps its diamonds, and even Little Trouble's "3 out of 4 kills drop nothing" rule no longer applies to a squash kill
 - [x] **Ice-shroom spawn freeze** — besides freezing every zombie, an Ice-shroom pauses automatic zombie spawning for 10 seconds. The pause rides on the wave mechanic itself: the wave countdown, the huge-wave warning and grave risers all hold, so the next wave slips 10 seconds and the wave progress bar stays put. Another Ice-shroom during the pause only refreshes it; LAN versus spawns zombies by hand, so it is unaffected
+- [x] **Tangle Kelp triple drag** — a Tangle Kelp no longer disappears after pulling its first zombie under. It drags up to 3 zombies into the pool, resting on the surface for a moment after each one before hunting the next zombie in its lane, and only sinks away once the third victim is gone. Its Almanac entry now says three instead of single use
 
 This project supports the following platforms (including but not limited to):
 

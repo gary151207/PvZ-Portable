@@ -50,6 +50,10 @@ static const int PEA_BURST_CHANCE_PERCENT = 20;
 static const int PEA_BURST_INTERVAL_TICKS = 10;
 //+Gaga: 向日葵每次产出阳光时额外再产出一朵阳光的概率（百分比）
 static const int SUNFLOWER_EXTRA_SUN_CHANCE_PERCENT = 25;
+//+Gaga: 双子向日葵每次产出阳光时额外再产出 50 点阳光的概率（百分比）。
+// 50 点阳光用两朵普通阳光凑出，保持和原版双子向日葵两朵并排的观感，也避免大阳光点击范围不匹配
+static const int TWINSUNFLOWER_EXTRA_SUN_CHANCE_PERCENT = 40;
+static const int TWINSUNFLOWER_EXTRA_SUN_COUNT = 2;
 //+Gaga: 阳光菇每次产出阳光时额外再产出一朵阳光的概率（百分比），额外那朵的大小跟着长大程度走
 static const int SUNSHROOM_EXTRA_SUN_CHANCE_PERCENT = 25;
 //+Gaga: 土豆雷爆炸后不消失、重新入土的概率（百分比）
@@ -62,10 +66,24 @@ static const float POTATO_MINE_REBURROW_ANIM_RATE = 18.0f;
 static const float POTATO_MINE_IDLE_ANIM_RATE = 12.0f;
 //+Gaga: 寒冰射手每次开火时射出冻结冰锥的概率（百分比）
 static const int SNOWPEA_ICE_SPIKE_CHANCE_PERCENT = 15;
-//+Gaga: 双发射手每打出一颗豌豆时再扇形散射四颗豌豆的概率（百分比）
+//+Gaga: 双发射手/机枪射手每打出一颗豌豆时再扇形散射四颗豌豆的概率（百分比）
 static const int REPEATER_FAN_FIRE_CHANCE_PERCENT = 50;
 //+Gaga: 扇形散射的偏角（度），依次为正 45 度、负 45 度、正 60 度、负 60 度（正角朝屏幕上方）
 static const float REPEATER_FAN_FIRE_ANGLES[4] = { 45.0f, -45.0f, 60.0f, -60.0f };
+//+Gaga: 机枪射手的攻击间隔缩短到 0.9 秒（逻辑帧率 100fps，即 90 帧）
+static const int GATLINGPEA_LAUNCH_RATE_TICKS = 90;
+//+Gaga: 机枪射手一轮四连发的开火动作也跟着新的攻击间隔等比压缩：
+// 原版 100 逻辑帧 × 38fps 缩到 60 帧 × 63.3fps，四发出膛点 68/51/35/18 同样乘以 0.6，
+// 变成 41/31/21/11，枪口火光与豌豆出膛依然对得上
+static const int GATLINGPEA_SHOOTING_COUNTER = 60;
+static const float GATLINGPEA_SHOOT_ANIM_RATE = 63.3333f;
+//+Gaga: 三线射手每次齐射时再额外扇形散射四颗豌豆的概率（百分比）
+static const int THREEPEATER_FAN_FIRE_CHANCE_PERCENT = 50;
+//+Gaga: 三线射手扇形散射可用的偏角（度），依次为正负 30 度、正负 45 度、正负 60 度（正角朝屏幕上方）
+static const float THREEPEATER_FAN_FIRE_ANGLES[6] = { 30.0f, -30.0f, 45.0f, -45.0f, 60.0f, -60.0f };
+//+Gaga: 三线射手每次散射从六个偏角里随机抽出四个互不重复的方向
+static const int THREEPEATER_FAN_FIRE_ANGLE_COUNT = 6;
+static const int THREEPEATER_FAN_FIRE_SHOTS = 4;
 //+Gaga: 豌豆飞行的基础速度，与直行豌豆每帧 3.33 像素一致，斜射时按角度分解到两轴
 static const float PEA_FLIGHT_SPEED = 3.33f;
 //+Gaga: 大喷菇每喷一口烟，额外再喷出两发整行飞行的孢子的概率（百分比）
@@ -135,7 +153,7 @@ PlantDefinition gPlantDefs[SeedType::NUM_SEED_TYPES] = {
     { SeedType::SEED_UMBRELLA,          nullptr, ReanimationType::REANIM_UMBRELLALEAF,  23, 100,    750,    PlantSubClass::SUBCLASS_NORMAL,     0,      "UMBRELLA_LEAF" },
     { SeedType::SEED_MARIGOLD,          nullptr, ReanimationType::REANIM_MARIGOLD,      24, 50,     3000,   PlantSubClass::SUBCLASS_NORMAL,     2500,   "MARIGOLD" },
     { SeedType::SEED_MELONPULT,         nullptr, ReanimationType::REANIM_MELONPULT,     14, 300,    750,    PlantSubClass::SUBCLASS_SHOOTER,    300,    "MELON_PULT" },
-    { SeedType::SEED_GATLINGPEA,        nullptr, ReanimationType::REANIM_GATLINGPEA,    5,  250,    5000,   PlantSubClass::SUBCLASS_SHOOTER,    150,    "GATLING_PEA" },
+    { SeedType::SEED_GATLINGPEA,        nullptr, ReanimationType::REANIM_GATLINGPEA,    5,  250,    5000,   PlantSubClass::SUBCLASS_SHOOTER,    GATLINGPEA_LAUNCH_RATE_TICKS, "GATLING_PEA" },
     { SeedType::SEED_TWINSUNFLOWER,     nullptr, ReanimationType::REANIM_TWIN_SUNFLOWER,1,  150,    5000,   PlantSubClass::SUBCLASS_NORMAL,     2500,   "TWIN_SUNFLOWER" },
     { SeedType::SEED_GLOOMSHROOM,       nullptr, ReanimationType::REANIM_GLOOMSHROOM,   27, 150,    5000,   PlantSubClass::SUBCLASS_SHOOTER,    200,    "GLOOM_SHROOM" },
     { SeedType::SEED_CATTAIL,           nullptr, ReanimationType::REANIM_CATTAIL,       27, 225,    5000,   PlantSubClass::SUBCLASS_SHOOTER,    150,    "CATTAIL" },
@@ -820,8 +838,8 @@ bool Plant::FindTargetAndFire(int theRow, PlantWeapon thePlantWeapon)
         }
         else if (mSeedType == SeedType::SEED_GATLINGPEA)
         {
-            aHeadReanim->mAnimRate = 38.0f;
-            mShootingCounter = 100;
+            aHeadReanim->mAnimRate = GATLINGPEA_SHOOT_ANIM_RATE;
+            mShootingCounter = GATLINGPEA_SHOOTING_COUNTER;
         }
     }
     else if (mState == PlantState::STATE_CACTUS_HIGH)
@@ -998,18 +1016,45 @@ void Plant::StarFruitFire()
     }
 }
 
-void Plant::RepeaterFanFire(int theOriginX, int theOriginY, int theRow)
+void Plant::FanFire(int theOriginX, int theOriginY, int theRow, const float* theAngles, int theShotCount)
 {
-    // +Gaga: 双发射手的扇形散射，四颗豌豆都以同一出膛点为原点，按各自偏角斜着飞出去；
+    // +Gaga: 扇形散射的通用实现，所有豌豆都以同一出膛点为原点，按各自偏角斜着飞出去；
     // 用 MOTION_FAN 处理斜线飞行：每帧两轴一起推进，行号跟着高度走（详见 Projectile::UpdateNormalMotion）
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < theShotCount; i++)
     {
         Projectile* aProjectile = mBoard->AddProjectile(theOriginX, theOriginY, mRenderOrder - 1, theRow, ProjectileType::PROJECTILE_PEA);
         aProjectile->mDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
         aProjectile->mMotionType = ProjectileMotion::MOTION_FAN;
-        aProjectile->mVelX = cos(DEG_TO_RAD(REPEATER_FAN_FIRE_ANGLES[i])) * PEA_FLIGHT_SPEED;
-        aProjectile->mVelY = -sin(DEG_TO_RAD(REPEATER_FAN_FIRE_ANGLES[i])) * PEA_FLIGHT_SPEED;
+        aProjectile->mVelX = cos(DEG_TO_RAD(theAngles[i])) * PEA_FLIGHT_SPEED;
+        aProjectile->mVelY = -sin(DEG_TO_RAD(theAngles[i])) * PEA_FLIGHT_SPEED;
     }
+}
+
+void Plant::RepeaterFanFire(int theOriginX, int theOriginY, int theRow)
+{
+    FanFire(theOriginX, theOriginY, theRow, REPEATER_FAN_FIRE_ANGLES, 4);
+}
+
+void Plant::ThreepeaterFanFire(int theOriginX, int theOriginY, int theRow)
+{
+    // +Gaga: 三线射手的扇形散射，从六个偏角里随机抽出四个互不重复的方向。
+    // 用部分洗牌（Fisher-Yates）保证同一发里不会出现两个相同角度
+    int aAngleIndices[THREEPEATER_FAN_FIRE_ANGLE_COUNT] = { 0, 1, 2, 3, 4, 5 };
+    for (int i = 0; i < THREEPEATER_FAN_FIRE_SHOTS; i++)
+    {
+        int aSwapIndex = i + Sexy::Rand(THREEPEATER_FAN_FIRE_ANGLE_COUNT - i);
+        int aTemp = aAngleIndices[i];
+        aAngleIndices[i] = aAngleIndices[aSwapIndex];
+        aAngleIndices[aSwapIndex] = aTemp;
+    }
+
+    float aAngles[THREEPEATER_FAN_FIRE_SHOTS];
+    for (int i = 0; i < THREEPEATER_FAN_FIRE_SHOTS; i++)
+    {
+        aAngles[i] = THREEPEATER_FAN_FIRE_ANGLES[aAngleIndices[i]];
+    }
+
+    FanFire(theOriginX, theOriginY, theRow, aAngles, THREEPEATER_FAN_FIRE_SHOTS);
 }
 
 void Plant::FumeShroomSporeFire()
@@ -1174,6 +1219,15 @@ void Plant::UpdateProductionPlant()
         {
             mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
             mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+
+            // +Gaga: 40% 概率在这一对之外再额外产出 50 点阳光（两朵 25 的阳光）
+            if (Sexy::Rand(100) < TWINSUNFLOWER_EXTRA_SUN_CHANCE_PERCENT)
+            {
+                for (int i = 0; i < TWINSUNFLOWER_EXTRA_SUN_COUNT; i++)
+                {
+                    mBoard->AddCoin(mX, mY, CoinType::COIN_SUN, CoinMotion::COIN_MOTION_FROM_PLANT);
+                }
+            }
         }
         else if (mSeedType == SeedType::SEED_MARIGOLD)
         {
@@ -3529,7 +3583,9 @@ void Plant::UpdateShooting()
     }
     else if (mSeedType == SeedType::SEED_GATLINGPEA)
     {
-        if (mShootingCounter == 18 || mShootingCounter == 35 || mShootingCounter == 51 || mShootingCounter == 68)
+        // +Gaga: 四连发的出膛点随 0.9 秒攻击间隔等比提前（原版 68/51/35/18，这里 41/31/21/11），
+        // 保证最短 75 帧的随机间隔下四颗豌豆也都能打出去
+        if (mShootingCounter == 11 || mShootingCounter == 21 || mShootingCounter == 31 || mShootingCounter == 41)
         {
             Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
         }
@@ -3557,6 +3613,18 @@ void Plant::UpdateShooting()
 
         if (mSeedType == SeedType::SEED_THREEPEATER)
         {
+            // +Gaga: 这次三线齐射有 50% 概率再额外散射四颗豌豆，偏角从正负 30/45/60 度里随机抽四个。
+            // 出膛点取中间那门的嘴部，与 Fire 里三线射手的坐标一致
+            if (Sexy::Rand(100) < THREEPEATER_FAN_FIRE_CHANCE_PERCENT)
+            {
+                int aFanOriginY = mY + 10;
+                if (mBoard->GetFlowerPotAt(mPlantCol, mRow))
+                {
+                    aFanOriginY -= 5;
+                }
+                ThreepeaterFanFire(mX + 45, aFanOriginY, mRow);
+            }
+
             int rowAbove = mRow - 1;
             int rowBelow = mRow + 1;
             Reanimation* aHeadReanim2 = mApp->ReanimationGet(mHeadReanimID2);
@@ -4536,6 +4604,16 @@ void Plant::IceZombies()
 
 void Plant::BurnRow(int theRow)
 {
+    // +Gaga: 火爆辣椒的火浪会把本行还在半空中的豌豆子弹全部点燃成火豌豆
+    Projectile* aProjectile = nullptr;
+    while (mBoard->IterateProjectiles(aProjectile))
+    {
+        if (aProjectile->mRow == theRow)
+        {
+            aProjectile->IgniteToFireball();
+        }
+    }
+
     int aDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
 
     Zombie* aZombie = nullptr;
@@ -5107,8 +5185,9 @@ Projectile* Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlan
         aProjectile->mCobTargetRow = mBoard->PixelToGridYKeepOnBoard(mTargetX, mTargetY);
     }
 
-    // +Gaga: 双发射手每打出一颗豌豆，都有 50% 概率再朝 ±45°、±60° 额外扇形射出四颗豌豆
-    if (mSeedType == SeedType::SEED_REPEATER && Sexy::Rand(100) < REPEATER_FAN_FIRE_CHANCE_PERCENT)
+    // +Gaga: 双发射手与机枪射手每打出一颗豌豆，都有 50% 概率再朝 ±45°、±60° 额外扇形射出四颗豌豆
+    if ((mSeedType == SeedType::SEED_REPEATER || mSeedType == SeedType::SEED_GATLINGPEA) &&
+        Sexy::Rand(100) < REPEATER_FAN_FIRE_CHANCE_PERCENT)
     {
         RepeaterFanFire(aOriginX, aOriginY, theRow);
     }
@@ -5614,6 +5693,8 @@ void Plant::PreloadPlantResources(SeedType theSeedType)
     else if (theSeedType == SeedType::SEED_JALAPENO)
     {
         ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_JALAPENO_FIRE, true);
+        // +Gaga: 火浪会把本行的豌豆点燃成火豌豆，火豌豆的动画也得提前装好（原先只有火炬树桩会加载它）
+        ReanimatorEnsureDefinitionLoaded(ReanimationType::REANIM_FIRE_PEA, true);
     }
     else if (theSeedType == SeedType::SEED_TORCHWOOD)
     {

@@ -53,6 +53,8 @@ constexpr const int TICKS_BETWEEN_EATS = 4;
 constexpr const int DAMAGE_PER_EAT = TICKS_BETWEEN_EATS;
 constexpr const float THOWN_ZOMBIE_GRAVITY = 0.05f;
 constexpr const float CHILLED_SPEED_FACTOR = 0.4f;
+// +Gaga: 踩在冰车僵尸冰道上的滑行加速倍率（+40%）
+constexpr const float ICE_SLIDE_SPEED_FACTOR = 1.4f;
 constexpr const float CLIP_HEIGHT_LIMIT = -100.0f;
 constexpr const float CLIP_HEIGHT_OFF = -200.0f;
 const Color ZOMBIE_MINDCONTROLLED_COLOR = Color(128, 0, 192, 255);
@@ -313,6 +315,7 @@ public:
     void                            UpdateZombieBackupDancer();
     ZombiePhase                     GetDancerPhase();
     bool                            IsMovingAtChilledSpeed();
+    bool                            IsSlidingOnIce();
     void                            StartWalkAnim(int theBlendTime);
     Reanimation*                    AddAttachedReanim(int thePosX, int thePosY, ReanimationType theReanimType);
     void                            DragUnder();

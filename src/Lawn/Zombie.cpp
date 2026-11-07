@@ -4056,6 +4056,7 @@ void Zombie::UpdateZombieWalking()
     if (aBodyReanim)
     {
         float aSpeed;
+        bool aFootWalking = false;  //+Gaga: 脚在地上迈步（只有这种位移才吃冰道滑行加成）
         if (IsBouncingPogo() || mZombiePhase == ZombiePhase::PHASE_BALLOON_FLYING || mZombiePhase == ZombiePhase::PHASE_DOLPHIN_RIDING || 
             mZombiePhase == ZombiePhase::PHASE_SNORKEL_WALKING_IN_POOL || mZombieType == ZombieType::ZOMBIE_CATAPULT)
         {
@@ -4073,6 +4074,7 @@ void Zombie::UpdateZombieWalking()
         else if (aBodyReanim->TrackExists("_ground"))
         {
             aSpeed = aBodyReanim->GetTrackVelocity("_ground") * mScaleZombie;
+            aFootWalking = true;
         }
         else
         {
@@ -4081,6 +4083,14 @@ void Zombie::UpdateZombieWalking()
             {
                 aSpeed *= CHILLED_SPEED_FACTOR;
             }
+            aFootWalking = true;
+        }
+
+        // +Gaga: 冰道上只放大位移、不动动画速率（UpdateAnimSpeed 仍按 mVelX 算），
+        // 身体移动比步态快，看上去就是在冰面上滑过去而不是走得更快
+        if (aFootWalking && IsSlidingOnIce())
+        {
+            aSpeed *= ICE_SLIDE_SPEED_FACTOR;
         }
 
         if (IsWalkingBackwards() || mZombiePhase == ZombiePhase::PHASE_DANCER_DANCING_IN)
@@ -4148,6 +4158,11 @@ void Zombie::UpdateZombieWalking()
             if (IsMovingAtChilledSpeed())
             {
                 aSpeed *= CHILLED_SPEED_FACTOR;
+            }
+            // +Gaga: 冰道滑行，同上有动画的分支：只放大位移，不改动画速率
+            if (IsSlidingOnIce())
+            {
+                aSpeed *= ICE_SLIDE_SPEED_FACTOR;
             }
 
             if (IsWalkingBackwards())
@@ -6616,6 +6631,26 @@ bool Zombie::CheckSquish(ZombieAttackType theAttackType)
 bool Zombie::IsImmobilizied()
 {
     return mIceTrapCounter > 0 || mButteredCounter > 0;
+}
+
+// +Gaga: 冰道滑行 —— 僵尸踩在冰车僵尸（Zamboni）留下的冰道上时滑得更快。
+// 加速只作用在 UpdateZombieWalking 的位移上，动画速率仍由 UpdateAnimSpeed 按 mVelX 计算，
+// 所以身体移动比步态快，看起来是在冰面上「滑」而不是走得更急。
+// 白眼/红眼巨人体格太大，雪橇小队在车上时本来就是靠雪橇滑行，都不吃这个加成。
+bool Zombie::IsSlidingOnIce()
+{
+    if (!IsOnBoard())
+        return false;
+
+    if (mZombieType == ZombieType::ZOMBIE_GARGANTUAR || mZombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR)
+        return false;
+
+    if (IsBobsledTeamWithSled())
+        return false;
+
+    // 按脚下（碰撞框中心）的像素位置判定，冰道从 mIceMinX 一直铺到场地右边缘
+    Rect aZombieRect = GetZombieRect();
+    return mBoard->IsIceAtPosX(aZombieRect.mX + aZombieRect.mWidth / 2.0f, mRow);
 }
 
 bool Zombie::IsMovingAtChilledSpeed()

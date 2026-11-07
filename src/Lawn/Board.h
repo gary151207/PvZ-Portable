@@ -389,6 +389,8 @@ public:
 	void							DrawFadeOut(Graphics* g);
 	void							DrawIce(Graphics* g, int theGridY);
 	bool							IsIceAt(int theGridX, int theGridY);
+	// +Gaga: 像素级的冰道判定（冰道从 mIceMinX 一直铺到场地右边缘），给僵尸的滑行加速用
+	bool							IsIceAtPosX(float thePosX, int theRow);
 	// +Gaga: 毁灭菇爆炸后留在原地的辐射区（3~5 秒，半径 1.5 格，每 0.5 秒 20 点伤害）
 	void							AddDoomRadiationZone(int theGridX, int theGridY);
 	void							UpdateDoomRadiationZones();

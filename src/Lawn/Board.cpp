@@ -3027,6 +3027,17 @@ bool Board::IsIceAt(int theGridX, int theGridY)
 	return theGridX >= PixelToGridXKeepOnBoard(mIceMinX[theGridY] + 12, 0);
 }
 
+// +Gaga: 像素级的冰道判定。冰道从 mIceMinX 一直铺到场地右边缘，
+// 用僵尸脚下的像素横坐标判定，避免按格判定时提前一整格就开始滑
+bool Board::IsIceAtPosX(float thePosX, int theRow)
+{
+	TOD_ASSERT(theRow >= 0 && theRow < MAX_GRID_SIZE_Y);
+	if (mIceTimer[theRow] == 0 || mIceMinX[theRow] > 750)
+		return false;
+
+	return thePosX >= mIceMinX[theRow];
+}
+
 //+Gaga: 小喷菇/阳光菇/海蘑菇的堆叠种植判定。地形与底植规则沿用原版语义，
 // 额外只放宽「格内已有的常规植物必须是同一种可堆叠小蘑菇」与「最多 MAX_STACK_PLANTS 株」两条
 PlantingReason Board::CanPlantStackAt(int theGridX, int theGridY, SeedType theSeedType)

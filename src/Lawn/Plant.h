@@ -302,7 +302,9 @@ public:
     void                    UpdateBlover();
     void                    UpdateCactus();
     void                    StarFruitFire();
+    void                    FanFire(int theOriginX, int theOriginY, int theRow, const float* theAngles, int theShotCount);
     void                    RepeaterFanFire(int theOriginX, int theOriginY, int theRow);
+    void                    ThreepeaterFanFire(int theOriginX, int theOriginY, int theRow);
     void                    UpdateTanglekelp();
     Reanimation*            AttachBlinkAnim(Reanimation* theReanimBody);
     void                    UpdateReanimColor();

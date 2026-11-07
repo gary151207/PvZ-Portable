@@ -1226,15 +1226,8 @@ Rect Projectile::GetProjectileRect()
 	}
 }
 
-void Projectile::ConvertToFireball(int theGridX)
+void Projectile::AttachFirePeaReanim()
 {
-	if (mHitTorchwoodGridX == theGridX)
-		return;
-
-	mProjectileType = ProjectileType::PROJECTILE_FIREBALL;
-	mHitTorchwoodGridX = theGridX;
-	mApp->PlayFoley(FoleyType::FOLEY_FIREPEA);
-
 	float aOffsetX = -25.0f;
 	float aOffsetY = -25.0f;
 	Reanimation* aFirePeaReanim = mApp->AddReanimation(0.0f, 0.0f, 0, ReanimationType::REANIM_FIRE_PEA);
@@ -1248,6 +1241,38 @@ void Projectile::ConvertToFireball(int theGridX)
 	aFirePeaReanim->mLoopType = ReanimLoopType::REANIM_LOOP;
 	aFirePeaReanim->mAnimRate = RandRangeFloat(50.0f, 80.0f);
 	AttachReanim(mAttachmentID, aFirePeaReanim, aOffsetX, aOffsetY);
+}
+
+void Projectile::ConvertToFireball(int theGridX)
+{
+	if (mHitTorchwoodGridX == theGridX)
+		return;
+
+	mProjectileType = ProjectileType::PROJECTILE_FIREBALL;
+	mHitTorchwoodGridX = theGridX;
+	mApp->PlayFoley(FoleyType::FOLEY_FIREPEA);
+	AttachFirePeaReanim();
+}
+
+void Projectile::IgniteToFireball()
+{
+	// +Gaga: 被火焰（火爆辣椒的火浪）点燃的普通豌豆、冰豌豆、冻结冰锥都直接变成火豌豆。
+	// 与经过火炬树桩不同的是：这里不看格子，也不播点燃音效——一整排豌豆同时被点燃时会糊成一片
+	if (mProjectileType != ProjectileType::PROJECTILE_PEA &&
+		mProjectileType != ProjectileType::PROJECTILE_SNOWPEA &&
+		mProjectileType != ProjectileType::PROJECTILE_ICE_SPIKE)
+	{
+		return;
+	}
+
+	// 冰豌豆与冻结冰锥身上挂着雪花拖尾，先清掉，否则变成火豌豆后身后还会一路冒雪
+	if (mProjectileType == ProjectileType::PROJECTILE_SNOWPEA || mProjectileType == ProjectileType::PROJECTILE_ICE_SPIKE)
+	{
+		AttachmentDie(mAttachmentID);
+	}
+
+	mProjectileType = ProjectileType::PROJECTILE_FIREBALL;
+	AttachFirePeaReanim();
 }
 
 void Projectile::ConvertToPea(int theGridX)

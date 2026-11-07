@@ -98,6 +98,8 @@ public:
     Plant*                  FindCollisionTargetPlant();
     void                    ConvertToFireball(int theGridX);
     void                    ConvertToPea(int theGridX);
+    void                    IgniteToFireball();
+    void                    AttachFirePeaReanim();
     bool                    IsSplashDamage(Zombie* theZombie/* = nullptr*/);
     void                    PlayImpactSound(Zombie* theZombie);
     bool                    IsZombieHitBySplash(Zombie* theZombie);

@@ -366,7 +366,12 @@ bool ChallengeScreen::ShowPageButtons()
 void ChallengeScreen::UpdateButtons()
 {
 	for (int aChallengeMode = 0; aChallengeMode < NUM_CHALLENGE_MODES; aChallengeMode++)
-		mChallengeButtons[aChallengeMode]->mVisible = GetChallengeDefinition(aChallengeMode).mPage == mPageIndex;
+	{
+		ChallengeDefinition& aDef = GetChallengeDefinition(aChallengeMode);
+		// +Gaga: 联机对战只保留主菜单入口，不在 Limbo 页（也不占用生存无尽的位置）
+		mChallengeButtons[aChallengeMode]->mVisible =
+			aDef.mPage == mPageIndex && aDef.mChallengeMode != GameMode::GAMEMODE_CHALLENGE_VERSUS;
+	}
 	for (int aPage = 0; aPage < MAX_CHALLANGE_PAGES; aPage++)
 	{
 		ButtonWidget* aPageButton = mPageButton[aPage];
